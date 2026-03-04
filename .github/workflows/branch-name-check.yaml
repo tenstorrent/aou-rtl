@@ -1,0 +1,36 @@
+name: Branch Name Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches-ignore:
+      - main
+      - master
+    tags-ignore:
+      - '**'
+
+jobs:
+  check-branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BRANCH="${{ github.head_ref }}"
+          else
+            BRANCH="${GITHUB_REF#refs/heads/}"
+          fi
+
+          echo "Branch name: $BRANCH"
+
+          PATTERN="^(feature|bugfix|hotfix|chore)/"
+
+          if [[ "$BRANCH" =~ $PATTERN ]]; then
+            echo "Branch name '$BRANCH' follows the naming convention."
+          else
+            echo "::error::Branch name '$BRANCH' does not follow the required naming convention."
+            echo "Branch names must start with one of: feature/, bugfix/, hotfix/, chore/"
+            echo "Examples: feature/add-fdi-support, bugfix/fix-clock-gating, hotfix/critical-reset, chore/update-ci"
+            exit 1
+          fi
