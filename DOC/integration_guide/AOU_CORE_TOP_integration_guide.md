@@ -85,7 +85,7 @@ The block consists of the following sub blocks
   - AOU_ACT_CTRL
     This block manages activation and deactivation control of the AOU bridge. It initiates activate and deactivate messages to remote AOU bridge when configured via APB.
 - AOU_FIFO_RP
-  This block buffers decoded messages from AOU_RX_CORE. It separates the messages based on resource plane (RP) indicator and writes them into dedicated fifoes. These fifoes feed the corresponding AOU_CORE_RP which manage a single AXI interface.
+  This block buffers decoded messages from AOU_RX_CORE. It separates the messages based on resource plane (RP) indicator and writes them into dedicated FIFOs. These FIFOs feed the corresponding AOU_CORE_RP which manage a single AXI interface.
 - ASYNC_APB_BRIDGE
   This block synchronizes APB transactions to the local core clock.
 
@@ -333,7 +333,7 @@ The block consists of the following sub blocks
 
 | Signal | Direction | Width | Description |
 | :---- | :---- | :---- | :---- |
-| I_INT_FSM_IN_ACTIVE | input | 1 | FSM inactive indicator. |
+| I_INT_FSM_IN_ACTIVE | input | 1 | Initialization done / FSM in active state indicator. |
 | I_MST_BUS_CLEANY_COMPLETE | input | 1 | Master bus cleany complete. |
 | I_SLV_BUS_CLEANY_COMPLETE | input | 1 | Slave bus cleany complete. |
 | O_AOU_ACTIVATE_ST_DISABLED | output | 1 | Activation state disabled. |
@@ -407,12 +407,6 @@ This section gives information about operation guide for the AOU_CORE.
 |  |  | DEACT_ACK_ERR  | [6]  | W1C  | 0x0 |
 |  |  | INVALID_ACTMSG_INFO | [5:2]  |   RO  | 0x0 |
 |  |  | INVALID_ACTMSG_ERR | [1] | W1C |  |
-|  |  | ACK_TIME_OUT_VALUE  | [13:11]  | RW  | 0x0 |
-|  |  | MSGCREDIT_TIME_OUT_VALUE  | [10:8]  |   RW  | 0x0 |
-|  |  | ACT_ACK_ERR | [7]  | W1C  | 0x0 |
-|  |  | DEACT_ACK_ERR  | [6]  | W1C  | 0x0 |
-|  |  | INVALID_ACTMSG_INFO | [5:2]  |   RO  | 0x0 |
-|  |  | INVALID_ACTMSG_ERR | [1] | W1C |  |
 |  |  | MSGCREDIT_ERR | [0] | W1C |  |
 | DEST_RP  | 0x0014 |  |  |  |  |
 |  |  | Rsvd  | [31:14]  | RO  | 0x0 |
@@ -447,9 +441,9 @@ This section gives information about operation guide for the AOU_CORE.
 | ERROR_INFO_RP0 | 0x0024 |  |  |  |    0x0 |
 |  |  | Rsvd  | [31:22]  | RO  | 0x0 |
 |  |  | SPLIT_BID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_BID_MISMATCH_ERR  | [21:12]  | W1C  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_ERR  | [21:12]  | W1C | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_INFO  | [11:2]  | RO  | 0x0 |
+|  |  | SPLIT_BID_MISMATCH_ERR  | [1]  | W1C  | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_ERR  | [0]  | W1C | 0x0 |
 | WRITE_EARLY_RESPONSE_RP0  | 0x0028 |  |  |  | 0x0 |
 |  |  | Rsvd  | [31:15]  | RO  | 0x0 |
 |  |  | WRITE_RESP_DONE  | [14]  | RO  | 0x0 |
@@ -474,9 +468,9 @@ This section gives information about operation guide for the AOU_CORE.
 | ERROR_INFO_RP1 | 0x003C |  |  |  |    0x0 |
 |  |  | Rsvd  | [31:22]  | RO  | 0x0 |
 |  |  | SPLIT_BID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_BID_MISMATCH_ERR  | [21:12]  | W1C  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_ERR  | [21:12]  | W1C | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_INFO  | [11:2]  | RO  | 0x0 |
+|  |  | SPLIT_BID_MISMATCH_ERR  | [1]  | W1C  | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_ERR  | [0]  | W1C | 0x0 |
 | WRITE_EARLY_RESPONSE_RP1 | 0x0040 |  |  |  | 0x0 |
 |  |  | Rsvd  | [31:15]  | RO  | 0x0 |
 |  |  | WRITE_RESP_DONE  | [14]  | RO  | 0x0 |
@@ -501,9 +495,9 @@ This section gives information about operation guide for the AOU_CORE.
 | ERROR_INFO_RP2 | 0x0054 |  |  |  |    0x0 |
 |  |  | Rsvd  | [31:22]  | RO  | 0x0 |
 |  |  | SPLIT_BID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_BID_MISMATCH_ERR  | [21:12]  | W1C  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_ERR  | [21:12]  | W1C | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_INFO  | [11:2]  | RO  | 0x0 |
+|  |  | SPLIT_BID_MISMATCH_ERR  | [1]  | W1C  | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_ERR  | [0]  | W1C | 0x0 |
 | WRITE_EARLY_RESPONSE_RP2 | 0x0058 |  |  |  | 0x0 |
 |  |  | Rsvd  | [31:15]  | RO  | 0x0 |
 |  |  | WRITE_RESP_DONE  | [14]  | RO  | 0x0 |
@@ -528,9 +522,9 @@ This section gives information about operation guide for the AOU_CORE.
 | ERROR_INFO_RP3 | 0x006C |  |  |  |    0x0 |
 |  |  | Rsvd  | [31:22]  | RO  | 0x0 |
 |  |  | SPLIT_BID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_BID_MISMATCH_ERR  | [21:12]  | W1C  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_ERR  | [21:12]  | W1C | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_INFO  | [11:2]  | RO  | 0x0 |
+|  |  | SPLIT_BID_MISMATCH_ERR  | [1]  | W1C  | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_ERR  | [0]  | W1C | 0x0 |
 | WRITE_EARLY_RESPONSE_RP3 | 0x0070 |  |  |  | 0x0 |
 |  |  | Rsvd  | [31:15]  | RO  | 0x0 |
 |  |  | WRITE_RESP_DONE  | [14]  | RO  | 0x0 |
@@ -624,7 +618,7 @@ The ACTIVATION_OP field encodes deactivation messages as follows:
 - 2 = DeactivateReq
 - 3= DeactivateAck
 
-#### 6.31 Deactivation Sequence Flow
+#### 6.3.1 Deactivation Sequence Flow
 
 Once the local die issues a DeactivateReq, it can no longer provide responses to transactions
 initiated by the remote die. If the remote die continues to send requests or waits for responses
@@ -640,7 +634,7 @@ To manage this safely, the remote die must take explicit action upon receiving a
 
 ![Figure 3 - CREDIT_MANAGE 1 Deactivate Sequence Flow](images/deactivate_seq1.png)
 
-This system provides a bus cleany mechanism:
+This system provides a bus cleanly-completion mechanism:
 
 - Slave bus cleanly indicates whether the local die has received all responses to the requests it sent to the remote die.
 - Master bus cleanly indicates whether the remote die has received all responses to the requests it sent to the local die.
@@ -659,11 +653,11 @@ die’s sequence 10.1, that all messages in the RX FIFO have been popped.
 To meet satisfy the condition in the local die’s sequence 10.1, no backpressure must occur on the
 local die’s MI AW/AR/W channels.
 
-### 6.4 Activaton/Deactivation Interrupt
+### 6.4 Activation/Deactivation Interrupt
 
 | Interrupt  | Description |
 | ----- | ----- |
-| INT_ACTIVE_START | When this interrupt is detected, either the AOU_INIT.ACTIVATE_START SFR must be set to 1. When AOU_INIT.ACTIVATE_STATE_ENABLED becomes 1, you must write 1 to the AOU_INIT.INT_ACTIVATE_START W1C SFR must be set to 1. An interrupt occurs when the following conditions are met while both AOU_INIT.ACTIVATE_START SFR is not set. There is a message to send When AOU_CON0.CREDIT_MANAGE is set to 0, if a new request arrives from the remote die after the local die has sent a DeactivateReq, this interrupt is asserted because the local die is required to return a response to the remote die. When AOU_CON0.CREDIT_MANAGE is set to 1, this interrupt can also be asserted if a new request after the remote die has sent a DeactivateReq. There is a response to be received (I_SLV_BUS_CLEANY_COMPLETE == 0) When AOU_CON0.CREDIT_MANAGE is set to 0, this interrupt can be asserted if the local die issues new AXI requests after the remote die has sent a DeactivateReq. An ActivateReq message is received from the remote die.  |
+| INT_ACTIVATE_START | When this interrupt is detected, either the AOU_INIT.ACTIVATE_START SFR must be set to 1. When AOU_INIT.ACTIVATE_STATE_ENABLED becomes 1, you must write 1 to the AOU_INIT.INT_ACTIVATE_START W1C SFR must be set to 1. An interrupt occurs when the following conditions are met while both AOU_INIT.ACTIVATE_START SFR is not set. There is a message to send When AOU_CON0.CREDIT_MANAGE is set to 0, if a new request arrives from the remote die after the local die has sent a DeactivateReq, this interrupt is asserted because the local die is required to return a response to the remote die. When AOU_CON0.CREDIT_MANAGE is set to 1, this interrupt can also be asserted if a new request after the remote die has sent a DeactivateReq. There is a response to be received (I_SLV_BUS_CLEANY_COMPLETE == 0) When AOU_CON0.CREDIT_MANAGE is set to 0, this interrupt can be asserted if the local die issues new AXI requests after the remote die has sent a DeactivateReq. An ActivateReq message is received from the remote die.  |
 | INT_DEACTIVATE_START | When AOU_CON0.CREDIT_MANAGE is set to 0, if the interrupt is detected, the master IP must stop sending new request messages and the AOU_INIT.DEACTIVATE_START SFR must be set to 1. When AOU_CON0.CREDIT_MANAGE is set to 1, if the interrupt is detected, this interrupt serves only as a hint that the remote die intends to deactivate. The local die can continue sending request messages. Once all messages have been sent, the AOU_INIT.DEACTIVATE_START SFR must be set. Otherwise, the remote die may end up in a state where it can never send requests again. When AOU_INIT.ACTIVATE_STATE_DISABLED becomes 1,  SW must write 1 to the AOU_INIT.INT_DEACTIVATE_START W1C SFR must be set to 1. An interrupt can be asserted when AOU_INIT.DEACTIVATE_START SFR is not set and the local die receives a DeactivateReq message from the remote die. |
 
 ###

@@ -13,4 +13,4 @@ vcs -sverilog -full64 -timescale=1ns/1ps \
     -kdb
 
 echo "=== VCS Run ==="
-./simv +vcs+flush+all 
+./simv +vcs+flush+all
