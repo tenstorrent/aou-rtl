@@ -640,7 +640,7 @@ To manage this safely, the remote die must take explicit action upon receiving a
 
 ![Figure 3 - CREDIT_MANAGE 1 Deactivate Sequence Flow](images/deactivate_seq1.png)
 
-This system provides a bus cleany mechanism:
+This system provides a bus cleanly-completion mechanism:
 
 - Slave bus cleanly indicates whether the local die has received all responses to the requests it sent to the remote die.
 - Master bus cleanly indicates whether the remote die has received all responses to the requests it sent to the local die.
