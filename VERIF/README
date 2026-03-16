@@ -1,0 +1,5 @@
+This testbench is dependent upon open-source AXI collateral:
+
+git clone https://github.com/pulp-platform/axi.git axi_vip
+git clone https://github.com/pulp-platform/common_verification common_verification
+
