@@ -501,9 +501,9 @@ This section gives information about operation guide for the AOU_CORE.
 | ERROR_INFO_RP2 | 0x0054 |  |  |  |    0x0 |
 |  |  | Rsvd  | [31:22]  | RO  | 0x0 |
 |  |  | SPLIT_BID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_INFO  | [21:12]  | RO  | 0x0 |
-|  |  | SPLIT_BID_MISMATCH_ERR  | [21:12]  | W1C  | 0x0 |
-|  |  | SPLIT_RID_MISMATCH_ERR  | [21:12]  | W1C | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_INFO  | [11:2]  | RO  | 0x0 |
+|  |  | SPLIT_BID_MISMATCH_ERR  | [1]  | W1C  | 0x0 |
+|  |  | SPLIT_RID_MISMATCH_ERR  | [0]  | W1C | 0x0 |
 | WRITE_EARLY_RESPONSE_RP2 | 0x0058 |  |  |  | 0x0 |
 |  |  | Rsvd  | [31:15]  | RO  | 0x0 |
 |  |  | WRITE_RESP_DONE  | [14]  | RO  | 0x0 |
