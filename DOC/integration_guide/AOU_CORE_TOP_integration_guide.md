@@ -333,7 +333,7 @@ The block consists of the following sub blocks
 
 | Signal | Direction | Width | Description |
 | :---- | :---- | :---- | :---- |
-| I_INT_FSM_IN_ACTIVE | input | 1 | FSM inactive indicator. |
+| I_INT_FSM_IN_ACTIVE | input | 1 | Initialization done / FSM in active state indicator. |
 | I_MST_BUS_CLEANY_COMPLETE | input | 1 | Master bus cleany complete. |
 | I_SLV_BUS_CLEANY_COMPLETE | input | 1 | Slave bus cleany complete. |
 | O_AOU_ACTIVATE_ST_DISABLED | output | 1 | Activation state disabled. |
