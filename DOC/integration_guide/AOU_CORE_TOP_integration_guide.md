@@ -402,11 +402,6 @@ This section gives information about operation guide for the AOU_CORE.
 | LP_LINKRESET | 0x0010 |  |  |  |  |
 |  |  | Rsvd  | [31:14]  | RO  | 0x0 |
 |  |  | ACK_TIME_OUT_VALUE  | [13:11]  | RW  | 0x0 |
-|  |  | MSGCREDIT_TIME_OUT_VALUE  | [10:8]  |   RW  | 0x0 |
-|  |  | ACT_ACK_ERR | [7]  | W1C  | 0x0 |
-|  |  | DEACT_ACK_ERR  | [6]  | W1C  | 0x0 |
-|  |  | INVALID_ACTMSG_INFO | [5:2]  |   RO  | 0x0 |
-|  |  | INVALID_ACTMSG_ERR | [1] | W1C |  |
 |  |  | ACK_TIME_OUT_VALUE  | [13:11]  | RW  | 0x0 |
 |  |  | MSGCREDIT_TIME_OUT_VALUE  | [10:8]  |   RW  | 0x0 |
 |  |  | ACT_ACK_ERR | [7]  | W1C  | 0x0 |
