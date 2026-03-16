@@ -618,7 +618,7 @@ The ACTIVATION_OP field encodes deactivation messages as follows:
 - 2 = DeactivateReq
 - 3= DeactivateAck
 
-#### 6.31 Deactivation Sequence Flow
+#### 6.3.1 Deactivation Sequence Flow
 
 Once the local die issues a DeactivateReq, it can no longer provide responses to transactions
 initiated by the remote die. If the remote die continues to send requests or waits for responses
