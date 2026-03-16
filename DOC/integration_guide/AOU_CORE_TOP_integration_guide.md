@@ -85,7 +85,7 @@ The block consists of the following sub blocks
   - AOU_ACT_CTRL
     This block manages activation and deactivation control of the AOU bridge. It initiates activate and deactivate messages to remote AOU bridge when configured via APB.
 - AOU_FIFO_RP
-  This block buffers decoded messages from AOU_RX_CORE. It separates the messages based on resource plane (RP) indicator and writes them into dedicated fifoes. These fifoes feed the corresponding AOU_CORE_RP which manage a single AXI interface.
+  This block buffers decoded messages from AOU_RX_CORE. It separates the messages based on resource plane (RP) indicator and writes them into dedicated FIFOs. These FIFOs feed the corresponding AOU_CORE_RP which manage a single AXI interface.
 - ASYNC_APB_BRIDGE
   This block synchronizes APB transactions to the local core clock.
 
