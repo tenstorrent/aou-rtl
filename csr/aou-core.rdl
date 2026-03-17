@@ -31,15 +31,15 @@ addrmap aou_core {
         field { sw = rw; desc = "Enable error information access for Resource Plane 2."; } rp2_error_info_access_en[26:26] = 0;
         field { sw = rw; desc = "Enable error information access for Resource Plane 1."; } rp1_error_info_access_en[25:25] = 0;
         field { sw = rw; desc = "Enable error information access for Resource Plane 0."; } rp0_error_info_access_en[24:24] = 0;
-        field { sw = rw; desc = "TODO: describe AXI aggregator enable for RP3."; } rp3_axi_aggregator_en[23:23] = 0;
-        field { sw = rw; desc = "TODO: describe AXI aggregator enable for RP2."; } rp2_axi_aggregator_en[22:22] = 0;
-        field { sw = rw; desc = "TODO: describe AXI aggregator enable for RP1."; } rp1_axi_aggregator_en[21:21] = 0;
-        field { sw = rw; desc = "TODO: describe AXI aggregator enable for RP0."; } rp0_axi_aggregator_en[20:20] = 0;
-        field { sw = rw; desc = "TODO: describe TX low-power mode threshold."; } tx_lp_mode_threshold[19:12] = 0x4;
-        field { sw = rw; desc = "TODO: describe TX low-power mode enable."; } tx_lp_mode[11:11] = 0;
+        field { sw = rw; desc = "Enable AXI aggregator for RP3. When set, narrow read and write data are combined to improve bus utilization (e.g., 256-bit size with burst length 16 becomes 1024-bit size with burst length 4). Can be configured independently per RP."; } rp3_axi_aggregator_en[23:23] = 0;
+        field { sw = rw; desc = "Enable AXI aggregator for RP2. When set, narrow read and write data are combined to improve bus utilization."; } rp2_axi_aggregator_en[22:22] = 0;
+        field { sw = rw; desc = "Enable AXI aggregator for RP1. When set, narrow read and write data are combined to improve bus utilization."; } rp1_axi_aggregator_en[21:21] = 0;
+        field { sw = rw; desc = "Enable AXI aggregator for RP0. When set, narrow read and write data are combined to improve bus utilization."; } rp0_axi_aggregator_en[20:20] = 0;
+        field { sw = rw; desc = "TX low-power mode message transmission frequency. When tx_lp_mode is enabled and only activation messages are pending (no AXI traffic), the TX will wait this many cycles before sending a partially-filled flit. Configures the trade-off between latency and power in low-power mode."; } tx_lp_mode_threshold[19:12] = 0x4;
+        field { sw = rw; desc = "TX low-power mode enable. When set to 1, AOU_CORE only sends payload to FDI when there are remaining AXI messages to send. Credit-only flits are gated by tx_lp_mode_threshold. When 0 (default), AOU_CORE always sends messages to FDI for lowest latency."; } tx_lp_mode[11:11] = 0;
         field {} reserved_10_5[10:5] = 0;
         field { sw = rw; desc = "Software reset for AOU core logic."; } aou_sw_reset[4:4] = 0;
-        field { sw = rw; desc = "TODO: describe credit management mode."; } credit_manage[3:3] = 0;
+        field { sw = rw; desc = "Credit management type. 0 (default): per AoU v0.5, request and response credits are managed together; credited messages must not be sent after DeactivateReq, and re-activation is required to resolve pending AXI responses. 1: request-related (WREQ/RREQ/WDATA) and response-related (RDATA/WRESP) credits are managed separately during DEACTIVATE state, allowing response messages to be sent after DeactivateReq."; } credit_manage[3:3] = 0;
         field { sw = rw; desc = "Global enable for AXI split transaction feature."; } axi_split_tr_en[2:2] = 0;
         field {} reserved_1[1:1] = 0;
         field { sw = rw; hw = w; desc = "Force deactivation of the AoU protocol interface. Self-clears when activate_state_disabled asserts."; } deactivate_force[0:0] = 0;
@@ -125,8 +125,8 @@ addrmap aou_core {
         name = "Priority RP AXI";
         desc = "QoS thresholds, per-RP priority levels, and arbitration mode.";
         field {} reserved_31_28[31:28] = 0;
-        field { sw = rw; desc = "TODO: describe AXI QoS to normal priority threshold."; } axi_qos_to_np[27:24] = 0xA;
-        field { sw = rw; desc = "TODO: describe AXI QoS to high priority threshold."; } axi_qos_to_hp[23:20] = 0x5;
+        field { sw = rw; desc = "AXI QoS to normal priority boundary. In AXI QoS arbitration mode (arb_mode=2), AXI QoS values at or above this threshold are treated as normal priority. Values below this threshold are treated as low priority."; } axi_qos_to_np[27:24] = 0xA;
+        field { sw = rw; desc = "AXI QoS to high priority boundary. In AXI QoS arbitration mode (arb_mode=2), AXI QoS values at or above this threshold are treated as high priority. Values between axi_qos_to_hp and axi_qos_to_np are treated as normal priority."; } axi_qos_to_hp[23:20] = 0x5;
         field {} reserved_19_18[19:18] = 0;
         field { sw = rw; desc = "Priority level for Resource Plane 3."; } rp3_prior[17:16] = 0x3;
         field {} reserved_15_14[15:14] = 0;
@@ -136,7 +136,7 @@ addrmap aou_core {
         field {} reserved_7_6[7:6] = 0;
         field { sw = rw; desc = "Priority level for Resource Plane 0."; } rp0_prior[5:4] = 0x0;
         field {} reserved_3_2[3:2] = 0;
-        field { sw = rw; desc = "TODO: describe arbitration mode encoding."; } arb_mode[1:0] = 0;
+        field { sw = rw; desc = "TX arbitration mode for multi-RP scheduling on AW, W, and AR channels. 0: Round-Robin between valid RPs. 1: Port QoS, priority is set per-RP via rp*_prior fields (3 levels: High/Normal/Low). 2: AXI QoS, priority is derived from the AXI QoS field with boundaries set by axi_qos_to_hp and axi_qos_to_np. For Port QoS and AXI QoS modes, a starvation-prevention timeout promotes lower-priority requests to high priority."; } arb_mode[1:0] = 0;
     } prior_rp_axi @ 0x0018;
 
     // -------------------------------------------------------------------------
@@ -146,8 +146,8 @@ addrmap aou_core {
         regwidth = 32;
         name = "Priority Timer";
         desc = "Timer resolution and threshold for priority escalation.";
-        field { sw = rw; desc = "TODO: describe priority timer resolution."; } timer_resolution[31:16] = 0xF;
-        field { sw = rw; desc = "TODO: describe priority timer threshold."; } timer_threshold[15:0] = 0xF;
+        field { sw = rw; desc = "Priority timer resolution. Configures the clock cycle granularity used for the starvation-prevention timeout in Port QoS and AXI QoS arbitration modes."; } timer_resolution[31:16] = 0xF;
+        field { sw = rw; desc = "Priority timer threshold. In Port QoS and AXI QoS arbitration modes, if a normal or low priority request has been waiting longer than this threshold (in units of timer_resolution), it is promoted to high priority to prevent starvation."; } timer_threshold[15:0] = 0xF;
     } prior_timer @ 0x001C;
 
     // -------------------------------------------------------------------------
@@ -189,14 +189,14 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Error Info0 RP0";
         desc = "Debug address register (upper) for RP0.";
-        field { sw = rw; desc = "TODO: describe debug upper address for RP0."; } debug_upper_addr[31:0] = 0;
+        field { sw = rw; desc = "Upper 32 bits of the dedicated AXI address used to access R/B response error debug information for RP0. Set this address along with debug_lower_addr and error_info_access_en to enable error information readout by the remote die via AXI read. Up to 4 error entries can be stored and popped by writing 1 to this address."; } debug_upper_addr[31:0] = 0;
     } axi_error_info0_rp0 @ 0x002C;
 
     reg {
         regwidth = 32;
         name = "AXI Error Info1 RP0";
         desc = "Debug address register (lower) for RP0.";
-        field { sw = rw; desc = "TODO: describe debug lower address for RP0."; } debug_lower_addr[31:0] = 0;
+        field { sw = rw; desc = "Lower 32 bits of the dedicated AXI address used to access R/B response error debug information for RP0. Together with debug_upper_addr, defines the target address for error information access."; } debug_lower_addr[31:0] = 0;
     } axi_error_info1_rp0 @ 0x0030;
 
     reg {
@@ -249,14 +249,14 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Error Info0 RP1";
         desc = "Debug address register (upper) for RP1.";
-        field { sw = rw; desc = "TODO: describe debug upper address for RP1."; } debug_upper_addr[31:0] = 0;
+        field { sw = rw; desc = "Upper 32 bits of the dedicated AXI address used to access R/B response error debug information for RP1. Set this address along with debug_lower_addr and error_info_access_en to enable error information readout by the remote die via AXI read."; } debug_upper_addr[31:0] = 0;
     } axi_error_info0_rp1 @ 0x0044;
 
     reg {
         regwidth = 32;
         name = "AXI Error Info1 RP1";
         desc = "Debug address register (lower) for RP1.";
-        field { sw = rw; desc = "TODO: describe debug lower address for RP1."; } debug_lower_addr[31:0] = 0;
+        field { sw = rw; desc = "Lower 32 bits of the dedicated AXI address used to access R/B response error debug information for RP1. Together with debug_upper_addr, defines the target address for error information access."; } debug_lower_addr[31:0] = 0;
     } axi_error_info1_rp1 @ 0x0048;
 
     reg {
@@ -309,14 +309,14 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Error Info0 RP2";
         desc = "Debug address register (upper) for RP2.";
-        field { sw = rw; desc = "TODO: describe debug upper address for RP2."; } debug_upper_addr[31:0] = 0;
+        field { sw = rw; desc = "Upper 32 bits of the dedicated AXI address used to access R/B response error debug information for RP2. Set this address along with debug_lower_addr and error_info_access_en to enable error information readout by the remote die via AXI read."; } debug_upper_addr[31:0] = 0;
     } axi_error_info0_rp2 @ 0x005C;
 
     reg {
         regwidth = 32;
         name = "AXI Error Info1 RP2";
         desc = "Debug address register (lower) for RP2.";
-        field { sw = rw; desc = "TODO: describe debug lower address for RP2."; } debug_lower_addr[31:0] = 0;
+        field { sw = rw; desc = "Lower 32 bits of the dedicated AXI address used to access R/B response error debug information for RP2. Together with debug_upper_addr, defines the target address for error information access."; } debug_lower_addr[31:0] = 0;
     } axi_error_info1_rp2 @ 0x0060;
 
     reg {
@@ -369,14 +369,14 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Error Info0 RP3";
         desc = "Debug address register (upper) for RP3.";
-        field { sw = rw; desc = "TODO: describe debug upper address for RP3."; } debug_upper_addr[31:0] = 0;
+        field { sw = rw; desc = "Upper 32 bits of the dedicated AXI address used to access R/B response error debug information for RP3. Set this address along with debug_lower_addr and error_info_access_en to enable error information readout by the remote die via AXI read."; } debug_upper_addr[31:0] = 0;
     } axi_error_info0_rp3 @ 0x0074;
 
     reg {
         regwidth = 32;
         name = "AXI Error Info1 RP3";
         desc = "Debug address register (lower) for RP3.";
-        field { sw = rw; desc = "TODO: describe debug lower address for RP3."; } debug_lower_addr[31:0] = 0;
+        field { sw = rw; desc = "Lower 32 bits of the dedicated AXI address used to access R/B response error debug information for RP3. Together with debug_upper_addr, defines the target address for error information access."; } debug_lower_addr[31:0] = 0;
     } axi_error_info1_rp3 @ 0x0078;
 
     reg {
