@@ -1,5 +1,10 @@
-This testbench is dependent upon open-source AXI collateral:
+This testbench is dependent upon open-source AXI collateral.
+Clone the following repositories at the specified commits for a known-good,
+repeatable build:
 
 git clone https://github.com/pulp-platform/axi.git axi_vip
+cd axi_vip && git checkout 808e7b326f9f259bd2831847d9362291500db641 && cd ..
+
 git clone https://github.com/pulp-platform/common_verification common_verification
+cd common_verification && git checkout c5d97a1fae01d2d8e8e311dee341b6b8849dcf38 && cd ..
 

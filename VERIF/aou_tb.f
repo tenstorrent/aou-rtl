@@ -81,5 +81,8 @@ axi_vip/src/axi_sim_mem.sv
 ../RTL/AOU_CORE.sv
 ../RTL/AOU_CORE_TOP.sv
 
+// FDI flit decoder (must precede testbench)
+decoder/fdi_flit_decoder.sv
+
 // Testbench
 aou_tb.sv
