@@ -36,6 +36,23 @@
   - [7.2 LinkReset](#72-linkreset)
   - [7.3 R/B response error debug feature](#73-rb-response-error-debug-feature)
   - [7.4 WRITE_EARLY_RESPONSE](#74-write_early_response)
+- [8. Verification Testbench](#8-verification-testbench)
+  - [8.1 Architecture](#81-architecture)
+  - [8.2 Components](#82-components)
+  - [8.3 Running the Testbench](#83-running-the-testbench)
+- [References](#references)
+
+## References
+
+1. AXI over UCIe (AoU) Protocol Specification, v0.7 (https://cdn.sanity.io/files/jpb4ed5r/production/728b2f8cfc09023466cf350db53764890b4f2343.pdf)
+2. AXI over UCIe (AoU) Protocol Specification, v0.5
+3. Universal Chiplet Interconnect Express (UCIe) Specification, Revision 3.0 (https://www.uciexpress.org/)
+4. Arm AMBA AXI and ACE Protocol Specification (AXI4) (https://developer.arm.com)
+5. Arm AMBA APB Protocol Specification (https://developer.arm.com)
+
+Arm, AMBA, AXI, APB, and ACE are registered trademarks or trademarks of Arm Limited (or its subsidiaries) in the US and/or elsewhere. Universal Chiplet Interconnect Express (UCIe) is a trademark of the UCIe Consortium. All other trademarks are the property of their respective owners.
+
+---
 
 # AOU_CORE_TOP Integration Guide
 
@@ -66,6 +83,8 @@ software to configure the target RP, enabling flexible RP mapping. For each RP, 
 AR channel support three arbitration modes: Round Robin, AXI QoS scheme, and Port QoS
 scheme. Additionally, a starvation-prevention mechanism is implemented to ensure fair
 arbitration across all RP channels.
+
+AOU_CORE_TOP implements the subset of FDI signals required specifically for transporting AXI across UCIe.  FDI bringup/teardown and FDI sideband flows are expected to be handled by other components.
 
 The block consists of the following sub blocks
 
@@ -99,7 +118,7 @@ The block consists of the following sub blocks
   - Supports variable data widths and burst length requests. Configurable FIFO Depth
 - UCIe 256B latency-optimized flit(Format 6) support only
 - Message packing and unpacking are handled in a unit of 64 bytes, corresponding to the
-- FDI data width (64B@1 GHz).
+  FDI data width (64B@1 GHz).
 - Selectable Early response by setting SFR8
 - Selectable 32B and 64B FDI mode
 - Parameterized  number of Resource Plane and each RP’s AXI data width
@@ -147,15 +166,7 @@ The block consists of the following sub blocks
 | S_WR_MO_CNT | parameter | 32 | Slave write outstanding count. |
 | M_RD_MO_CNT | parameter | 32 | Master read outstanding count. |
 | M_WR_MO_CNT | parameter | 32 | Master write outstanding count. |
-| RP_AXI_DATA_WD_MAX | localparam | max4(RP0..RP3_AXI_DATA_WD) | Maximum AXI data width across RPs. |
-| RP_AXI_STRB_WD_MAX | localparam | RP_AXI_DATA_WD_MAX/8 | Maximum strobe width. |
-| AXI_ADDR_WD | localparam | 64 | AXI address width. |
-| AXI_ID_WD | localparam | 10 | AXI ID width. |
-| AXI_LEN_WD | localparam | 8 | AXI length field width. |
-| AXI_MAX_STRB_WD | localparam | AXI_PEER_DIE_MAX_DATA_WD/8 | Maximum strobe width for peer data. |
-| AW_AR_FIFO_WIDTH | localparam | (derived) | Combined width for AW/AR FIFO payload. |
-| B_FIFO_WIDTH | localparam | (derived) | B channel FIFO payload width. |
-| R_FIFO_EXT_DATA_WIDTH | localparam | (derived) | R channel extended metadata width. |
+
 
 ---
 
@@ -749,3 +760,79 @@ information. Remote die can write 1 to the dedicated address to pop the debug in
 The error is generated when Write Early Response is enabled and a BRESP error arrives for a
 previously sent early response. When a BRESP error occurs, an interrupt is issued and SW can
 check the BRESP AXI ID and error type by reading SFR and clear the error.
+
+## 8 Verification Testbench
+
+A sample testbench (`VERIF/aou_tb.sv`) is provided that instantiates two AOU_CORE_TOP modules connected back-to-back via their 64B FDI interfaces, along with open-source AMBA AXI verification IP and a protocol-aware FDI flit decoder. The two DUT instances use different AXI data widths (512b and 256b) to exercise the interoperability path.  Refer to the README.md in the VERIF directory for additional information.
+
+### 8.1 Architecture
+
+```
+                        AXI SI                          AXI MI
+  +-----------------+             +------------------+             +-----------------+
+  | axi_rand_master |  -------->  |  AOU_CORE_TOP    |  -------->  | axi_sim_mem     |
+  | (512b, 1 beat)  |      .      |  u_dut1          |             | i_mem_d1mi      |
+  +-----------------+      .      |  (AXI 512b)      |             | (512b)          |
+  +-----------------+      .      +------------------+             +-----------------+
+  | axi_scoreboard  |  .....              |      ^
+  | (monitor SI)    |              FDI 64B|      |FDI 64B
+  +-----------------+                     |      |
+                                 fdi_dec1 |      | fdi_dec2
+                                          v      |
+  +-----------------+             +------------------+             +-----------------+
+  | axi_rand_master |  -------->  |  AOU_CORE_TOP    |  -------->  | axi_sim_mem     |
+  | (256b, 2 beats) |      .      |  u_dut2          |             | i_mem_d2mi      |
+  +-----------------+      .      |  (AXI 256b)      |             | (256b)          |
+  +-----------------+      .      +------------------+             +-----------------+
+  | axi_scoreboard  |  .....
+  | (monitor SI)    |
+  +-----------------+
+```
+
+The data flow for a write transaction initiated on `u_dut1`'s AXI slave interface is:
+
+1. `axi_rand_master` issues a 512b write on the `u_dut1` AXI SI.
+2. `u_dut1` packs the AXI transaction into AOU flit(s) and transmits via 64B FDI.
+3. `u_dut2` receives the FDI data, unpacks, and presents the transaction on its AXI MI.
+4. `axi_sim_mem_intf` accepts the write into its internal memory model.
+5. A subsequent read to the same address returns the stored data back through the reverse FDI path.
+6. `axi_scoreboard` on the `u_dut1` SI verifies the read data matches the original write data.
+
+The reverse direction (initiated from `u_dut2` SI to `u_dut1` MI) operates symmetrically.
+
+### 8.2 Components
+
+| Component | Instance | Description |
+| :---- | :---- | :---- |
+| AOU_CORE_TOP | u_dut1 | DUT instance 1. AXI data width = 512b (default parameters). |
+| AOU_CORE_TOP | u_dut2 | DUT instance 2. RP0-RP3 AXI data widths overridden to 256b. |
+| axi_rand_master | proc_axi_master_d1 | Constrained random AXI master on u_dut1 SI. Issues 512b transactions (1 beat, 64-byte aligned). |
+| axi_rand_master | proc_axi_master_d2 | Constrained random AXI master on u_dut2 SI. Issues 512b transactions (2 beats of 256b, 64-byte aligned). |
+| axi_sim_mem_intf | i_mem_d2mi | Memory-backed AXI slave on u_dut2 MI (256b). Stores writes and serves reads. |
+| axi_sim_mem_intf | i_mem_d1mi | Memory-backed AXI slave on u_dut1 MI (512b). Stores writes and serves reads. |
+| axi_scoreboard | proc_scoreboard_d1 | Monitors u_dut1 SI. Checks that read data matches previously written data. |
+| axi_scoreboard | proc_scoreboard_d2 | Monitors u_dut2 SI. Checks that read data matches previously written data. |
+| fdi_flit_decoder | u_fdi_dec1 | Logs and decodes FDI flits from u_dut1 TX to `dut1_fdi.log`. Enabled by `+define+AXI_LOG`. |
+| fdi_flit_decoder | u_fdi_dec2 | Logs and decodes FDI flits from u_dut2 TX to `dut2_fdi.log`. Enabled by `+define+AXI_LOG`. |
+
+Key testbench parameters:
+
+| Parameter | Value | Description |
+| :---- | :---- | :---- |
+| CLK_PERIOD | 1 ns | Core clock period (AXI domain). |
+| PCLK_PERIOD | 10 ns | APB clock period. |
+| TA / TT | 100 ps / 900 ps | VIP application / test time. |
+| AXI_DATA_WIDTH | 512 | u_dut1 AXI data width (bits). |
+| D2_AXI_DATA_WIDTH | 256 | u_dut2 AXI data width (bits). |
+| AXI_ADDR_WIDTH | 64 | AXI address width. |
+| AXI_ID_WIDTH | 10 | AXI ID width. |
+
+### 8.3 Running the Testbench
+
+A VCS compile-and-run script is provided at `VERIF/run_vcs.sh`. From the `VERIF` directory:
+
+```bash
+./run_vcs.sh
+```
+
+The script compiles all sources listed in `VERIF/aou_tb.f`, enables AXI and FDI transaction logging (`+define+AXI_LOG`), and runs the simulation. Any data integrity failures are reported by the `axi_scoreboard` as `$warning` or `$error` messages in the simulation log.

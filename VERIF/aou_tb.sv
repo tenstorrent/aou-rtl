@@ -664,6 +664,21 @@ module aou_tb;
     wire         dut2_lp_64b_irdy;
     wire         dut2_lp_64b_stallack;
 
+`ifdef AXI_LOG
+    fdi_flit_decoder #(.LOG_FILE("dut1_fdi.log"), .FDI_BYTES(64)) u_fdi_dec1 (
+        .clk    (clk),
+        .resetn (resetn),
+        .valid  (dut1_lp_64b_valid),
+        .data   (dut1_lp_64b_data)
+    );
+    fdi_flit_decoder #(.LOG_FILE("dut2_fdi.log"), .FDI_BYTES(64)) u_fdi_dec2 (
+        .clk    (clk),
+        .resetn (resetn),
+        .valid  (dut2_lp_64b_valid),
+        .data   (dut2_lp_64b_data)
+    );
+`endif
+
     // 32B LP outputs (unused, just observed)
     wire [255:0] dut1_lp_32b_data;
     wire         dut1_lp_32b_valid;
