@@ -1,1 +1,5 @@
 venv
+DOC/csr/html/
+DOC/csr/aou_core_csr.h
+INTEG/ipxact/gen/
+INTEG/ipxact/schema/

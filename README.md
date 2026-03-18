@@ -14,7 +14,14 @@ source venv/bin/activate
 python3 -m pip install -r requirements.txt
 ```
 
-After that, the PeakRDL tools (e.g. `peakrdl dump`, `peakrdl markdown`) can be used. See [DOC/csr/README.md](DOC/csr/README.md) for regenerating register documentation.
+After that, regenerate all IP integration collateral (register docs, IP-XACT, C header,
+HTML, UVM model) with a single command:
+
+```bash
+bash scripts/gen_collateral.sh
+```
+
+See [DOC/csr/README.md](DOC/csr/README.md) for details on each generated output.
 
 ## Getting started
 
