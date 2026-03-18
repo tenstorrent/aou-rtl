@@ -26,7 +26,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AOU Control 0";
         desc = "Core control: error access, AXI aggregator, LP mode, reset, credit, split. Note: bits [1:0] read as 0 in RTL (deactivate_force is not read back).";
-        field {} reserved_31_28[31:28] = 0;
+        field { sw = r; hw = r; } reserved_31_28[31:28] = 0;
         field { sw = rw; desc = "Enable error information access for Resource Plane 3."; } rp3_error_info_access_en[27:27] = 0;
         field { sw = rw; desc = "Enable error information access for Resource Plane 2."; } rp2_error_info_access_en[26:26] = 0;
         field { sw = rw; desc = "Enable error information access for Resource Plane 1."; } rp1_error_info_access_en[25:25] = 0;
@@ -37,11 +37,11 @@ addrmap aou_core {
         field { sw = rw; desc = "Enable AXI aggregator for RP0. When set, narrow read and write data are combined to improve bus utilization."; } rp0_axi_aggregator_en[20:20] = 0;
         field { sw = rw; desc = "TX low-power mode message transmission frequency. When tx_lp_mode is enabled and only activation messages are pending (no AXI traffic), the TX will wait this many cycles before sending a partially-filled flit. Configures the trade-off between latency and power in low-power mode."; } tx_lp_mode_threshold[19:12] = 0x4;
         field { sw = rw; desc = "TX low-power mode enable. When set to 1, AOU_CORE only sends payload to FDI when there are remaining AXI messages to send. Credit-only flits are gated by tx_lp_mode_threshold. When 0 (default), AOU_CORE always sends messages to FDI for lowest latency."; } tx_lp_mode[11:11] = 0;
-        field {} reserved_10_5[10:5] = 0;
+        field { sw = r; hw = r; } reserved_10_5[10:5] = 0;
         field { sw = rw; desc = "Software reset for AOU core logic."; } aou_sw_reset[4:4] = 0;
         field { sw = rw; desc = "Credit management type. 0 (default): per AoU v0.5, request and response credits are managed together; credited messages must not be sent after DeactivateReq, and re-activation is required to resolve pending AXI responses. 1: request-related (WREQ/RREQ/WDATA) and response-related (RDATA/WRESP) credits are managed separately during DEACTIVATE state, allowing response messages to be sent after DeactivateReq."; } credit_manage[3:3] = 0;
         field { sw = rw; desc = "Global enable for AXI split transaction feature."; } axi_split_tr_en[2:2] = 0;
-        field {} reserved_1[1:1] = 0;
+        field { sw = r; hw = r; } reserved_1[1:1] = 0;
         field { sw = rw; hw = w; desc = "Force deactivation of the AoU protocol interface. Self-clears when activate_state_disabled asserts."; } deactivate_force[0:0] = 0;
     } aou_con0 @ 0x0004;
 
