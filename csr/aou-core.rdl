@@ -1,6 +1,20 @@
 // *****************************************************************************
 // SPDX-License-Identifier: Apache-2.0
 // *****************************************************************************
+//  Copyright (c) 2026 Tenstorrent USA Inc
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// *****************************************************************************
 // Generated from RTL/AOU_CORE_SFR.v - AOU Core Special Function Registers
 // *****************************************************************************
 
@@ -26,7 +40,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AOU Control 0";
         desc = "Core control: error access, AXI aggregator, LP mode, reset, credit, split. Note: bits [1:0] read as 0 in RTL (deactivate_force is not read back).";
-        field {} reserved_31_28[31:28] = 0;
+        field { sw = r; } reserved_31_28[31:28] = 0;
         field { sw = rw; desc = "Enable error information access for Resource Plane 3."; } rp3_error_info_access_en[27:27] = 0;
         field { sw = rw; desc = "Enable error information access for Resource Plane 2."; } rp2_error_info_access_en[26:26] = 0;
         field { sw = rw; desc = "Enable error information access for Resource Plane 1."; } rp1_error_info_access_en[25:25] = 0;
@@ -37,12 +51,12 @@ addrmap aou_core {
         field { sw = rw; desc = "Enable AXI aggregator for RP0. When set, narrow read and write data are combined to improve bus utilization."; } rp0_axi_aggregator_en[20:20] = 0;
         field { sw = rw; desc = "TX low-power mode message transmission frequency. When tx_lp_mode is enabled and only activation messages are pending (no AXI traffic), the TX will wait this many cycles before sending a partially-filled flit. Configures the trade-off between latency and power in low-power mode."; } tx_lp_mode_threshold[19:12] = 0x4;
         field { sw = rw; desc = "TX low-power mode enable. When set to 1, AOU_CORE only sends payload to FDI when there are remaining AXI messages to send. Credit-only flits are gated by tx_lp_mode_threshold. When 0 (default), AOU_CORE always sends messages to FDI for lowest latency."; } tx_lp_mode[11:11] = 0;
-        field {} reserved_10_5[10:5] = 0;
+        field { sw = r; } reserved_10_5[10:5] = 0;
         field { sw = rw; desc = "Software reset for AOU core logic."; } aou_sw_reset[4:4] = 0;
         field { sw = rw; desc = "Credit management type. 0 (default): per AoU v0.5, request and response credits are managed together; credited messages must not be sent after DeactivateReq, and re-activation is required to resolve pending AXI responses. 1: request-related (WREQ/RREQ/WDATA) and response-related (RDATA/WRESP) credits are managed separately during DEACTIVATE state, allowing response messages to be sent after DeactivateReq."; } credit_manage[3:3] = 0;
         field { sw = rw; desc = "Global enable for AXI split transaction feature."; } axi_split_tr_en[2:2] = 0;
-        field {} reserved_1[1:1] = 0;
-        field { sw = rw; hw = w; desc = "Force deactivation of the AoU protocol interface. Self-clears when activate_state_disabled asserts."; } deactivate_force[0:0] = 0;
+        field { sw = r; } reserved_1[1:1] = 0;
+        field { sw = w; hw = rw; desc = "Force deactivation of the AoU protocol interface. Write-only; reads return 0. Self-clears when activate_state_disabled asserts."; } deactivate_force[0:0] = 0;
     } aou_con0 @ 0x0004;
 
     // -------------------------------------------------------------------------
@@ -52,17 +66,17 @@ addrmap aou_core {
         regwidth = 32;
         name = "AOU Init";
         desc = "Activate/deactivate control; status from HW. int_deactivate_property, mst_tr_complete, slv_tr_complete, activate_state_disabled, activate_state_enabled are read-only inputs (I_*), driven in AOU_CORE.sv from internal/output signals. Write 1 to clear int_activate_start/int_deactivate_start.";
-        field {} reserved_31_12[31:12] = 0;
+        field { sw = r; } reserved_31_12[31:12] = 0;
         field { sw = r; hw = w; desc = "Deactivation property status. Read-only, driven by HW."; } int_deactivate_property[11:11];
         field { sw = r; hw = w; desc = "Master transaction completion status. Read-only, driven by HW."; } mst_tr_complete[10:10];
         field { sw = r; hw = w; desc = "Slave transaction completion status. Read-only, driven by HW."; } slv_tr_complete[9:9];
-        field { sw = rw; hw = w; onwrite = woclr; desc = "Activation start interrupt status. Set by HW, write 1 to clear."; } int_activate_start[8:8] = 0;
-        field { sw = rw; hw = w; onwrite = woclr; desc = "Deactivation start interrupt status. Set by HW, write 1 to clear."; } int_deactivate_start[7:7] = 0;
+        field { sw = rw; hw = rw; onwrite = woclr; desc = "Activation start interrupt status. Set by HW, write 1 to clear."; } int_activate_start[8:8] = 0;
+        field { sw = rw; hw = rw; onwrite = woclr; desc = "Deactivation start interrupt status. Set by HW, write 1 to clear."; } int_deactivate_start[7:7] = 0;
         field { sw = rw; desc = "Deactivation timeout value."; } deactivate_time_out_value[6:4] = 0;
         field { sw = r; hw = w; desc = "Indicates the AoU activation FSM is in the DISABLED state. Read-only, driven by HW."; } activate_state_disabled[3:3];
         field { sw = r; hw = w; desc = "Indicates the AoU activation FSM is in the ENABLED state. Read-only, driven by HW."; } activate_state_enabled[2:2];
-        field { sw = rw; hw = w; desc = "Write 1 to initiate AoU protocol deactivation. Self-clears when activate_state_disabled asserts."; } deactivate_start[1:1] = 0;
-        field { sw = rw; hw = w; desc = "Write 1 to initiate AoU protocol activation. Self-clears when activate_state_enabled asserts."; } activate_start[0:0] = 0;
+        field { sw = rw; hw = rw; desc = "Write 1 to initiate AoU protocol deactivation. Self-clears when activate_state_disabled asserts."; } deactivate_start[1:1] = 0;
+        field { sw = rw; hw = rw; desc = "Write 1 to initiate AoU protocol activation. Self-clears when activate_state_enabled asserts."; } activate_start[0:0] = 0;
     } aou_init @ 0x0008;
 
     // -------------------------------------------------------------------------
@@ -72,7 +86,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AOU Interrupt Mask";
         desc = "Interrupt mask bits for linkreset and early response errors. Write 1 to mask the corresponding interrupt source.";
-        field {} reserved_31_9[31:9] = 0;
+        field { sw = r; } reserved_31_9[31:9] = 0;
         field { sw = rw; desc = "Mask bit for activation ACK timeout link reset interrupt."; } int_req_linkreset_act_ack_mask[8:8] = 0;
         field { sw = rw; desc = "Mask bit for deactivation ACK timeout link reset interrupt."; } int_req_linkreset_deact_ack_mask[7:7] = 0;
         field { sw = rw; desc = "Mask bit for invalid activation message link reset interrupt."; } int_req_linkreset_invalid_actmsg_mask[6:6] = 0;
@@ -80,7 +94,7 @@ addrmap aou_core {
         field { sw = rw; desc = "Mask bit for early write response error interrupt."; } int_early_resp_mask[4:4] = 0;
         field { sw = rw; desc = "Mask bit for master interface 0 ID mismatch interrupt."; } int_mi0_id_mismatch_mask[3:3] = 0;
         field { sw = rw; desc = "Mask bit for slave interface 0 ID mismatch interrupt."; } int_si0_id_mismatch_mask[2:2] = 0;
-        field {} reserved_1_0[1:0] = 0;
+        field { sw = r; } reserved_1_0[1:0] = 0;
     } aou_interrupt_mask @ 0x000C;
 
     // -------------------------------------------------------------------------
@@ -90,7 +104,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "LP Linkreset";
         desc = "ACK/MSG credit timeouts; error status (w1c).";
-        field {} reserved_31_14[31:14] = 0;
+        field { sw = r; } reserved_31_14[31:14] = 0;
         field { sw = rw; desc = "Activation/deactivation ACK timeout threshold."; } ack_time_out_value[13:11] = 0x4;
         field { sw = rw; desc = "Message credit timeout threshold."; } msgcredit_time_out_value[10:8] = 0x4;
         field { sw = rw; hw = w; onwrite = woclr; desc = "Activation ACK timeout error. Set by HW, write 1 to clear."; } act_ack_err[7:7] = 0;
@@ -107,13 +121,13 @@ addrmap aou_core {
         regwidth = 32;
         name = "Destination RP";
         desc = "Destination Resource Plane mapping for outgoing messages on each RP.";
-        field {} reserved_31_14[31:14] = 0;
+        field { sw = r; } reserved_31_14[31:14] = 0;
         field { sw = rw; desc = "Destination Resource Plane mapping for RP3."; } rp3_dest[13:12] = 0x3;
-        field {} reserved_11_10[11:10] = 0;
+        field { sw = r; } reserved_11_10[11:10] = 0;
         field { sw = rw; desc = "Destination Resource Plane mapping for RP2."; } rp2_dest[9:8] = 0x2;
-        field {} reserved_7_6[7:6] = 0;
+        field { sw = r; } reserved_7_6[7:6] = 0;
         field { sw = rw; desc = "Destination Resource Plane mapping for RP1."; } rp1_dest[5:4] = 0x1;
-        field {} reserved_3_2[3:2] = 0;
+        field { sw = r; } reserved_3_2[3:2] = 0;
         field { sw = rw; desc = "Destination Resource Plane mapping for RP0."; } rp0_dest[1:0] = 0x0;
     } dest_rp @ 0x0014;
 
@@ -124,18 +138,18 @@ addrmap aou_core {
         regwidth = 32;
         name = "Priority RP AXI";
         desc = "QoS thresholds, per-RP priority levels, and arbitration mode.";
-        field {} reserved_31_28[31:28] = 0;
+        field { sw = r; } reserved_31_28[31:28] = 0;
         field { sw = rw; desc = "AXI QoS to normal priority boundary. In AXI QoS arbitration mode (arb_mode=2), AXI QoS values at or above this threshold are treated as normal priority. Values below this threshold are treated as low priority."; } axi_qos_to_np[27:24] = 0xA;
         field { sw = rw; desc = "AXI QoS to high priority boundary. In AXI QoS arbitration mode (arb_mode=2), AXI QoS values at or above this threshold are treated as high priority. Values between axi_qos_to_hp and axi_qos_to_np are treated as normal priority."; } axi_qos_to_hp[23:20] = 0x5;
-        field {} reserved_19_18[19:18] = 0;
+        field { sw = r; } reserved_19_18[19:18] = 0;
         field { sw = rw; desc = "Priority level for Resource Plane 3."; } rp3_prior[17:16] = 0x3;
-        field {} reserved_15_14[15:14] = 0;
+        field { sw = r; } reserved_15_14[15:14] = 0;
         field { sw = rw; desc = "Priority level for Resource Plane 2."; } rp2_prior[13:12] = 0x2;
-        field {} reserved_11_10[11:10] = 0;
+        field { sw = r; } reserved_11_10[11:10] = 0;
         field { sw = rw; desc = "Priority level for Resource Plane 1."; } rp1_prior[9:8] = 0x1;
-        field {} reserved_7_6[7:6] = 0;
+        field { sw = r; } reserved_7_6[7:6] = 0;
         field { sw = rw; desc = "Priority level for Resource Plane 0."; } rp0_prior[5:4] = 0x0;
-        field {} reserved_3_2[3:2] = 0;
+        field { sw = r; } reserved_3_2[3:2] = 0;
         field { sw = rw; desc = "TX arbitration mode for multi-RP scheduling on AW, W, and AR channels. 0: Round-Robin between valid RPs. 1: Port QoS, priority is set per-RP via rp*_prior fields (3 levels: High/Normal/Low). 2: AXI QoS, priority is derived from the AXI QoS field with boundaries set by axi_qos_to_hp and axi_qos_to_np. For Port QoS and AXI QoS modes, a starvation-prevention timeout promotes lower-priority requests to high priority."; } arb_mode[1:0] = 0;
     } prior_rp_axi @ 0x0018;
 
@@ -157,7 +171,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Split Transaction RP0";
         desc = "Maximum AXI burst lengths for split transactions on Resource Plane 0.";
-        field {} reserved_31_16[31:16] = 0;
+        field { sw = r; } reserved_31_16[31:16] = 0;
         field { sw = rw; desc = "Maximum AXI write burst length for split transactions on RP0."; } max_awburstlen[15:8] = 0xF;
         field { sw = rw; desc = "Maximum AXI read burst length for split transactions on RP0."; } max_arburstlen[7:0] = 0xF;
     } axi_split_tr_rp0 @ 0x0020;
@@ -166,7 +180,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "Error Info RP0";
         desc = "Split transaction BID/RID mismatch info and error flags for RP0.";
-        field {} reserved_31_22[31:22] = 0;
+        field { sw = r; } reserved_31_22[31:22] = 0;
         field { sw = r; hw = rw; desc = "Captured BID when a split transaction BID mismatch occurs. Clears when error clears."; } split_bid_mismatch_info[21:12];
         field { sw = r; hw = rw; desc = "Captured RID when a split transaction RID mismatch occurs. Clears when error clears."; } split_rid_mismatch_info[11:2];
         field { sw = rw; hw = w; onwrite = woclr; desc = "Split transaction BID mismatch error. Set by HW, write 1 to clear."; } split_bid_mismatch_err[1:1] = 0;
@@ -177,7 +191,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "Write Early Response RP0";
         desc = "Write response done/error status and early BRESP enable for RP0.";
-        field {} reserved_31_15[31:15] = 0;
+        field { sw = r; } reserved_31_15[31:15] = 0;
         field { sw = r; hw = w; desc = "Write response completion status for RP0. Read-only, driven by HW."; } write_resp_done[14:14];
         field { sw = rw; hw = w; onwrite = woclr; desc = "Early write response error for RP0. Set by HW, write 1 to clear."; } write_resp_err[13:13] = 0;
         field { sw = r; hw = rw; desc = "Captured BRESP type when early write response error occurs. Clears when error clears."; } write_resp_err_type_info[12:11];
@@ -203,7 +217,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Slave ID Mismatch Error RP0";
         desc = "AXI slave BID/RID mismatch info and error flags for RP0.";
-        field {} reserved_31_22[31:22] = 0;
+        field { sw = r; } reserved_31_22[31:22] = 0;
         field { sw = r; hw = rw; desc = "Captured BID when an AXI slave BID mismatch occurs. Clears when error clears."; } axi_slv_bid_mismatch_info[21:12];
         field { sw = r; hw = rw; desc = "Captured RID when an AXI slave RID mismatch occurs. Clears when error clears."; } axi_slv_rid_mismatch_info[11:2];
         field { sw = rw; hw = w; onwrite = woclr; desc = "AXI slave BID mismatch error. Set by HW, write 1 to clear."; } axi_slv_bid_mismatch_err[1:1] = 0;
@@ -217,7 +231,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Split Transaction RP1";
         desc = "Maximum AXI burst lengths for split transactions on Resource Plane 1.";
-        field {} reserved_31_16[31:16] = 0;
+        field { sw = r; } reserved_31_16[31:16] = 0;
         field { sw = rw; desc = "Maximum AXI write burst length for split transactions on RP1."; } max_awburstlen[15:8] = 0xF;
         field { sw = rw; desc = "Maximum AXI read burst length for split transactions on RP1."; } max_arburstlen[7:0] = 0xF;
     } axi_split_tr_rp1 @ 0x0038;
@@ -226,7 +240,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "Error Info RP1";
         desc = "Split transaction BID/RID mismatch info and error flags for RP1.";
-        field {} reserved_31_22[31:22] = 0;
+        field { sw = r; } reserved_31_22[31:22] = 0;
         field { sw = r; hw = rw; desc = "Captured BID when a split transaction BID mismatch occurs. Clears when error clears."; } split_bid_mismatch_info[21:12];
         field { sw = r; hw = rw; desc = "Captured RID when a split transaction RID mismatch occurs. Clears when error clears."; } split_rid_mismatch_info[11:2];
         field { sw = rw; hw = w; onwrite = woclr; desc = "Split transaction BID mismatch error. Set by HW, write 1 to clear."; } split_bid_mismatch_err[1:1] = 0;
@@ -237,7 +251,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "Write Early Response RP1";
         desc = "Write response done/error status and early BRESP enable for RP1.";
-        field {} reserved_31_15[31:15] = 0;
+        field { sw = r; } reserved_31_15[31:15] = 0;
         field { sw = r; hw = w; desc = "Write response completion status for RP1. Read-only, driven by HW."; } write_resp_done[14:14];
         field { sw = rw; hw = w; onwrite = woclr; desc = "Early write response error for RP1. Set by HW, write 1 to clear."; } write_resp_err[13:13] = 0;
         field { sw = r; hw = rw; desc = "Captured BRESP type when early write response error occurs. Clears when error clears."; } write_resp_err_type_info[12:11];
@@ -263,7 +277,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Slave ID Mismatch Error RP1";
         desc = "AXI slave BID/RID mismatch info and error flags for RP1.";
-        field {} reserved_31_22[31:22] = 0;
+        field { sw = r; } reserved_31_22[31:22] = 0;
         field { sw = r; hw = rw; desc = "Captured BID when an AXI slave BID mismatch occurs. Clears when error clears."; } axi_slv_bid_mismatch_info[21:12];
         field { sw = r; hw = rw; desc = "Captured RID when an AXI slave RID mismatch occurs. Clears when error clears."; } axi_slv_rid_mismatch_info[11:2];
         field { sw = rw; hw = w; onwrite = woclr; desc = "AXI slave BID mismatch error. Set by HW, write 1 to clear."; } axi_slv_bid_mismatch_err[1:1] = 0;
@@ -277,7 +291,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Split Transaction RP2";
         desc = "Maximum AXI burst lengths for split transactions on Resource Plane 2.";
-        field {} reserved_31_16[31:16] = 0;
+        field { sw = r; } reserved_31_16[31:16] = 0;
         field { sw = rw; desc = "Maximum AXI write burst length for split transactions on RP2."; } max_awburstlen[15:8] = 0xF;
         field { sw = rw; desc = "Maximum AXI read burst length for split transactions on RP2."; } max_arburstlen[7:0] = 0xF;
     } axi_split_tr_rp2 @ 0x0050;
@@ -286,7 +300,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "Error Info RP2";
         desc = "Split transaction BID/RID mismatch info and error flags for RP2.";
-        field {} reserved_31_22[31:22] = 0;
+        field { sw = r; } reserved_31_22[31:22] = 0;
         field { sw = r; hw = rw; desc = "Captured BID when a split transaction BID mismatch occurs. Clears when error clears."; } split_bid_mismatch_info[21:12];
         field { sw = r; hw = rw; desc = "Captured RID when a split transaction RID mismatch occurs. Clears when error clears."; } split_rid_mismatch_info[11:2];
         field { sw = rw; hw = w; onwrite = woclr; desc = "Split transaction BID mismatch error. Set by HW, write 1 to clear."; } split_bid_mismatch_err[1:1] = 0;
@@ -297,7 +311,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "Write Early Response RP2";
         desc = "Write response done/error status and early BRESP enable for RP2.";
-        field {} reserved_31_15[31:15] = 0;
+        field { sw = r; } reserved_31_15[31:15] = 0;
         field { sw = r; hw = w; desc = "Write response completion status for RP2. Read-only, driven by HW."; } write_resp_done[14:14];
         field { sw = rw; hw = w; onwrite = woclr; desc = "Early write response error for RP2. Set by HW, write 1 to clear."; } write_resp_err[13:13] = 0;
         field { sw = r; hw = rw; desc = "Captured BRESP type when early write response error occurs. Clears when error clears."; } write_resp_err_type_info[12:11];
@@ -323,7 +337,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Slave ID Mismatch Error RP2";
         desc = "AXI slave BID/RID mismatch info and error flags for RP2.";
-        field {} reserved_31_22[31:22] = 0;
+        field { sw = r; } reserved_31_22[31:22] = 0;
         field { sw = r; hw = rw; desc = "Captured BID when an AXI slave BID mismatch occurs. Clears when error clears."; } axi_slv_bid_mismatch_info[21:12];
         field { sw = r; hw = rw; desc = "Captured RID when an AXI slave RID mismatch occurs. Clears when error clears."; } axi_slv_rid_mismatch_info[11:2];
         field { sw = rw; hw = w; onwrite = woclr; desc = "AXI slave BID mismatch error. Set by HW, write 1 to clear."; } axi_slv_bid_mismatch_err[1:1] = 0;
@@ -337,7 +351,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Split Transaction RP3";
         desc = "Maximum AXI burst lengths for split transactions on Resource Plane 3.";
-        field {} reserved_31_16[31:16] = 0;
+        field { sw = r; } reserved_31_16[31:16] = 0;
         field { sw = rw; desc = "Maximum AXI write burst length for split transactions on RP3."; } max_awburstlen[15:8] = 0xF;
         field { sw = rw; desc = "Maximum AXI read burst length for split transactions on RP3."; } max_arburstlen[7:0] = 0xF;
     } axi_split_tr_rp3 @ 0x0068;
@@ -346,7 +360,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "Error Info RP3";
         desc = "Split transaction BID/RID mismatch info and error flags for RP3.";
-        field {} reserved_31_22[31:22] = 0;
+        field { sw = r; } reserved_31_22[31:22] = 0;
         field { sw = r; hw = rw; desc = "Captured BID when a split transaction BID mismatch occurs. Clears when error clears."; } split_bid_mismatch_info[21:12];
         field { sw = r; hw = rw; desc = "Captured RID when a split transaction RID mismatch occurs. Clears when error clears."; } split_rid_mismatch_info[11:2];
         field { sw = rw; hw = w; onwrite = woclr; desc = "Split transaction BID mismatch error. Set by HW, write 1 to clear."; } split_bid_mismatch_err[1:1] = 0;
@@ -357,7 +371,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "Write Early Response RP3";
         desc = "Write response done/error status and early BRESP enable for RP3.";
-        field {} reserved_31_15[31:15] = 0;
+        field { sw = r; } reserved_31_15[31:15] = 0;
         field { sw = r; hw = w; desc = "Write response completion status for RP3. Read-only, driven by HW."; } write_resp_done[14:14];
         field { sw = rw; hw = w; onwrite = woclr; desc = "Early write response error for RP3. Set by HW, write 1 to clear."; } write_resp_err[13:13] = 0;
         field { sw = r; hw = rw; desc = "Captured BRESP type when early write response error occurs. Clears when error clears."; } write_resp_err_type_info[12:11];
@@ -383,7 +397,7 @@ addrmap aou_core {
         regwidth = 32;
         name = "AXI Slave ID Mismatch Error RP3";
         desc = "AXI slave BID/RID mismatch info and error flags for RP3.";
-        field {} reserved_31_22[31:22] = 0;
+        field { sw = r; } reserved_31_22[31:22] = 0;
         field { sw = r; hw = rw; desc = "Captured BID when an AXI slave BID mismatch occurs. Clears when error clears."; } axi_slv_bid_mismatch_info[21:12];
         field { sw = r; hw = rw; desc = "Captured RID when an AXI slave RID mismatch occurs. Clears when error clears."; } axi_slv_rid_mismatch_info[11:2];
         field { sw = rw; hw = w; onwrite = woclr; desc = "AXI slave BID mismatch error. Set by HW, write 1 to clear."; } axi_slv_bid_mismatch_err[1:1] = 0;
