@@ -1,0 +1,10 @@
+peakrdl==1.5.0
+peakrdl-cheader==1.0.0
+peakrdl-cli==1.5.0
+peakrdl-html==2.12.1
+peakrdl-ipxact==3.5.0
+peakrdl-regblock==1.2.0
+peakrdl-systemrdl==1.0.1
+peakrdl-uvm==2.4.0
+peakrdl_markdown==1.0.3
+peakrdl_python_simple==0.2.14

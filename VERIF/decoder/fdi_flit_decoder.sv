@@ -29,7 +29,14 @@
 //   Misc/Activation  -- ACTIVATIONOP (ActivateReq, ActivateAck, ...)
 //   Misc/CrdtGrant   -- per-RP credit counts for all 5 message classes
 //   WriteReq/ReadReq -- AxADDR, AxSIZE, AxLEN
-//   WriteData/ReadData/WriteDataFull -- DLENGTH (256b/512b/1024b)
+//   WriteData/ReadData/WriteDataFull -- DLENGTH, DATA payload hex dump
+//   WriteData         -- WSTRB hex dump (write strobes)
+//
+// Data messages that span across flit boundaries are tracked via persistent
+// continuation state (cont_remaining, cont_mtype, cont_dlength, cont_start_g,
+// cont_byte_idx). At the start of the next flit the remaining granules are
+// consumed and their payload is printed before normal MsgStart processing
+// resumes. Partial-flit messages are annotated with "[partial, N of M granules]".
 //
 // Parameters:
 //   LOG_FILE   -- output log file path (default "fdi.log")
@@ -59,6 +66,12 @@ module fdi_flit_decoder #(
     int unsigned seq     = 0;
     int unsigned seq_64  = 0;
     reg [7:0]    flit [0:255];
+
+    int unsigned cont_remaining = 0;
+    logic [3:0]  cont_mtype     = '0;
+    logic [1:0]  cont_dlength   = '0;
+    int unsigned cont_start_g   = 0;
+    int unsigned cont_byte_idx  = 0;
 
     initial begin
         fd = $fopen(LOG_FILE, "w");
@@ -110,6 +123,22 @@ module fdi_flit_decoder #(
         endcase
     endfunction
 
+    function automatic int unsigned data_msg_granules(input logic [3:0] mtype,
+                                                      input logic [1:0] dlength);
+        case (mtype)
+            4'h3: case (dlength)  // WriteData
+                      2'd0: return 8;  2'd1: return 15; 2'd2: return 30; default: return 0;
+                  endcase
+            4'h4: case (dlength)  // ReadData
+                      2'd0: return 8;  2'd1: return 14; 2'd2: return 27; default: return 0;
+                  endcase
+            4'h6: case (dlength)  // WriteDataFull
+                      2'd0: return 7;  2'd1: return 14; 2'd2: return 27; default: return 0;
+                  endcase
+            default: return 0;
+        endcase
+    endfunction
+
     function automatic int unsigned granule_byte_pos(input int unsigned g);
         automatic int unsigned grp  = g / 12;
         automatic int unsigned idx  = g % 12;
@@ -121,6 +150,67 @@ module fdi_flit_decoder #(
         endcase
         return base + idx * 5;
     endfunction
+
+    task automatic dump_granule_data(
+        input integer      log_fd,
+        input logic [3:0]  mtype,
+        input logic [1:0]  dlength,
+        input int unsigned first_g,
+        input int unsigned num_g,
+        input bit          is_msg_start,
+        input int unsigned prior_bytes,
+        output int unsigned new_bytes
+    );
+        int unsigned data_sz, strb_sz, hdr_sz;
+        reg [7:0] pbuf [0:239];
+        int unsigned pidx, gi, bpos, start_b, abs_pos, dcnt, scnt;
+
+        case (dlength)
+            2'd0: data_sz = 32;   2'd1: data_sz = 64;
+            2'd2: data_sz = 128;  default: data_sz = 0;
+        endcase
+        strb_sz = (mtype == 4'h3) ? data_sz / 8 : 0;
+        hdr_sz  = (mtype == 4'h4) ? 5 : 3;
+
+        pidx = 0;
+        for (int g = 0; g < num_g; g++) begin
+            gi      = first_g + g;
+            bpos    = granule_byte_pos(gi);
+            start_b = (is_msg_start && g == 0) ? hdr_sz : 0;
+            for (int b = start_b; b < 5; b++) begin
+                pbuf[pidx] = flit[bpos + b];
+                pidx = pidx + 1;
+            end
+        end
+
+        new_bytes = pidx;
+
+        dcnt = 0;
+        for (int i = 0; i < pidx; i++) begin
+            abs_pos = prior_bytes + i;
+            if (abs_pos < data_sz) begin
+                if (dcnt == 0) $fwrite(log_fd, "    DATA:");
+                if (dcnt > 0 && dcnt % 16 == 0) $fwrite(log_fd, "\n         ");
+                $fwrite(log_fd, " %02h", pbuf[i]);
+                dcnt = dcnt + 1;
+            end
+        end
+        if (dcnt > 0) $fwrite(log_fd, "\n");
+
+        if (strb_sz > 0) begin
+            scnt = 0;
+            for (int i = 0; i < pidx; i++) begin
+                abs_pos = prior_bytes + i;
+                if (abs_pos >= data_sz && abs_pos < data_sz + strb_sz) begin
+                    if (scnt == 0) $fwrite(log_fd, "    WSTRB:");
+                    if (scnt > 0 && scnt % 16 == 0) $fwrite(log_fd, "\n          ");
+                    $fwrite(log_fd, " %02h", pbuf[i]);
+                    scnt = scnt + 1;
+                end
+            end
+            if (scnt > 0) $fwrite(log_fd, "\n");
+        end
+    endtask
 
     task automatic decode_flit(input integer log_fd, ref reg [7:0] fl [0:255]);
         automatic logic [7:0]  ph [0:9];
@@ -162,6 +252,15 @@ module fdi_flit_decoder #(
                 decode_cred_3b(wreqcred),  decode_cred_3b(rreqcred),
                 decode_cred_3b(wdatacred), decode_cred_3b(rdatacred),
                 decode_cred_2b(wrespcred));
+
+        if (cont_remaining > 0) begin
+            automatic int unsigned cont_new_bytes;
+            $fwrite(log_fd, "  (cont G%0d %s, %0d remaining granules)\n",
+                    cont_start_g, msgtype_str(cont_mtype), cont_remaining);
+            dump_granule_data(log_fd, cont_mtype, cont_dlength,
+                              0, cont_remaining, 0, cont_byte_idx, cont_new_bytes);
+            cont_remaining = 0;
+        end
 
         for (int g = 0; g < 48; g++) begin
             if (msg_start[g]) begin
@@ -214,8 +313,28 @@ module fdi_flit_decoder #(
                 end
                 else if (mtype == 4'h3 || mtype == 4'h4 || mtype == 4'h6) begin
                     automatic logic [1:0] dlength = fl[bpos][1:0];
-                    $fwrite(log_fd, "  G%0d: MSGTYPE=0x%01h (%s) DLENGTH=%0d (%s)\n",
-                            g, mtype, mname, dlength, dlength_str(dlength));
+                    automatic int unsigned total_g = data_msg_granules(mtype, dlength);
+                    automatic int unsigned avail_g = 48 - g;
+                    automatic int unsigned used_g  = (total_g < avail_g) ? total_g : avail_g;
+                    automatic int unsigned new_bytes;
+
+                    if (total_g > avail_g) begin
+                        $fwrite(log_fd, "  G%0d: MSGTYPE=0x%01h (%s) DLENGTH=%0d (%s) [partial, %0d of %0d granules]\n",
+                                g, mtype, mname, dlength, dlength_str(dlength), used_g, total_g);
+                    end else begin
+                        $fwrite(log_fd, "  G%0d: MSGTYPE=0x%01h (%s) DLENGTH=%0d (%s)\n",
+                                g, mtype, mname, dlength, dlength_str(dlength));
+                    end
+
+                    dump_granule_data(log_fd, mtype, dlength, g, used_g, 1, 0, new_bytes);
+
+                    if (total_g > avail_g) begin
+                        cont_remaining = total_g - avail_g;
+                        cont_mtype     = mtype;
+                        cont_dlength   = dlength;
+                        cont_start_g   = g;
+                        cont_byte_idx  = new_bytes;
+                    end
                 end
                 else begin
                     $fwrite(log_fd, "  G%0d: MSGTYPE=0x%01h (%s)\n", g, mtype, mname);

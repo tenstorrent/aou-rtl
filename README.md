@@ -1,6 +1,20 @@
 # aou-rtl
 
+## Tool requirements
 
+The following is needed for register-map and documentation tooling:
+
+- **PeakRDL** (via a Python virtualenv)
+
+Set up the virtualenv and install dependencies:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+python3 -m pip install -r requirements.txt
+```
+
+After that, the PeakRDL tools (e.g. `peakrdl dump`, `peakrdl markdown`) can be used. See [DOC/csr/README.md](DOC/csr/README.md) for regenerating register documentation.
 
 ## Getting started
 
