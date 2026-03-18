@@ -8,5 +8,5 @@ To regenerate after editing the RDL:
 
 ```bash
 source venv/bin/activate
-peakrdl markdown csr/aou-core.rdl -t aou_core -o doc/aou-core-csrs.md
+peakrdl markdown csr/aou-core.rdl -t aou_core -o DOC/csr/aou-core-csrs.md
 ```
