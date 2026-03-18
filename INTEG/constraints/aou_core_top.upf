@@ -1,0 +1,36 @@
+# ==============================================================================
+# SPDX-License-Identifier: Apache-2.0
+# (c) 2026 Tenstorrent USA Inc
+#
+# AOU_CORE_TOP  --  Unified Power Format (UPF)
+#
+# Single always-on power domain.  No retention, isolation, or level-shifter
+# strategies are required at this time.
+# ==============================================================================
+
+upf_version 2.1
+
+# ------------------------------------------------------------------------------
+#  1. Top-level power domain  (always-on)
+# ------------------------------------------------------------------------------
+create_power_domain PD_AOU_TOP \
+    -include_scope
+
+# ------------------------------------------------------------------------------
+#  2. Supply network
+# ------------------------------------------------------------------------------
+create_supply_net VDD
+create_supply_net VSS
+
+create_supply_port VDD -direction in
+create_supply_port VSS -direction in
+
+connect_supply_net VDD -ports VDD
+connect_supply_net VSS -ports VSS
+
+# ------------------------------------------------------------------------------
+#  3. Attach supply to domain
+# ------------------------------------------------------------------------------
+set_domain_supply_net PD_AOU_TOP \
+    -primary_power_net VDD \
+    -primary_ground_net VSS
