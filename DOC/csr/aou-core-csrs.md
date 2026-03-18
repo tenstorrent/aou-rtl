@@ -79,12 +79,12 @@ Don't override. Generated from: aou_core
 
 | Bits|       Identifier       |Access|Reset|Name|
 |-----|------------------------|------|-----|----|
-|  0  |    deactivate_force    |  rw  | 0x0 |  — |
-|  1  |       reserved_1       |  rw  | 0x0 |  — |
+|  0  |    deactivate_force    |   w  | 0x0 |  — |
+|  1  |       reserved_1       |   r  | 0x0 |  — |
 |  2  |     axi_split_tr_en    |  rw  | 0x0 |  — |
 |  3  |      credit_manage     |  rw  | 0x0 |  — |
 |  4  |      aou_sw_reset      |  rw  | 0x0 |  — |
-| 10:5|      reserved_10_5     |  rw  | 0x0 |  — |
+| 10:5|      reserved_10_5     |   r  | 0x0 |  — |
 |  11 |       tx_lp_mode       |  rw  | 0x0 |  — |
 |19:12|  tx_lp_mode_threshold  |  rw  | 0x4 |  — |
 |  20 |  rp0_axi_aggregator_en |  rw  | 0x0 |  — |
@@ -95,11 +95,11 @@ Don't override. Generated from: aou_core
 |  25 |rp1_error_info_access_en|  rw  | 0x0 |  — |
 |  26 |rp2_error_info_access_en|  rw  | 0x0 |  — |
 |  27 |rp3_error_info_access_en|  rw  | 0x0 |  — |
-|31:28|     reserved_31_28     |  rw  | 0x0 |  — |
+|31:28|     reserved_31_28     |   r  | 0x0 |  — |
 
 #### deactivate_force field
 
-<p>Force deactivation of the AoU protocol interface. Self-clears when activate_state_disabled asserts.</p>
+<p>Force deactivation of the AoU protocol interface. Write-only; reads return 0. Self-clears when activate_state_disabled asserts.</p>
 
 #### axi_split_tr_en field
 
@@ -173,7 +173,7 @@ Don't override. Generated from: aou_core
 |  9  |     slv_tr_complete     |    r    |  —  |  — |
 |  10 |     mst_tr_complete     |    r    |  —  |  — |
 |  11 | int_deactivate_property |    r    |  —  |  — |
-|31:12|      reserved_31_12     |    rw   | 0x0 |  — |
+|31:12|      reserved_31_12     |    r    | 0x0 |  — |
 
 #### activate_start field
 
@@ -225,7 +225,7 @@ Don't override. Generated from: aou_core
 
 |Bits|               Identifier               |Access|Reset|Name|
 |----|----------------------------------------|------|-----|----|
-| 1:0|              reserved_1_0              |  rw  | 0x0 |  — |
+| 1:0|              reserved_1_0              |   r  | 0x0 |  — |
 |  2 |        int_si0_id_mismatch_mask        |  rw  | 0x0 |  — |
 |  3 |        int_mi0_id_mismatch_mask        |  rw  | 0x0 |  — |
 |  4 |           int_early_resp_mask          |  rw  | 0x0 |  — |
@@ -233,7 +233,7 @@ Don't override. Generated from: aou_core
 |  6 |  int_req_linkreset_invalid_actmsg_mask |  rw  | 0x0 |  — |
 |  7 |    int_req_linkreset_deact_ack_mask    |  rw  | 0x0 |  — |
 |  8 |     int_req_linkreset_act_ack_mask     |  rw  | 0x0 |  — |
-|31:9|              reserved_31_9             |  rw  | 0x0 |  — |
+|31:9|              reserved_31_9             |   r  | 0x0 |  — |
 
 #### int_si0_id_mismatch_mask field
 
@@ -280,7 +280,7 @@ Don't override. Generated from: aou_core
 |  7  |       act_ack_err      |rw, woclr| 0x0 |  — |
 | 10:8|msgcredit_time_out_value|    rw   | 0x4 |  — |
 |13:11|   ack_time_out_value   |    rw   | 0x4 |  — |
-|31:14|     reserved_31_14     |    rw   | 0x0 |  — |
+|31:14|     reserved_31_14     |    r    | 0x0 |  — |
 
 #### msgcredit_err field
 
@@ -321,13 +321,13 @@ Don't override. Generated from: aou_core
 | Bits|  Identifier  |Access|Reset|Name|
 |-----|--------------|------|-----|----|
 | 1:0 |   rp0_dest   |  rw  | 0x0 |  — |
-| 3:2 | reserved_3_2 |  rw  | 0x0 |  — |
+| 3:2 | reserved_3_2 |   r  | 0x0 |  — |
 | 5:4 |   rp1_dest   |  rw  | 0x1 |  — |
-| 7:6 | reserved_7_6 |  rw  | 0x0 |  — |
+| 7:6 | reserved_7_6 |   r  | 0x0 |  — |
 | 9:8 |   rp2_dest   |  rw  | 0x2 |  — |
-|11:10|reserved_11_10|  rw  | 0x0 |  — |
+|11:10|reserved_11_10|   r  | 0x0 |  — |
 |13:12|   rp3_dest   |  rw  | 0x3 |  — |
-|31:14|reserved_31_14|  rw  | 0x0 |  — |
+|31:14|reserved_31_14|   r  | 0x0 |  — |
 
 #### rp0_dest field
 
@@ -356,18 +356,18 @@ Don't override. Generated from: aou_core
 | Bits|  Identifier  |Access|Reset|Name|
 |-----|--------------|------|-----|----|
 | 1:0 |   arb_mode   |  rw  | 0x0 |  — |
-| 3:2 | reserved_3_2 |  rw  | 0x0 |  — |
+| 3:2 | reserved_3_2 |   r  | 0x0 |  — |
 | 5:4 |   rp0_prior  |  rw  | 0x0 |  — |
-| 7:6 | reserved_7_6 |  rw  | 0x0 |  — |
+| 7:6 | reserved_7_6 |   r  | 0x0 |  — |
 | 9:8 |   rp1_prior  |  rw  | 0x1 |  — |
-|11:10|reserved_11_10|  rw  | 0x0 |  — |
+|11:10|reserved_11_10|   r  | 0x0 |  — |
 |13:12|   rp2_prior  |  rw  | 0x2 |  — |
-|15:14|reserved_15_14|  rw  | 0x0 |  — |
+|15:14|reserved_15_14|   r  | 0x0 |  — |
 |17:16|   rp3_prior  |  rw  | 0x3 |  — |
-|19:18|reserved_19_18|  rw  | 0x0 |  — |
+|19:18|reserved_19_18|   r  | 0x0 |  — |
 |23:20| axi_qos_to_hp|  rw  | 0x5 |  — |
 |27:24| axi_qos_to_np|  rw  | 0xA |  — |
-|31:28|reserved_31_28|  rw  | 0x0 |  — |
+|31:28|reserved_31_28|   r  | 0x0 |  — |
 
 #### arb_mode field
 
@@ -430,7 +430,7 @@ Don't override. Generated from: aou_core
 |-----|--------------|------|-----|----|
 | 7:0 |max_arburstlen|  rw  | 0xF |  — |
 | 15:8|max_awburstlen|  rw  | 0xF |  — |
-|31:16|reserved_31_16|  rw  | 0x0 |  — |
+|31:16|reserved_31_16|   r  | 0x0 |  — |
 
 #### max_arburstlen field
 
@@ -454,7 +454,7 @@ Don't override. Generated from: aou_core
 |  1  | split_bid_mismatch_err|rw, woclr| 0x0 |  — |
 | 11:2|split_rid_mismatch_info|    r    |  —  |  — |
 |21:12|split_bid_mismatch_info|    r    |  —  |  — |
-|31:22|     reserved_31_22    |    rw   | 0x0 |  — |
+|31:22|     reserved_31_22    |    r    | 0x0 |  — |
 
 #### split_rid_mismatch_err field
 
@@ -487,7 +487,7 @@ Don't override. Generated from: aou_core
 |12:11|write_resp_err_type_info|    r    |  —  |  — |
 |  13 |     write_resp_err     |rw, woclr| 0x0 |  — |
 |  14 |     write_resp_done    |    r    |  —  |  — |
-|31:15|     reserved_31_15     |    rw   | 0x0 |  — |
+|31:15|     reserved_31_15     |    r    | 0x0 |  — |
 
 #### early_bresp_en field
 
@@ -555,7 +555,7 @@ Don't override. Generated from: aou_core
 |  1  | axi_slv_bid_mismatch_err|rw, woclr| 0x0 |  — |
 | 11:2|axi_slv_rid_mismatch_info|    r    |  —  |  — |
 |21:12|axi_slv_bid_mismatch_info|    r    |  —  |  — |
-|31:22|      reserved_31_22     |    rw   | 0x0 |  — |
+|31:22|      reserved_31_22     |    r    | 0x0 |  — |
 
 #### axi_slv_rid_mismatch_err field
 
@@ -585,7 +585,7 @@ Don't override. Generated from: aou_core
 |-----|--------------|------|-----|----|
 | 7:0 |max_arburstlen|  rw  | 0xF |  — |
 | 15:8|max_awburstlen|  rw  | 0xF |  — |
-|31:16|reserved_31_16|  rw  | 0x0 |  — |
+|31:16|reserved_31_16|   r  | 0x0 |  — |
 
 #### max_arburstlen field
 
@@ -609,7 +609,7 @@ Don't override. Generated from: aou_core
 |  1  | split_bid_mismatch_err|rw, woclr| 0x0 |  — |
 | 11:2|split_rid_mismatch_info|    r    |  —  |  — |
 |21:12|split_bid_mismatch_info|    r    |  —  |  — |
-|31:22|     reserved_31_22    |    rw   | 0x0 |  — |
+|31:22|     reserved_31_22    |    r    | 0x0 |  — |
 
 #### split_rid_mismatch_err field
 
@@ -642,7 +642,7 @@ Don't override. Generated from: aou_core
 |12:11|write_resp_err_type_info|    r    |  —  |  — |
 |  13 |     write_resp_err     |rw, woclr| 0x0 |  — |
 |  14 |     write_resp_done    |    r    |  —  |  — |
-|31:15|     reserved_31_15     |    rw   | 0x0 |  — |
+|31:15|     reserved_31_15     |    r    | 0x0 |  — |
 
 #### early_bresp_en field
 
@@ -710,7 +710,7 @@ Don't override. Generated from: aou_core
 |  1  | axi_slv_bid_mismatch_err|rw, woclr| 0x0 |  — |
 | 11:2|axi_slv_rid_mismatch_info|    r    |  —  |  — |
 |21:12|axi_slv_bid_mismatch_info|    r    |  —  |  — |
-|31:22|      reserved_31_22     |    rw   | 0x0 |  — |
+|31:22|      reserved_31_22     |    r    | 0x0 |  — |
 
 #### axi_slv_rid_mismatch_err field
 
@@ -740,7 +740,7 @@ Don't override. Generated from: aou_core
 |-----|--------------|------|-----|----|
 | 7:0 |max_arburstlen|  rw  | 0xF |  — |
 | 15:8|max_awburstlen|  rw  | 0xF |  — |
-|31:16|reserved_31_16|  rw  | 0x0 |  — |
+|31:16|reserved_31_16|   r  | 0x0 |  — |
 
 #### max_arburstlen field
 
@@ -764,7 +764,7 @@ Don't override. Generated from: aou_core
 |  1  | split_bid_mismatch_err|rw, woclr| 0x0 |  — |
 | 11:2|split_rid_mismatch_info|    r    |  —  |  — |
 |21:12|split_bid_mismatch_info|    r    |  —  |  — |
-|31:22|     reserved_31_22    |    rw   | 0x0 |  — |
+|31:22|     reserved_31_22    |    r    | 0x0 |  — |
 
 #### split_rid_mismatch_err field
 
@@ -797,7 +797,7 @@ Don't override. Generated from: aou_core
 |12:11|write_resp_err_type_info|    r    |  —  |  — |
 |  13 |     write_resp_err     |rw, woclr| 0x0 |  — |
 |  14 |     write_resp_done    |    r    |  —  |  — |
-|31:15|     reserved_31_15     |    rw   | 0x0 |  — |
+|31:15|     reserved_31_15     |    r    | 0x0 |  — |
 
 #### early_bresp_en field
 
@@ -865,7 +865,7 @@ Don't override. Generated from: aou_core
 |  1  | axi_slv_bid_mismatch_err|rw, woclr| 0x0 |  — |
 | 11:2|axi_slv_rid_mismatch_info|    r    |  —  |  — |
 |21:12|axi_slv_bid_mismatch_info|    r    |  —  |  — |
-|31:22|      reserved_31_22     |    rw   | 0x0 |  — |
+|31:22|      reserved_31_22     |    r    | 0x0 |  — |
 
 #### axi_slv_rid_mismatch_err field
 
@@ -895,7 +895,7 @@ Don't override. Generated from: aou_core
 |-----|--------------|------|-----|----|
 | 7:0 |max_arburstlen|  rw  | 0xF |  — |
 | 15:8|max_awburstlen|  rw  | 0xF |  — |
-|31:16|reserved_31_16|  rw  | 0x0 |  — |
+|31:16|reserved_31_16|   r  | 0x0 |  — |
 
 #### max_arburstlen field
 
@@ -919,7 +919,7 @@ Don't override. Generated from: aou_core
 |  1  | split_bid_mismatch_err|rw, woclr| 0x0 |  — |
 | 11:2|split_rid_mismatch_info|    r    |  —  |  — |
 |21:12|split_bid_mismatch_info|    r    |  —  |  — |
-|31:22|     reserved_31_22    |    rw   | 0x0 |  — |
+|31:22|     reserved_31_22    |    r    | 0x0 |  — |
 
 #### split_rid_mismatch_err field
 
@@ -952,7 +952,7 @@ Don't override. Generated from: aou_core
 |12:11|write_resp_err_type_info|    r    |  —  |  — |
 |  13 |     write_resp_err     |rw, woclr| 0x0 |  — |
 |  14 |     write_resp_done    |    r    |  —  |  — |
-|31:15|     reserved_31_15     |    rw   | 0x0 |  — |
+|31:15|     reserved_31_15     |    r    | 0x0 |  — |
 
 #### early_bresp_en field
 
@@ -1020,7 +1020,7 @@ Don't override. Generated from: aou_core
 |  1  | axi_slv_bid_mismatch_err|rw, woclr| 0x0 |  — |
 | 11:2|axi_slv_rid_mismatch_info|    r    |  —  |  — |
 |21:12|axi_slv_bid_mismatch_info|    r    |  —  |  — |
-|31:22|      reserved_31_22     |    rw   | 0x0 |  — |
+|31:22|      reserved_31_22     |    r    | 0x0 |  — |
 
 #### axi_slv_rid_mismatch_err field
 
