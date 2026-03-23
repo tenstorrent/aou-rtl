@@ -121,7 +121,10 @@ credit consumption and return.
 
 # 2. Features
 
-![Block Diagram of AOU_CORE and function description](./media/image1.png)
+<a id="figure-1"></a>
+![Figure 1. Block Diagram of AOU_CORE and function description](./media/image1.png)
+
+*Figure 1. Block Diagram of AOU_CORE and function description*
 
 ## 2.1. Basic features
 
@@ -181,9 +184,12 @@ This section describes the block diagram of AOU_CORE.
 
 ## 3.1. Block diagram
 
-![Architecture of AOU_CORE](./media/image2.png)
+<a id="figure-2"></a>
+![Figure 2. Architecture of AOU_CORE](./media/image2.png)
 
-Figure 4 shows block diagram of current AOU_CORE. The AXI interface
+*Figure 2. Architecture of AOU_CORE*
+
+[Figure 2](#figure-2) shows block diagram of current AOU_CORE. The AXI interface
 supports both Master and Slave transactions for message transmission and
 reception. AOU_CORE may issue AR and AW requests to the remote die using
 the local bus width. Consequently, R-data from the remote die and W-data
@@ -204,9 +210,12 @@ AOU_CORE provides 64B FDI interface.
 
 ## 3.2. TX_CORE
 
-![Figure 6. Block Diagram of Single RP AOU_TX_CORE](./media/image3.png)
+<a id="figure-3"></a>
+![Figure 3. Block Diagram of Single RP AOU_TX_CORE](./media/image3.png)
 
-Figure 6 shows the simplified block diagram of single RP AOU_TX_CORE.
+*Figure 3. Block Diagram of Single RP AOU_TX_CORE*
+
+[Figure 3](#figure-3) shows the simplified block diagram of single RP AOU_TX_CORE.
 The module receives AXI messages for Remote Die. AOU_TX_AXI_BUFFER
 captures AXI messages from the system bus. When AOU_TX_CORE obtains
 sufficient credit from AOU_CRD_CTRL, it packs the AXI message into an
@@ -217,7 +226,10 @@ with the FDI interface.
 
 ### 3.2.1. TX_CORE QoS Scheme
 
-![Figure 7. TX_CORE QoS Scheme](./media/image4.png)
+<a id="figure-4"></a>
+![Figure 4. TX_CORE QoS Scheme](./media/image4.png)
+
+*Figure 4. TX_CORE QoS Scheme*
 
 When multiple RP requests are issued from the TX core, a QoS scheme is
 applied.
@@ -228,9 +240,10 @@ Each transaction supports three QoS level: **High, Normal, Low.**
 **Round-Robin (ARB_MODE = 2'b00)** :
 Round-robin arbitration between valid RP. When a handshake occurs, the
 RP that will receive the next grant is determined.
-![](./media/image5.png)
+<a id="figure-5"></a>
+![Figure 5. Round-Robin arbitration example](./media/image5.png)
 
-Figure 8 Round-Robin arbitration example
+*Figure 5. Round-Robin arbitration example*
 
 **Port QoS (ARB_MODE = 2'b01):**
 For each RP, the QoS level is configured by an SFR. Arbitration is
@@ -252,9 +265,10 @@ PRIOR_TIMER.TIMER_RESOLUTION.
 
 If multiple RPs have the same priority, arbitration among them is
 performed in a round-robin manner.
-![](./media/image6.png)
+<a id="figure-6"></a>
+![Figure 6. Port QoS arbitration example](./media/image6.png)
 
-Figure 9 Port QoS arbitration example
+*Figure 6. Port QoS arbitration example*
 
 **AXI QoS (ARB_MODE = 2'b10):**
 For each RP, the QoS level is determined by the value of the AXI QoS
@@ -269,17 +283,19 @@ Low**. If a timeout occurs while a request is at Normal or Low priority,
 the request is promoted and treated as High priority.
 If multiple RPs have the same priority, arbitration among them is
 performed in a round-robin manner.
-![](./media/image7.png)
+<a id="figure-7"></a>
+![Figure 7. AXI QoS arbitration example](./media/image7.png)
 
-Figure 10 AXI QoS arbitration example
+*Figure 7. AXI QoS arbitration example*
 
 ## 3.3. RX_CORE
 
-![](./media/image8.png)
+<a id="figure-8"></a>
+![Figure 8. Block Diagram of AOU_RX_CORE](./media/image8.png)
 
-Figure 11. Block Diagram of AOU_RX_CORE
+*Figure 8. Block Diagram of AOU_RX_CORE*
 
-Figure 7 shows the simplified block diagram of AOU_RX_CORE. AOU_RX_CORE
+[Figure 8](#figure-8) shows the simplified block diagram of AOU_RX_CORE. AOU_RX_CORE
 is a submodule that interfaces directly with the D2D adapter, receiving
 I_FDI_PL_VALID, I_FDI_PL_DATA, and I_FDI_PL_FLIT_CANCEL signals to
 determine the validity of incoming chunks, and unpacking messages in
@@ -309,9 +325,12 @@ As illustrated in the figure above, the granularity of data transmitted
 from the FIFO, whether directed to the bus or to the AXI_3X1_MUX, is
 conveyed to the AOU_CRD_CTRL.
 
-![Figure 12. Architecture of Chunk Decoder](./media/image9.png)
+<a id="figure-9"></a>
+![Figure 9. Architecture of Chunk Decoder](./media/image9.png)
 
-Figure 8 shows the architecture of the Chunk Decoder which is central
+*Figure 9. Architecture of Chunk Decoder*
+
+[Figure 9](#figure-9) shows the architecture of the Chunk Decoder which is central
 submodule of RX_CORE. It consists of shift registers and multiple
 decoders that decode each message, based on the received valid chunk
 along with its associated msg_idx and msg_valid information. Since AXI
@@ -327,9 +346,15 @@ granules may span up to four flits during transmission.
 
 ## 3.4. Message FIFO
 
-![Figure 13. Data FIFO](./media/image10.png)
+<a id="figure-10"></a>
+![Figure 10. Data FIFO](./media/image10.png)
 
-![Figure 14. Req / Resp FIFO](./media/image11.png)
+*Figure 10. Data FIFO*
+
+<a id="figure-11"></a>
+![Figure 11. Req / Resp FIFO](./media/image11.png)
+
+*Figure 11. Req / Resp FIFO*
 
 The Turn-Around-Time(TAT) of AOU_CORE, including the D2D adaptor, is
 approximately 40 ns (equivalent to 40 cycles at 1 GHz). Therefore, the
@@ -380,7 +405,10 @@ is configurable.
 
 ## 3.5. Data width converter
 
-![Figure 15. AXI4MUX_3X1_TOP](./media/image12.png)
+<a id="figure-12"></a>
+![Figure 12. AXI4MUX_3X1_TOP](./media/image12.png)
+
+*Figure 12. AXI4MUX_3X1_TOP*
 
 According to the AoU specification, even if the data width differs
 between chips, they must be able to transmit AXI transfers to each
@@ -390,7 +418,7 @@ converting the data to align with its own bus data width. The response
 must then be reformatted to match the original request size before being
 returned.
 Within AOU_CORE_TOP, the AOU_AXI4MUX_3X1_TOP performs this function.
-Figure 11 shows how the structure of the Bypass, AXI Downsizer, and AXI
+[Figure 12](#figure-12) shows how the structure of the Bypass, AXI Downsizer, and AXI
 Upsizer varies depending on the AXI data width of the local die.
 The Write Data message field does not contain a WLAST signal, so the
 WLAST_GEN module generates the WLAST signal by aligning the phases of
@@ -466,9 +494,12 @@ for each RP through SFR to turn it on or off.
 
 ## 3.9. Credit Controller
 
-![Figure 16. Block Diagram of AOU_CRD_CTRL](./media/image13.png)
+<a id="figure-13"></a>
+![Figure 13. Block Diagram of AOU_CRD_CTRL](./media/image13.png)
 
-Figure 12 shows the simplified block diagram of AOU_CRD_CTRL. The Credit
+*Figure 13. Block Diagram of AOU_CRD_CTRL*
+
+[Figure 13](#figure-13) shows the simplified block diagram of AOU_CRD_CTRL. The Credit
 Controller manages both the credits granted to the remote die and the
 credits received from the remote die. It considers the credit consumed
 when the TX CORE packs an AXI message into the ring buffer, and
@@ -518,34 +549,38 @@ received. Separate FIFOs are provided for data and for strobe, each with
 the same FIFO depth. Each FIFO entry is 256 bits wide for DATA and 32
 bits wide for STRB, ensuring efficient utilization of the FIFO.
 Accordingly, 512-bit width data occupies two entries, while 1024-bit
-width data occupies four entries. As illustrated in Figure 12, for
+width data occupies four entries. As illustrated in [Figure 13](#figure-13), for
 non-Writefull message types, WDATA is stored in the DATA FIFO and WSTRB
 is stored in the STRB FIFO.
 
-![](./media/image14.png)
+<a id="figure-14"></a>
+![Figure 14. Example of WDATA and WSTRB FIFO Operation](./media/image14.png)
 
-Figure 17. Example of WDATA and WSTRB FIFO Operation
+*Figure 14. Example of WDATA and WSTRB FIFO Operation*
+
 ```
 Occupying Data entry per message = WDATA Width / DATA FIFO Width
 ```
 
-**Table 1. WriteData Credit Calculation**
-
+<a id="table-1"></a>
 | WDATA width | Granule size per message | Occupying Data entry per message | Granules per Data FIFO entry | Granules per Strb FIFO entry | Granules per FIFO entry |
 | --- | --- | --- | --- | --- | --- |
 | 256b | 8 | 1 | 8 | - | 8 |
 | 512b | 15 | 2 | 7.5 | - | 7.5 |
 | 1024b | 30 | 4 | 7.5 | - | 7.5 |
 
-**Table 2. WriteDataFull Credit Calculation**
+*Table 1. WriteData Credit Calculation*
 
+<a id="table-2"></a>
 | WDATA width | Granule size per message | Occupying Data entry per message | Granules per Data FIFO entry | Granules per Strb FIFO entry | Granules per FIFO entry |
 | --- | --- | --- | --- | --- | --- |
 | 256b | 7 | 1 | 7 | - | 7 |
 | 512b | 14 | 2 | 7 | - | 7 |
 | 1024b | 27 | 4 | 6.75 | - | 6.75 |
 
-Table 1 and Table 2 illustrates all possible writedata, writedatafull
+*Table 2. WriteDataFull Credit Calculation*
+
+[Table 1](#table-1) and [Table 2](#table-2) illustrates all possible writedata, writedatafull
 message types and the credit calculation when messages consist solely of
 one type. The minimum advertised credit occurs when only 1024bit
 writedatafull messages are received. According the maximum available
@@ -560,17 +595,19 @@ when sending is determined by the AXI_DATA_WD of the local die. For
 example, if AXI_DATA_WD is 512, the AR will request RDATA of 512 bits or
 less, and the received RDATA will therefore be 512 or 256 bits wide.
 
-![](./media/image15.png)
+<a id="figure-15"></a>
+![Figure 15. Example of RDATA FIFO Operation](./media/image15.png)
 
-Figure 18. Example of RDATA FIFO Operation
+*Figure 15. Example of RDATA FIFO Operation*
 
-**Table 3. ReadData Credit Calculation**
-
+<a id="table-3"></a>
 | RDATA Width | Granule size | Occupying entry (RDATA width / FIFO width) | Granules per FIFO entry (Granule size / Occupying entry) |
 | --- | --- | --- | --- |
 | 256 | 8 | 1 | 8 |
 | 512 | 14 | 2 | 7 |
 | 1024 | 27 | 4 | 6.75 |
+
+*Table 3. ReadData Credit Calculation*
 
 Similarly, for RDATA, credits must be advertised conservatively by
 considering the maximum data width associated with AXI_DATA_WD. As
@@ -665,19 +702,29 @@ even when the local and remote dies are configured with different
 numbers of RPs. This configuration must remain static and must not be
 altered during normal operation.
 
-![](./media/image16.png)
+<a id="figure-16"></a>
+![Figure 16. Resource Plane Remapping](./media/image16.png)
 
-Figure 19. Resource Plane Remapping
+*Figure 16. Resource Plane Remapping*
 
 ## 3.11. UCIe Flit cancel mechanism
 
 AOU_CORE supports all of UCIe flit cancel mechanisms.
 
-![](./media/image17.png)
+<a id="figure-17"></a>
+![Figure 17. UCIe Flit Cancel - Retransmit case](./media/image17.png)
 
-![](./media/image18.png)
+*Figure 17. UCIe Flit Cancel - Retransmit case*
 
-![](./media/image19.png)
+<a id="figure-18"></a>
+![Figure 18. UCIe Flit Cancel - Flit Partially Valid case](./media/image18.png)
+
+*Figure 18. UCIe Flit Cancel - Flit Partially Valid case*
+
+<a id="figure-19"></a>
+![Figure 19. UCIe Flit Cancel - Full Flit Cancel case](./media/image19.png)
+
+*Figure 19. UCIe Flit Cancel - Full Flit Cancel case*
 
 The RX_FDI_IF submodule within RX_CORE temporarily stores each incoming
 chunk and forwards only the valid data that has not been canceled by
@@ -694,10 +741,14 @@ part of the FDI interface. In contrast, rx_chunk_data and
 rx_chunk_data_valid represent the signals responsible for delivering
 valid chunks to RX_CORE.
 
-![Figure20. Example of selecting valid chunks for RX_CORE](./media/image20.png)
+<a id="figure-20"></a>
+![Figure 20. Example of selecting valid chunks for RX_CORE](./media/image20.png)
+
+*Figure 20. Example of selecting valid chunks for RX_CORE*
 
 # 4. Interrupt
 
+<a id="table-4"></a>
 | Interrupt Name | Access | Description |
 |----|----|----|
 | INT_ACTIVATE_START | W1C | Asserted when activation of the AoU Protocol layer is required. |
@@ -706,6 +757,8 @@ valid chunks to RX_CORE.
 | INT_MI0_ID_MISMATCH | W1C | Asserted when AXI master port received with an AXI ID response that does not match any transaction |
 | INT_EARLY_RESP_ERR | W1C | Asserted when B response error occurs on early responsed B response |
 | INT_REQ_LINKRESET | W1C | Asserted when AOU_CORE encounters AOU SPEC protocol violation. Request link to go LinkReset. |
+
+*Table 4. Interrupt Sources*
 
 - **INT_ACTIVATE_START**
 
@@ -771,8 +824,7 @@ ports.
 
 ## 6.1. I/O descriptions
 
-**Table 4. AOU_CORE_TOP Interface**
-
+<a id="table-5"></a>
 <table>
 <thead>
 <tr>
@@ -1607,6 +1659,8 @@ ports.
 </tbody>
 </table>
 
+*Table 5. AOU_CORE_TOP Interface*
+
 **[Activation related signal]**
 
 - **I_INT_FSM_IN_ACTIVE** is an input signal that indicates that the
@@ -1648,9 +1702,7 @@ There are 2 reset: I_PRESETN and I_RESETN.
 
 ## 6.4. Configurable Parameters
 
-**Table 5. AOU_CORE_TOP Configurable Parameter
-Value**
-
+<a id="table-6"></a>
 <table>
 <tbody>
 <tr>
@@ -1743,12 +1795,15 @@ about requests received from the remote die.</td>
 </tbody>
 </table>
 
+*Table 6. AOU_CORE_TOP Configurable Parameters*
+
 # 7. Software operation guide
 
 This section gives information about operation guide for the AOU_CORE.
 
 ## 7.1. SFR setting
 
+<a id="table-7"></a>
 | **Register** | **Offset** | **Bit field name** | **Bit field** | **Type** | **Reset value** |
 |:---|:---|:---|:---|:---|:---|
 | IP_VERSION | 0x0000 |  |  |  | 0x00010000 |
@@ -1937,7 +1992,7 @@ This section gives information about operation guide for the AOU_CORE.
 |  |  | AXI_SLV_BID_MISMATCH_ERR | [1] | W1C | 0x0 |
 |  |  | AXI_SLV_RID_MISMATCH_ERR | [0] | W1C | 0x0 |
 
-Table 6. Register map
+*Table 7. Register Map*
 
 **ERR SET is restricted to change the value while the system is
 running**
@@ -2050,7 +2105,10 @@ completed.
   AOU_CON0.TX_LP_MODE_THRESHOLD value, SW can configure the message
   transmission frequency.
 
-![Bubble inserted when Transmitter de-assert LP_VALID](./media/image21.png)
+<a id="figure-21"></a>
+![Figure 21. Bubble inserted when Transmitter de-assert LP_VALID](./media/image21.png)
+
+*Figure 21. Bubble inserted when Transmitter de-assert LP_VALID*
 
 - Default value is 0. AOU_CORE always sends messages to FDI for lowering
   latency
@@ -2109,7 +2167,10 @@ internally store the AXI ID, Address, Resp in dedicated FIFO. After
 Remote die receive AXI response error, it can access this error
 information by AXI read. Error information is stored up to 4.
 
-![](./media/image22.png)
+<a id="figure-22"></a>
+![Figure 22. Error Information Access Flow](./media/image22.png)
+
+*Figure 22. Error Information Access Flow*
 
 > Unlike normal AXI transactions, accessing the error information
 > requires an explicit enable and a dedicated address. First, set
@@ -2137,9 +2198,10 @@ which means the timing of sending **ActivateReq** can differ. Both dies
 must exchange **ActivateReq** and **ActivateAck** messages to transition
 to the **ENABLED** state, at which point credited messages can be
 transmitted.
-![](./media/image23.png)
+<a id="figure-23"></a>
+![Figure 23. Independent Activation Flow](./media/image23.png)
 
-Figure 21. Independent Activation Flow
+*Figure 23. Independent Activation Flow*
 
 Regardless of its own activation state, a die must send an ActivateAck
 in response to an ActivateReq from the other die, to acknowledge receipt
@@ -2154,35 +2216,20 @@ resolve pending AXI response itself.
 It can be configured through AOU_CON0.CREDIT_MANAGE, and the default
 value is 0.
 
-| Credit Management Type | Specfication | Description |
-| --- | --- | --- |
-| 0 (default) | Based on AoU v0.5 | <ul>
-<li> After deactivation, if a new request is received from the remote
-die, no response message can be sent.<br />
-To deliver the corresponding response, the system must go through
-activation again after deactivation. </li>
-<li> Credit management and transmission availability for both
-Request-related messages and Response-related message are controlled
-together. </li>
-<li> Credited messages must not be sent, after the DeactivateReq
-message is sent. </li>
-<li> Credits must not be sent after the DeactivateAck message is
-sent. </li>
-<li> The Activate Interrupt and Deactivate Interrupt that occur in the
-process of resuming the exchange of response messages impose mandatory
-requirement to set Activate and Deactivate SFR. </li>
-</ul> |
-| 1 | Proposal by BOS. | <ul>
-<li> When the AoU Activity state is DEACTIVATE, manage Request-related
-messages(WERQ, RREQ, WDATA) and Response-related messages(RDATA, WRESP)
-separately. </li>
-<li> RDATA, WRESP Credited messages can be sent, after the
-DeactivateReq message is sent. </li>
-<li> Credits for RDATA, WRESP messages must be sent after the
-DeactivateAck message is sent. </li>
-<li> The Deactivate interrupt only provides a hint indicating that the
-remote die has started activate/deactivate. </li>
-</ul> |
+- 0 (default) Based on AoU v0.5
+  - After deactivation, if a new request is received from the remote die, no response message can be sent.
+  - To deliver the corresponding response, the system must go through activation again after deactivation.
+  - Credit management and transmission availability for both Request-related messages and Response-related message are controlled together.
+  - Credited messages must not be sent, after the DeactivateReq message is sent.
+  - Credits must not be sent after the DeactivateAck message is sent.
+  - The Activate Interrupt and Deactivate Interrupt that occur in the process of resuming the exchange of response messages impose mandatory requirement to set Activate and Deactivate SFR.
+
+- 1 Proposal by BOS.
+  - When the AoU Activity state is DEACTIVATE, manage Request-related messages(WERQ, RREQ, WDATA) and Response-related messages(RDATA, WRESP) separately.
+  - RDATA, WRESP Credited messages can be sent, after the DeactivateReq message is sent.
+  - Credits for RDATA, WRESP messages must be sent after the DeactivateAck message is sent.
+  - The Deactivate interrupt only provides a hint indicating that the remote die has started activate/deactivate.
+
 
 ### 7.3.2. Activation start
 
@@ -2230,7 +2277,10 @@ The ACTIVATION_OP field encodes deactivation messages as follows:
 
 - 3= DeactivateAck
 
-![Figure 22. Deactivation sequence with DEACTIVATE_START](./media/image24.png)
+<a id="figure-24"></a>
+![Figure 24. Deactivation sequence with DEACTIVATE_START](./media/image24.png)
+
+*Figure 24. Deactivation sequence with DEACTIVATE_START*
 
 ### 7.3.4. Deactivation Sequence Flow
 
@@ -2258,14 +2308,18 @@ all outstanding transactions have been completed and that no new
 transactions will be issued, then such an complicated implementation
 would not be necessary.
 
-Figure 18 illustrates the current activate/deactivate implementation of
+[Figure 24](#figure-24) illustrates the current activate/deactivate implementation of
 AOU_CORE.
 
-![](./media/image25.png)
+<a id="figure-25"></a>
+![Figure 25. CREDIT_MANAGE 1 Deactivate sequence flow](./media/image25.png)
 
-![Figure 23. CREDIT_MANGE 0 Deactivate sequence flow](./media/image26.png)
+*Figure 25. CREDIT_MANAGE 1 Deactivate sequence flow*
 
-Figure 24. CREDIT_MANGE 1 Deactivate sequence flow
+<a id="figure-26"></a>
+![Figure 26. CREDIT_MANAGE 0 Deactivate sequence flow](./media/image26.png)
+
+*Figure 26. CREDIT_MANAGE 0 Deactivate sequence flow*
 
 This system provides a bus cleany mechanism:
 
@@ -2292,49 +2346,24 @@ backpressure must occur on the local die's MI AW/AR/W channels.
 
 ### 7.3.5. Activation/Deactivation Interrupt
 
-| Interrupt | Description |
-| --- | --- |
-| INT_ACTIVATE_START | <ul>
-<li> When this interrupt is detected, either the
-AOU_INIT.ACTIVATE_START SFR must be set to 1. </li>
-<li> When AOU_INIT.ACTIVATE_STATE_ENABLED becomes 1, you must write 1
-to the AOU_INIT.INT_ACTIVATE_START W1C SFR must be set to 1. </li>
-<li> An interrupt occurs when the following conditions are met while
-both AOU_INIT.ACTIVATE_START SFR is not set.<br />
-<br />
-1. There is a message to send<br />
-- When AOU_CON0.CREDIT_MANAGE is set to 0, if a new request arrives from
-the remote die after the local die has sent a DeactivateReq, this
-interrupt is asserted because the local die is required to return a
-response to the remote die.<br />
-- When AOU_CON0.CREDIT_MANAGE is set to 1, this interrupt can also be
-asserted if a new request after the remote die has sent a
-DeactivateReq.<br />
-<br />
-2. There is a response to be received<br />
-(I_SLV_BUS_CLEANY_COMPLETE == 0)<br />
-- When AOU_CON0.CREDIT_MANAGE is set to 0, this interrupt can be
-asserted if the local die issues new AXI requests after the remote die
-has sent a DeactivateReq.<br />
-<br />
-3. An ActivateReq message is received from the remote die. </li>
-</ul> |
-| INT_DEACTIVATE_START | <ul>
-<li> When AOU_CON0.CREDIT_MANAGE is set to 0, if the interrupt is
-detected, the master IP must stop sending new request messages and the
-AOU_INIT.DEACTIVATE_START SFR must be set to 1. </li>
-<li> When AOU_CON0.CREDIT_MANAGE is set to 1, if the interrupt is
-detected, this interrupt serves only a hint that the remote die intends
-to deactivate. The local die can continue sending request messages. Once
-all messages have been sent, the AOU_INIT.DEACTIVATE_START SFR must be
-set. Otherwise, the remote die may end up in a state it can never send
-requests again. </li>
-<li> When AOU_INIT.ACTIVATE_STATE_DISABLED becomes 1, you must write 1
-to the AOU_INIT.INT_DEACTIVATE_START W1C SFR must be set to 1. </li>
-<li> An interrupt can be asserted when AOU_INIT.DEACTIVATE_START SFR
-is not set and the local die receives a DeactivateReq message from the
-remote die. </li>
-</ul> |
+**INT_ACTIVATE_START**
+
+- When this interrupt is detected, AOU_INIT.ACTIVATE_START SFR must be set to 1.
+- When AOU_INIT.ACTIVATE_STATE_ENABLED becomes 1, write 1 to clear the AOU_INIT.INT_ACTIVATE_START W1C SFR.
+- An interrupt occurs when AOU_INIT.ACTIVATE_START SFR is not set and any of the following conditions are met:
+  1. There is a message to send
+     - When AOU_CON0.CREDIT_MANAGE = 0, if a new request arrives from the remote die after the local die has sent a DeactivateReq, this interrupt is asserted because the local die must return a response.
+     - When AOU_CON0.CREDIT_MANAGE = 1, this interrupt can also be asserted if a new request arrives after the remote die has sent a DeactivateReq.
+  2. There is a response to be received (I_SLV_BUS_CLEANY_COMPLETE == 0)
+     - When AOU_CON0.CREDIT_MANAGE = 0, this interrupt can be asserted if the local die issues new AXI requests after the remote die has sent a DeactivateReq.
+  3. An ActivateReq message is received from the remote die.
+
+**INT_DEACTIVATE_START**
+
+- When AOU_CON0.CREDIT_MANAGE = 0: if the interrupt is detected, the master IP must stop sending new request messages and AOU_INIT.DEACTIVATE_START SFR must be set to 1.
+- When AOU_CON0.CREDIT_MANAGE = 1: if the interrupt is detected, this serves only as a hint that the remote die intends to deactivate. The local die can continue sending request messages. Once all messages have been sent, AOU_INIT.DEACTIVATE_START SFR must be set. Otherwise, the remote die may end up in a state where it can never send requests again.
+- When AOU_INIT.ACTIVATE_STATE_DISABLED becomes 1, write 1 to clear the AOU_INIT.INT_DEACTIVATE_START W1C SFR.
+- An interrupt is asserted when AOU_INIT.DEACTIVATE_START SFR is not set and the local die receives a DeactivateReq message from the remote die.
 
 ### 7.3.6. PM entry / LinkReset / LinkDisabled sequence
 
@@ -2368,7 +2397,10 @@ transaction.
 
 4.  Do PM Entry Sequence on UCIE_CORE.
 
-![](./media/image27.png)
+<a id="figure-27"></a>
+![Figure 27. PM Entry Sequence](./media/image27.png)
+
+*Figure 27. PM Entry Sequence*
 
 - **LinkDisable SW sequence**
 
@@ -2412,10 +2444,8 @@ Performance evaluation is conducted in both 512-bit local die and
 the AXI input of the local AOU_CORE to the AXI output of the remote
 AOU_CORE.
 
-**Figure 25. Initial Latency of AOU_CORE (Cycle)**
-
-| AXI Channel | AoU Latency
- On B2B connection |
+<a id="table-8"></a>
+| AXI Channel | AoU Latency on B2B connection |
 | --- | --- |
 | Read Request (AR) | 9 |
 | Read Data (R) | 11 |
@@ -2424,12 +2454,20 @@ AOU_CORE.
 | Write Response (B) | 10 |
 | Misc | 9 |
 
+*Table 8. AOU_CORE Initial Latency (Cycles)*
+
 The reason of two additional latency for AW and W CH is from WLAST
 signal generator, and data width converter.
 
-![Figure 26. Initial Latency of AOU_CORE with UCIe (Cycle)](./media/image28.png)
+<a id="figure-28"></a>
+![Figure 28. Initial Latency of AOU_CORE with UCIe (Cycle)](./media/image28.png)
 
-![Figure 27. AoU Bandwidth Efficiency with Respect to UCIe FDI Latency](./media/image29.png)
+*Figure 28. Initial Latency of AOU_CORE with UCIe (Cycle)*
+
+<a id="figure-29"></a>
+![Figure 29. AoU Bandwidth Efficiency with Respect to UCIe FDI Latency](./media/image29.png)
+
+*Figure 29. AoU Bandwidth Efficiency with Respect to UCIe FDI Latency*
 
 The results of efficiency measurements for read and write operations
 with varying burst lengths are presented. For write operations, two
@@ -2437,6 +2475,7 @@ cases were evaluated. Normal Write and Write Full, where no write strobe
 bits are transmitted. The measured values and the corresponding expected
 values are as follows.
 
+<a id="table-9"></a>
 <table>
 <thead>
 <tr>
@@ -2502,7 +2541,7 @@ efficiency</th>
 </tbody>
 </table>
 
-Figure 28. Efficiency of AOU CORE
+*Table 9. AOU_CORE Data Transfer Efficiency*
 
 * 0.4% performance drop is not from IP, but just from transfer data
 size. If the transfer data size is the multiples of 6 burst such 132
@@ -2519,9 +2558,10 @@ TBD
 
 ## 8.3. Area
 
-![](./media/image30.png)
+<a id="figure-30"></a>
+![Figure 30. Area of 1 RP AOU](./media/image30.png)
 
-Figure 29. Area of 1 RP AOU
+*Figure 30. Area of 1 RP AOU*
 
 The area for each 1 RP AOU submodule is shown in the figure above.
 
@@ -2540,6 +2580,7 @@ With 2 RP, each AXI bandwidth is 512 bit and 256 bit, AOU_CORE area was
 
 The FIFO depth of the two RPs are identical.
 
+<a id="table-10"></a>
 | AoU Area (um^2) | 64GB/s |
 | --- | --- |
 | 1RP<br />
@@ -2547,26 +2588,23 @@ The FIFO depth of the two RPs are identical.
 | 2RP<br />
 (AXI : 256bit &amp; 512bit) | 197K |
 
+*Table 10. AOU_CORE Area*
+
 # Appendix A. Records of Changes
 
-**Table 7. Record of Changes**
-
+<a id="table-11"></a>
 | Version | Date | Author | Reviewer | Description of Change |
 | --- | --- | --- | --- | --- |
-| v0.1 | 2025/08/20 | Soyoung Min,<br />
-Jaeyun Lee,<br />
-Hojun Lee | Kwanho Kim | Initial version. |
-| v0.2 | 2025/09/19 | Soyoung Min,<br />
-Jaeyun Lee,<br />
-Hojun Lee | Kwanho Kim | 256, 512, 1024 datawidth verification
-finished.
-Early response feature added. |
-|  |  |  |  |  |
+| v0.1 | 2025/08/20 | Soyoung Min, Jaeyun Lee, Hojun Lee | Kwanho Kim | Initial version. |
+| v0.2 | 2025/09/19 | Soyoung Min, Jaeyun Lee, Hojun Lee | Kwanho Kim | 256, 512, 1024 datawidth verification finished. Early response feature added. |
+
+*Table 11. Record of Changes*
 
 # Appendix B. Referenced Documents
 
+<a id="table-12"></a>
 | Document Name     | Document Location and/or URL      | Issuance Date  |
 |-------------------|-----------------------------------|----------------|
 | <Document Name> | < Document Location and/or URL> | <MM/DD/YYYY> |
 
-Table 7. Referenced Documents
+*Table 12. Referenced Documents*
