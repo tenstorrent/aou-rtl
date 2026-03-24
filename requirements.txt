@@ -8,3 +8,4 @@ peakrdl-systemrdl==1.0.1
 peakrdl-uvm==2.4.0
 peakrdl_markdown==1.0.3
 peakrdl_python_simple==0.2.14
+lxml
