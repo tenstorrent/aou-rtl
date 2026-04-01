@@ -393,6 +393,7 @@ module AOU_FDI_BRINGUP_CTRL (
     // asserted when the LP can provide/sustain the clock (any state
     // where the link is up or waking). Suppressed in RESET and
     // LINKERROR where the LP cannot guarantee a clock.
+    // NOTE: Temporarily disabling this state dependency.
     // ================================================================
     logic r_clk_ack;
 
@@ -400,11 +401,13 @@ module AOU_FDI_BRINGUP_CTRL (
         if (!I_RESETN) begin
             r_clk_ack <= 1'b0;
         end else begin
-            case (w_nxt_st)
-                ST_RESET,
-                ST_LINKERROR:    r_clk_ack <= 1'b0;
-                default:         r_clk_ack <= I_PL_CLK_REQ;
-            endcase
+            r_clk_ack <= I_PL_CLK_REQ;
+// Remove this - state dependency doesn't seem right.
+//            case (w_nxt_st)
+//                ST_RESET,
+//                ST_LINKERROR:    r_clk_ack <= 1'b0;
+//                default:         r_clk_ack <= I_PL_CLK_REQ;
+//            endcase
         end
     end
 
