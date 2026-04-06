@@ -119,8 +119,8 @@ For security vulnerabilities, please see our [Security Policy](SECURITY.md) for 
 ## References
 
 1. **AXI over UCIe (AoU) Protocol Specification, v0.7**  
-   *Access through UCIe Consortium membership. This specification defines the native mapping of AMBA AXI transactions over UCIe die-to-die interconnects.*  
-   Contact: [UCIe Consortium Specifications](https://www.uciexpress.org/specifications)
+   *Access through Open Chiplet Atlas. This specification defines the native mapping of AMBA AXI transactions over UCIe die-to-die interconnects.*  
+   Contact: [Open Chiplet Atlas](https://openchipletatlas.org)
 
 2. **Universal Chiplet Interconnect Express (UCIe) Specification, Revision 3.0**  
    *Available through the UCIe Consortium.*  
