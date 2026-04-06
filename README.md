@@ -64,7 +64,27 @@ For integrators bringing AOU_CORE_TOP into a chip design:
 
 ## License
 
-This project is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license text, [COPYRIGHT](COPYRIGHT) for copyright holders, and [NOTICE](NOTICE) for third-party attributions.
+This project originated from a collaboration between BOS Semiconductors and Tenstorrent USA, Inc.:
+
+- **Code**: Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license text.
+- **Documentation and images**: All documentation, images, and generated HTML content in the DOC/ directory are licensed under Creative Commons Attribution 4.0 International (CC-BY). See [LICENSE-DOCS](LICENSE-DOCS).
+- **License clarification**: See [LICENSE_understanding.txt](LICENSE_understanding.txt) for common questions about commercial use, modifications, and patent grants.
+- **Copyright holders**: See [COPYRIGHT](COPYRIGHT) for detailed copyright information.
+- **Third-party attributions**: See [NOTICE](NOTICE) for required notices and attributions.
+
+## Contributing
+
+We welcome contributions from the community! Here's how you can help:
+
+- **Report bugs**: Submit issues via [GitHub Issues](https://github.com/tenstorrent/aou-rtl/issues)
+- **Submit changes**: Create pull requests for bug fixes and new features
+- **Review process**: Pull requests are reviewed on a weekly basis
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to contribute, including coding standards, testing requirements, and commit message format.
+
+All contributors are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+For security vulnerabilities, please see our [Security Policy](SECURITY.md) for responsible disclosure procedures.
 
 ## References
 
