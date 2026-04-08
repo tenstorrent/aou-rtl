@@ -18,6 +18,8 @@
   - [3.11 Interrupt and Error (to Error Handler)](#311-interrupt-and-error-to-error-handler)
   - [3.12 UCIe / External Control and Status](#312-ucie--external-control-and-status)
   - [3.13 DFT](#313-dft)
+    - [3.13.1 TIEL_DFT_MODESCAN Usage](#3131-tiel_dft_modescan-usage)
+    - [3.13.2 Integrator DFT Responsibilities](#3132-integrator-dft-responsibilities)
 - [4. Software Operation Guide](#4-software-operation-guide)
   - [4.1 Register Map](#41-register-map)
 - [5. Interrupts](#5-interrupts)
@@ -51,6 +53,7 @@
     - [9.5.3 Clock Domain Crossings](#953-clock-domain-crossings)
   - [9.6 UPF Power Intent](#96-upf-power-intent)
   - [9.7 Library Cell Replacement](#97-library-cell-replacement)
+    - [9.7.1 Scan-Friendly Cell Requirements](#971-scan-friendly-cell-requirements)
 - [References](#references)
 
 ## References
@@ -366,7 +369,42 @@ The block consists of the following sub blocks
 
 | Signal | Direction | Width | Description |
 | :---- | :---- | :---- | :---- |
-| TIEL_DFT_MODESCAN | input | 1 | DFT mode scan tie-off. |
+| TIEL_DFT_MODESCAN | input | 1 | Scan-mode indicator. Tie low in functional operation; assert high from the SoC scan controller during scan shift and capture. |
+
+#### 3.13.1 TIEL_DFT_MODESCAN Usage
+
+`TIEL_DFT_MODESCAN` controls a glitch-free mux (`u_sw_reset_mux`, instance of `AOU_SOC_GFMUX_LVT`) that selects the reset source for `AOU_CORE`:
+
+```
+                          TIEL_DFT_MODESCAN
+                                |
+                              I_SEL
+                         +-------------+
+  ~r_sw_reset & I_RESETN |  I_A        |
+  (functional SW reset)  |   GFMUX     |---> w_DFTED_sw_resetn ---> AOU_CORE.I_RESETN
+                         |  I_B        |
+  AOU_SOC_BUF(1'b0)     |             |
+  (scan bypass: low)     +-------------+
+```
+
+- **Functional mode** (`TIEL_DFT_MODESCAN` = 0): The mux selects `I_A`, the functional software-controlled reset path (`~r_sw_reset & I_RESETN`). This allows the CSR-writable SW reset to combine with the hardware reset.
+- **Scan mode** (`TIEL_DFT_MODESCAN` = 1): The mux selects `I_B`, a constant `1'b0` driven through `AOU_SOC_BUF` (`dft_persistent_buf_scan_resetn_sw`). This value de-asserts the active-low SW reset, neutralizing it so that scan chains can shift freely without the software reset logic interfering with controllability or observability.
+
+The `AOU_SOC_BUF` instance exists solely to prevent the synthesis tool from optimizing away the tied-low constant; it must be preserved as a persistent buffer (see [Section 9.7](#97-library-cell-replacement)).
+
+The SDC file (`INTEG/constraints/aou_core_top.sdc`) constrains this pin with `set_case_analysis 0` in functional timing mode.
+
+#### 3.13.2 Integrator DFT Responsibilities
+
+The design provides internal DFT muxing only for the software-controlled reset path (`w_DFTED_sw_resetn`). The two primary hardware resets and all scan infrastructure are the integrator's responsibility:
+
+| Responsibility | Detail |
+| :---- | :---- |
+| **HW reset DFT muxes** | `I_RESETN` and `I_PRESETN` have no internal scan-mode bypass. The integrator must add external DFT muxes (or equivalent) on both resets so they can be held inactive (high) during scan shift and capture. Without this, all flip-flops using these resets will be uncontrollable during ATPG. |
+| **Scan chain insertion** | The design has no `SCAN_EN`, `SCAN_IN`, or `SCAN_OUT` ports. The integrator must insert scan chains via the synthesis tool's DFT insertion flow or by adding scan ports manually. |
+| **Multi-clock scan definition** | `I_CLK` (1 GHz core) and `I_PCLK` (100 MHz APB) must be defined as separate scan clocks. The ATPG tool must not shift both domains simultaneously, or lockup latches must be inserted at domain boundaries. |
+| **I/O constraints during scan** | AXI and FDI interface ports should be constrained to safe values during scan (via wrapper cells or top-level scan constraints) to prevent unintended activity on external buses. |
+| **CDC synchronizer handling** | The `AOU_SOC_SYNCHSR` instances in the `ASYNC_APB_BRIDGE` require scan-safe treatment. See [Section 9.7](#97-library-cell-replacement) for replacement cell requirements. |
 
 ---
 
@@ -789,3 +827,36 @@ The `RTL/LIB/` directory contains three behavioral reference models that are use
 - `AOU_SOC_GFMUX_LVT` is on the reset mux path and must be replaced with a glitch-free clock/reset mux cell to avoid glitches during reset switching.
 - `AOU_SOC_BUF` is on the DFT scan-reset path. Replace with a buffer cell that will be preserved through synthesis optimisation (typically via a `dont_touch` or equivalent attribute).
 - The behavioral models can serve as a golden reference for verifying functional equivalence of the replacements.
+
+#### 9.7.1 Scan-Friendly Cell Requirements
+
+Beyond functional correctness, each replacement cell must be compatible with ATPG scan insertion and pattern generation. The behavioral models have no scan awareness; the replacements must address this.
+
+**`AOU_SOC_SYNCHSR` -- Scan-safe synchronizer**
+
+Standard multi-flop synchronizers cause X-propagation during scan shift because the asynchronous input crossing from the other clock domain is not controllable by the ATPG tool. The replacement synchronizer must be **scan-safe** via one of the following approaches:
+
+1. **Built-in scan bypass mux** (preferred): The synchronizer cell includes a scan-mode mux that bypasses the asynchronous first-stage flop during shift. The ATPG tool holds the bypass active during shift and restores normal operation for capture. This is the standard approach used by foundry-provided synchronizer cells (e.g., `SDFF`-based sync cells with a scan-enable input).
+2. **ATPG tool constraint**: If the replacement cell does not have a built-in bypass, the integrator must declare it as a synchronizer in the ATPG tool so the tool forces the input to a known value during shift (e.g., Synopsys `set_dft_signal -type constant` on the synchronizer input).
+
+Foundry-provided synchronizer cells are strongly preferred because they are pre-characterized for both metastability MTBF and scan testability.
+
+**`AOU_SOC_GFMUX_LVT` -- Clock/reset mux recognition**
+
+This cell sits on the scan-mode reset mux path (see [Section 3.13.1](#3131-tiel_dft_modescan-usage)). The replacement must be recognized by the ATPG tool as a **clock or reset mux cell**, not a generic data mux. If the tool treats it as a regular mux, it may toggle `I_SEL` during scan patterns, causing reset glitches that corrupt shift-register state and invalidate test patterns.
+
+The integrator should:
+
+- Use a process library cell explicitly categorized as a clock/reset mux (e.g., a cell from the library's ICG or clock-mux family).
+- Apply the appropriate DFT tool attribute to prevent `I_SEL` toggling during scan. For example, in Synopsys DFT Compiler: `set_dft_signal -view existing_dft -type ScanMux -port u_sw_reset_mux/I_SEL`.
+- Verify in the ATPG tool's DFT rule check that the mux select is classified as a test-mode signal, not a scannable data input.
+
+**`AOU_SOC_BUF` -- Optimization protection**
+
+This buffer drives the tied-low scan-reset bypass value into `u_sw_reset_mux`. Without protection, the synthesis tool will optimize it away (replacing it with a direct tie-off), which may cause the downstream reset mux to be optimized or restructured in ways that break the intended DFT architecture.
+
+The replacement buffer must carry a `dont_touch` or `size_only` attribute (the specific attribute name depends on the synthesis tool) to ensure it survives all optimization passes, including:
+
+- Logic optimization and constant propagation
+- Incremental optimization during place-and-route
+- Post-route optimization
