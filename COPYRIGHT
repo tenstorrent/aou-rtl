@@ -13,15 +13,16 @@ portions of this codebase:
 
 ### Organizations
 
-| Organization      | Primary Contribution Areas | Years Active |
-|-------------------|----------------------------|--------------|
-| BOS Semiconductor | Core RTL                   | 2025-        |
-| Tenstorrent       | Architecture, Distribution,| 2025-        |
-|                   | testing, interfacing       |              |
+| Organization          | Primary Contribution Areas | Years Active |
+|-----------------------|----------------------------|--------------|
+| BOS Semiconductor     | Core RTL                   | 2025-        |
+| Tenstorrent USA, Inc. | Architecture, Distribution,| 2025-        |
+|                       | testing, interfacing       |              |
 
 ### Individual Contributors
 
-See [CONTRIBUTORS.md](CONTRIBUTORS.md) for a complete list.
+Individual contributors retain copyright over their contributions while
+licensing them under the Apache License 2.0.
 
 ## License
 
