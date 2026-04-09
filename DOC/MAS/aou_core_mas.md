@@ -22,6 +22,12 @@ Version 1.00, Feb.27 2026
   - [3.5. Data width converter](#35-data-width-converter)
   - [3.6. AXI Transaction Splitter](#36-axi-transaction-splitter)
   - [3.7. Write Early Response Controller](#37-write-early-response-controller)
+    - [3.7.1. Overview](#371-overview)
+    - [3.7.2. Transaction Flow -- Normal Case](#372-transaction-flow----normal-case)
+    - [3.7.3. Transaction Flow -- Error Case](#373-transaction-flow----error-case)
+    - [3.7.4. ID Ordering](#374-id-ordering)
+    - [3.7.5. Enable/Disable Procedure](#375-enabledisable-procedure)
+    - [3.7.6. SFR Fields](#376-sfr-fields)
   - [3.8. AXI Aggregator](#38-axi-aggregator)
   - [3.9. Credit Controller](#39-credit-controller)
   - [3.10. RP Remapping](#310-rp-remapping)
@@ -70,11 +76,11 @@ interface, defined in AoU standard v0.7 spec.
 To achieve low latency, AOU_CORE directly handles signals related to the
 UCIe FDI interface data flow control and processes data in 64-byte or
 32-bytes chunks in a cut-through manner, without converting them to
-256-byte flit data. It receives AXI messages from its own AXI slave
+256-byte flit data. It receives AXI messages from its own AXI subordinate
 interface, packs them into 64-byte or 32-byte chunks, and transmits
 these chunks to the remote AoU device via UCIe. The remote AoU receives
 the 64-byte or 32-byte chunks from the UCIe FDI interface, unpacks them
-into AXI messages, and delivers the data through its AXI master
+into AXI messages, and delivers the data through its AXI manager
 interface.
 The one-way AoU latency, measured from the AXI input of the local device
 to the AXI output of the remote device over a back-to-back connection in
@@ -128,11 +134,11 @@ credit consumption and return.
 
 ## 2.1. Basic features
 
-- Single APB slave interface
+- Single APB subordinate interface
 
   - Configuration/control/status register access
 
-- Multiple AXI slave & master interface
+- Multiple AXI subordinate & manager interface
 
   - Configurable RP port & RP remapping supported
 
@@ -190,7 +196,7 @@ This section describes the block diagram of AOU_CORE.
 *Figure 2. Architecture of AOU_CORE*
 
 [Figure 2](#figure-2) shows block diagram of current AOU_CORE. The AXI interface
-supports both Master and Slave transactions for message transmission and
+supports both Manager and Subordinate transactions for message transmission and
 reception. AOU_CORE may issue AR and AW requests to the remote die using
 the local bus width. Consequently, R-data from the remote die and W-data
 from the local die are constrained to the local bus width. However,
@@ -311,14 +317,14 @@ and Upsizer modules internally.
 AOU_RX_CORE includes a splitter that can divide burst lengths so that
 AXI messages with any burst length from the remote die can be supported
 on the local bus. The AW, W, and AR messages received from the remote
-die are sent to the AXI Master interface, while the B and R messages
-received from the remote die are directed to the AXI Slave interface.
+die are sent to the AXI Manager interface, while the B and R messages
+received from the remote die are directed to the AXI Subordinate interface.
 The R data may be smaller than the local die AXI data width depending on
 the ARSIZE of the corresponding AR requests, but R 4M1S FIFO duplicate
-values so that it is delivered to the AXI Slave interface with the same
+values so that it is delivered to the AXI Subordinate interface with the same
 width as the local die AXI data width.
 Furthermore, the B responses corresponding to the AW and W AXI transfers
-issued through the Master interface are routed into the AXI_3X1_MUX
+issued through the Manager interface are routed into the AXI_3X1_MUX
 before being sent to the AOU_TX_CORE.
 
 As illustrated in the figure above, the granularity of data transmitted
@@ -448,31 +454,298 @@ length can be configured differently for each RP.
 
 ## 3.7. Write Early Response Controller
 
-The AOU_EARLY_BRESP_CTRL_AWCACHE module is connected to the AXI slave
-interface and can issue an write early response once both a write
-request and its corresponding last write data have been received. This
-feature can be enabled or disabled through an
-WRITE_EARLY_RESPONSE.EARLY_BRESP_EN SFR, and the setting can be changed
-only after pending write transactions have completed.
-You can check for the presence of pending write transactions by
-accessing the WRITE_EARLY_RESPONSE.WRITE_RESP_DONE SFR.
-Currently, an early response occurs only when the AWCACHE[0]
-Bufferable bit is set to 1. Even if Bufferable and Non-Bufferable
-transactions with the same ID are mixed, the early response is still
-issued while maintaining the ID ordering rule.
-When the actual B response for a transaction that has already received
-an early response arrives, it is consumed.
-If an error is detected in the actual B response of a transaction that
-has received an early response, an interrupt is generated, and the BID
-and error type (BRESP) of the failing transaction are recorded in the
-WRITE_EARLY_RESPONSE.WRITE_RESP_ID_INFO and
-WRITE_EARLY_RESPONSE.WRITE_RESP_TYPE_INFO SFRs, respectively.
-When the interrupt is detected, after reading the Error Info SFR, you
-must write 1 to the WRITE_EARLY_RESPONSE.WRITE_RESP_ERR SFR to clear the
-interrupt.
+### 3.7.1. Overview
 
-Write early response controller exists for each RP, and it can be
-configured differently for each RP through SFR to turn it on or off.
+The `AOU_EARLY_BRESP_CTRL_AWCACHE` module sits between the local AXI
+subordinate interface and the AOU TX datapath. One instance exists per RP and
+can be independently enabled or disabled via the per-RP
+`WRITE_EARLY_RESPONSE_RPn.EARLY_BRESP_EN` SFR.
+
+When enabled, the module returns an early B response (`BRESP = OKAY`) to
+the local AXI manager as soon as both the write address (AW) and the last
+write data beat (W with WLAST) have been received at the AXI subordinate
+port -- before the write is packed into AoU messages, transmitted over
+FDI, and completed on the remote die. This reduces the write latency
+seen by the local requester at the cost of deferred error reporting.
+
+Early response applies only to **bufferable** writes (`AWCACHE[0] = 1`).
+Non-bufferable writes (`AWCACHE[0] = 0`) pass through the module
+unchanged: the AW, W, and B channels are forwarded directly between
+the local AXI interface and the AOU TX datapath with no early response
+generated, and the actual BRESP from the remote die is returned to the
+local AXI manager as normal.
+
+### 3.7.2. Transaction Flow -- Normal Case
+
+The following diagram shows the message flow for a bufferable write
+when the remote die returns a successful response.
+
+```mermaid
+sequenceDiagram
+    participant LM as Local AXI Manager
+    participant LA as Local AOU
+    participant RA as Remote AOU
+    participant RS as Remote AXI Subordinate
+
+    LM->>LA: AW (AWCACHE[0]=1) + W (WLAST)
+    Note over LA: AW+WLAST received, record in early table
+    LA-->>LM: B (early, BRESP=OKAY)
+    Note over LA: Early response returned before FDI transmission
+    LA->>RA: WriteReq + WriteData (via FDI)
+    RA->>RS: AW + W
+    RS-->>RA: B (BRESP=OKAY)
+    RA->>LA: WriteResp message (via FDI)
+    Note over LA: Actual BRESP consumed silently (not forwarded)
+```
+
+When the actual B response arrives from the remote die for a transaction
+that already received an early response, the controller consumes it
+internally: `O_AXI_S_BVALID` is held low (the local AXI manager sees no
+second response) while `O_AXI_M_BREADY` is asserted high (the response
+is drained from the AOU RX path).
+
+### 3.7.3. Transaction Flow -- Error Case
+
+If the actual B response from the remote die carries an error (`BRESP[1]
+= 1`, indicating SLVERR or DECERR), the error cannot be reported via the
+AXI B channel because the early OKAY response was already returned to
+the local AXI manager. Instead, the error is reported via interrupt and
+SFR capture.
+
+```mermaid
+sequenceDiagram
+    participant LM as Local AXI Manager
+    participant LA as Local AOU
+    participant RA as Remote AOU
+    participant RS as Remote AXI Subordinate
+
+    LM->>LA: AW (AWCACHE[0]=1) + W (WLAST)
+    LA-->>LM: B (early, BRESP=OKAY)
+    LA->>RA: WriteReq + WriteData (via FDI)
+    RA->>RS: AW + W
+    RS-->>RA: B (BRESP=SLVERR)
+    RA->>LA: WriteResp message (via FDI)
+    Note over LA: Detects BRESP[1]=1 on consumed response
+    Note over LA: Captures BID and BRESP in SFR
+    LA->>LM: INT_EARLY_RESP_ERR interrupt
+    Note over LM: SW reads SFR, then writes 1 to WRITE_RESP_ERR to clear
+```
+
+The interrupt fires when the consumed response has `BRESP[1] = 1`. SW
+must:
+
+1. Read `WRITE_EARLY_RESPONSE_RPn.WRITE_RESP_ERR_ID_INFO` to identify
+   the failing transaction's AXI ID.
+2. Read `WRITE_EARLY_RESPONSE_RPn.WRITE_RESP_ERR_TYPE_INFO` to identify
+   the error type (SLVERR or DECERR).
+3. Write 1 to `WRITE_EARLY_RESPONSE_RPn.WRITE_RESP_ERR` (W1C) to clear
+   the interrupt.
+
+### 3.7.4. ID Ordering
+
+The `AOU_EARLY_TABLE` inside the controller maintains a tracking table
+with `WR_MO_CNT` entries (matching the subordinate write outstanding count).
+Each entry records:
+
+| Field | Purpose |
+| :---- | :---- |
+| `id` | AXI write ID (`AWID`) |
+| `bufferable` | `AWCACHE[0]` flag |
+| `pending` | Transaction is in flight (AW accepted, B not yet received from remote) |
+| `same_id_tr_cnt` | Count of older pending transactions with the same AXI ID that have not yet been early-responded or actually responded |
+| `early_go` | Set when `same_id_tr_cnt` reaches 0, indicating this entry is eligible for early response |
+| `wid_numbering` | Per-ID sequence number for matching B responses to the correct table entry |
+
+The `early_go` flag ensures that for transactions sharing the same AXI
+ID, early responses are issued strictly in order. A later bufferable
+transaction with the same ID waits until all prior same-ID transactions
+have been responded to (either via early response or actual remote
+BRESP). This preserves AXI ID ordering even when bufferable and
+non-bufferable writes with the same ID are interleaved.
+
+### 3.7.5. Write-Outstanding Queue Backpressure
+
+The backpressure mechanism described in this section is only active when
+the early response feature is enabled (`EARLY_BRESP_EN = 1`). When
+disabled, the module is a transparent pass-through: all AW, W, and B
+signals are wired directly between the subordinate and manager interfaces with
+no outstanding-count gating, and write depth is bounded only by
+whatever the downstream AOU TX datapath can accept.
+
+When enabled, the early table has `WR_MO_CNT` entries (default 32, set
+by the `S_WR_MO_CNT` parameter). Every write that enters the
+controller -- bufferable or non-bufferable -- occupies one table entry
+from the time WLAST is accepted until the **actual B response** arrives
+from the remote die and is consumed.
+
+Issuing an early B does **not** free the table entry. The entry remains
+occupied (`pending = 1, out = 1`) until the real remote B is received.
+The table depth therefore limits the total number of writes in flight
+across the FDI link, not just the number awaiting early response.
+
+When `r_aw_cnt == WR_MO_CNT`, `AWREADY` and `WREADY` are deasserted
+toward the local AXI manager, stalling both the AW and W channels. The
+AOU TX datapath and FDI link continue operating normally during this
+time -- only new write acceptance is blocked. As actual B responses
+arrive from the remote die and table entries are freed, `AWREADY` and
+`WREADY` reassert and the manager may resume issuing writes.
+
+The `O_PENDING_CNT_OVER` signal (exposed via the interrupt controller)
+fires if a write handshake is attempted while the counter is already at
+the limit, serving as a diagnostic for system-hang detection.
+
+```mermaid
+sequenceDiagram
+    participant LM as Local AXI Manager
+    participant LA as Local AOU
+    participant RA as Remote AOU
+
+    LM->>LA: AW0 + W0 (bufferable)
+    LA-->>LM: B0 (early OKAY)
+    LM->>LA: AW1 + W1 (bufferable)
+    LA-->>LM: B1 (early OKAY)
+    Note over LM,LA: ... writes continue ...
+    LM->>LA: AW31 + W31 (bufferable)
+    LA-->>LM: B31 (early OKAY)
+    Note over LA: Table full (r_aw_cnt == WR_MO_CNT)
+    LM-xLA: AW32 + W32 (stalled, AWREADY=0)
+    Note over LA: FDI TX continues draining queued writes to remote
+    RA-->>LA: WriteResp for TXN0
+    Note over LA: TXN0 entry freed, r_aw_cnt decrements
+    LA->>LM: AWREADY reasserted
+    LM->>LA: AW32 + W32 (accepted)
+    LA-->>LM: B32 (early OKAY)
+```
+
+### 3.7.6. Mixed Ordering -- Bufferable Before Non-Bufferable (Same ID)
+
+When a bufferable write (TXN0) is followed by a non-bufferable write
+(TXN1) on the same AWID, the controller handles them as follows:
+
+1. TXN0 enters the table with `same_id_tr_cnt = 0` and `early_go = 1`.
+   Its early B is eligible immediately and is returned to the manager.
+2. After TXN0's early B is issued, `out` is set to 1. TXN1 enters the
+   table with `bufferable = 0`. The `same_id_tr_cnt` computation
+   excludes entries with `out = 1`, so TXN1 sees `same_id_tr_cnt = 0`.
+3. TXN1 is non-bufferable, so no early B is generated for it regardless
+   of `early_go`. It waits for the actual remote B.
+4. The `wid_numbering` field ensures actual B responses are matched in
+   issue order: TXN0 has `wid_numbering = 0`, TXN1 has
+   `wid_numbering = 1`.
+5. When TXN0's actual B arrives, `O_EarlyResponse_Consume = 1`
+   (bufferable entry at the read pointer), so the response is consumed
+   silently. TXN1's `wid_numbering` decrements to 0.
+6. When TXN1's actual B arrives, `O_EarlyResponse_Consume = 0`
+   (non-bufferable), so the response is forwarded to the subordinate as a
+   normal `BVALID`.
+
+The local AXI manager sees: early B for TXN0 first, then actual B for
+TXN1 -- correct AXI ID ordering is preserved.
+
+```mermaid
+sequenceDiagram
+    participant LM as Local AXI Manager
+    participant LA as Local AOU
+    participant RA as Remote AOU
+    participant RS as Remote AXI Subordinate
+
+    LM->>LA: AW0 (AWCACHE[0]=1, ID=X) + W0
+    Note over LA: TXN0: same_id_tr_cnt=0, early_go=1
+    LA-->>LM: B0 (early OKAY, ID=X)
+    LM->>LA: AW1 (AWCACHE[0]=0, ID=X) + W1
+    Note over LA: TXN1: bufferable=0, waits for actual B
+    LA->>RA: WriteReq0 + WriteData0
+    LA->>RA: WriteReq1 + WriteData1
+    RA->>RS: AW0 + W0
+    RS-->>RA: B0 (OKAY)
+    RA->>LA: WriteResp0
+    Note over LA: TXN0 actual B consumed silently (bufferable, out=1)
+    RA->>RS: AW1 + W1
+    RS-->>RA: B1 (OKAY)
+    RA->>LA: WriteResp1
+    Note over LA: TXN1 actual B forwarded (non-bufferable)
+    LA-->>LM: B1 (actual OKAY, ID=X)
+```
+
+### 3.7.7. Mixed Ordering -- Non-Bufferable Before Bufferable (Same ID)
+
+When a non-bufferable write (TXN0) is followed by a bufferable write
+(TXN1) on the same AWID, the early response for TXN1 is **delayed**
+until TXN0's actual B has been received.
+
+1. TXN0 enters the table with `bufferable = 0, out = 0`. No early B is
+   generated (not bufferable).
+2. TXN1 enters the table with `bufferable = 1`. Because TXN0 is still
+   `pending` and `~out`, TXN1 sees `same_id_tr_cnt = 1` and
+   `early_go = 0`. The early B for TXN1 is **blocked**.
+3. When TXN0's actual B arrives from the remote die, it is forwarded to
+   the subordinate (non-bufferable pass-through, `O_EarlyResponse_Consume = 0`).
+   The table update loop decrements TXN1's `same_id_tr_cnt` from 1 to 0,
+   setting `early_go = 1`.
+4. On the following cycle, TXN1's early B becomes eligible and is issued
+   to the manager.
+
+This is the key latency impact of mixed-cacheability ordering: the
+bufferable write's early response is delayed until the preceding
+non-bufferable same-ID write fully completes its round trip through the
+remote die. The early-response latency benefit is lost for that
+transaction. Software or interconnect designers should be aware that
+interleaving non-bufferable writes ahead of bufferable writes on the
+same ID negates the early-response advantage for those bufferable
+transactions.
+
+```mermaid
+sequenceDiagram
+    participant LM as Local AXI Manager
+    participant LA as Local AOU
+    participant RA as Remote AOU
+    participant RS as Remote AXI Subordinate
+
+    LM->>LA: AW0 (AWCACHE[0]=0, ID=X) + W0
+    Note over LA: TXN0: bufferable=0, no early B
+    LM->>LA: AW1 (AWCACHE[0]=1, ID=X) + W1
+    Note over LA: TXN1: same_id_tr_cnt=1, early_go=0 (blocked)
+    LA->>RA: WriteReq0 + WriteData0
+    LA->>RA: WriteReq1 + WriteData1
+    RA->>RS: AW0 + W0
+    RS-->>RA: B0 (OKAY)
+    RA->>LA: WriteResp0
+    Note over LA: TXN0 actual B forwarded (non-bufferable)
+    LA-->>LM: B0 (actual OKAY, ID=X)
+    Note over LA: TXN1 same_id_tr_cnt decrements to 0, early_go=1
+    LA-->>LM: B1 (early OKAY, ID=X)
+    RA->>RS: AW1 + W1
+    RS-->>RA: B1 (OKAY)
+    RA->>LA: WriteResp1
+    Note over LA: TXN1 actual B consumed silently (bufferable)
+```
+
+### 3.7.8. Enable/Disable Procedure
+
+The `EARLY_BRESP_EN` SFR may be written at any time, but the internal
+enable (`r_early_bresp_en`) only transitions when it is safe to do so:
+
+1. Confirm `WRITE_EARLY_RESPONSE_RPn.WRITE_RESP_DONE = 1` (no pending
+   write transactions; `r_aw_cnt == 0`).
+2. Set or clear `EARLY_BRESP_EN` via APB write.
+3. The internal register transitions on the next clock edge where
+   `O_BRESP_DONE` is asserted and no AW handshake is in progress. This
+   guarantees that the mode change does not occur mid-transaction.
+
+### 3.7.9. SFR Fields
+
+The `WRITE_EARLY_RESPONSE_RPn` register (one per RP: RP0 at `0x0028`,
+RP1 at `0x0040`, RP2 at `0x0058`, RP3 at `0x0070`) contains:
+
+| Field | Bits | Access | Description |
+| :---- | :---- | :---- | :---- |
+| EARLY_BRESP_EN | [0] | RW | Enable early B response for bufferable writes on this RP. |
+| WRITE_RESP_ERR_ID_INFO | [10:1] | RO | AXI ID of the transaction whose actual BRESP had an error. |
+| WRITE_RESP_ERR_TYPE_INFO | [12:11] | RO | BRESP error type (2'b10 = SLVERR, 2'b11 = DECERR). |
+| WRITE_RESP_ERR | [13] | W1C | Write 1 to clear the `INT_EARLY_RESP_ERR` interrupt. |
+| WRITE_RESP_DONE | [14] | RO | 1 when no write transactions are pending (`r_aw_cnt == 0`). |
+
+See the full register map in Section 7.1 for the complete SFR listing.
 
 ## 3.8. AXI Aggregator
 
@@ -481,11 +754,11 @@ aggregator is added to improve BUS efficiency. This functionality may
 modify AXI Len & Size.
 For example, for the read aggregator, an incoming AR with size 256-bit
 and burst length 16 is converted to size 1024-bit and burst length 4,
-then issued on the AXI master interface (AR). When R data returns to the
+then issued on the AXI manager interface (AR). When R data returns to the
 aggregator, it is split to restore the original format.
 For the write aggregator, an incoming AW with size 256-bit and burst
 length 16 is converted to size 1024-bit and burst length 4 and sent on
-the AXI master interface (AW/W). The aggregator then forwards the
+the AXI manager interface (AW/W). The aggregator then forwards the
 received B response.
 This operation can be controlled via SFR setting.
 
@@ -753,8 +1026,8 @@ valid chunks to RX_CORE.
 |----|----|----|
 | INT_ACTIVATE_START | W1C | Asserted when activation of the AoU Protocol layer is required. |
 | INT_DEACTIVATE_START | W1C | Asserted when deactivation of the AOU Protocol layer is required. |
-| INT_SI0_ID_MISMATCH | W1C | Asserted when AXI slave port received with an AXI ID response that does not match any transaction |
-| INT_MI0_ID_MISMATCH | W1C | Asserted when AXI master port received with an AXI ID response that does not match any transaction |
+| INT_SI0_ID_MISMATCH | W1C | Asserted when AXI subordinate port received with an AXI ID response that does not match any transaction |
+| INT_MI0_ID_MISMATCH | W1C | Asserted when AXI manager port received with an AXI ID response that does not match any transaction |
 | INT_EARLY_RESP_ERR | W1C | Asserted when B response error occurs on early responsed B response |
 | INT_REQ_LINKRESET | W1C | Asserted when AOU_CORE encounters AOU SPEC protocol violation. Request link to go LinkReset. |
 
@@ -778,7 +1051,7 @@ For details, please refer to the Interrupt description in Section 3.10
 
 - **INT_SI0_ID_MISMATCH**
 
-An interrupt that occurs on the AXI Slave Interface when a B or R
+An interrupt that occurs on the AXI Subordinate Interface when a B or R
 channel response is received with an ID that was not previously issued
 as a request.
 
@@ -788,7 +1061,7 @@ writing '1' to the AOU_CORE.AXI_SLV_ID_MISMATCH_ERR.SLV_B/RRESP_ERR SFR.
 
 - **INT_MI0_ID_MISMATCH**
 
-An interrupt that occurs on the AXI Master Interface when a B or R
+An interrupt that occurs on the AXI Manager Interface when a B or R
 channel response is received with an ID that was not previously issued
 as a request.
 SW can check the mismatched AXI ID by reading AOU_CORE.ERROR_INFO SFR.
@@ -798,7 +1071,7 @@ AOU_CORE.ERROR_INFO.SPLIT_B/RID_MISMATCH_ERR SFR.
 - **INT_EARLY_RESP_ERR**
 
 An interrupt that occurs when, due to the Write Early Response feature,
-a B response has already been sent through the AXI Slave Interface, and
+a B response has already been sent through the AXI Subordinate Interface, and
 a subsequent actual B response arrives with an error.
 SW can check the ID and error type of the transaction in which the error
 occured by reading AOU_CORE.WRITE_EARLY_RESPONSE SFR. The interrupt can
@@ -937,7 +1210,7 @@ ports.
 <td>　</td>
 </tr>
 <tr>
-<td>AXI slave interface</td>
+<td>AXI subordinate interface</td>
 <td>　</td>
 <td>　</td>
 <td>　</td>
@@ -1183,7 +1456,7 @@ ports.
 <td>　</td>
 </tr>
 <tr>
-<td>AXI master interface</td>
+<td>AXI manager interface</td>
 <td>　</td>
 <td>　</td>
 <td>　</td>
@@ -1767,28 +2040,28 @@ back from the remote die.</td>
 <tr>
 <td>S_RD_MO_CNT</td>
 <td>32</td>
-<td>Slave Read Multiple Outstanding Count.
+<td>Subordinate Read Multiple Outstanding Count.
 It refers to the number of table entries used to record information
 about requests received from the local die.</td>
 </tr>
 <tr>
 <td>S_WR_MO_CNT</td>
 <td>32</td>
-<td>Slave Write Multiple Outstanding Count.
+<td>Subordinate Write Multiple Outstanding Count.
 It refers to the number of table entries used to record information
 about requests received from the local die.</td>
 </tr>
 <tr>
 <td>M_RD_MO_CNT</td>
 <td>32</td>
-<td>Master Read Multiple Outstanding Count.
+<td>Manager Read Multiple Outstanding Count.
 It refers to the number of table entries used to record information
 about requests received from the remote die.</td>
 </tr>
 <tr>
 <td>M_WR_MO_CNT</td>
 <td>32</td>
-<td>Master Write Multiple Outstanding Count.
+<td>Manager Write Multiple Outstanding Count.
 It refers to the number of table entries used to record information
 about requests received from the remote die.</td>
 </tr>
@@ -2121,10 +2394,10 @@ ERROR is related to debugging features.
 **1. AXI ID mismatch error**
 For AOU_CORE AXI interface, it generates interrupt when receive AXI ID
 that was not issued, an interrupt occurs.
-If error detected on AXI slave interface, SW can check the AXI ID on
+If error detected on AXI subordinate interface, SW can check the AXI ID on
 AXI_SLV_ID_MISMATCH_ERR field and clear the interrupt by setting
 AXI_SLV_ID_MISMATCH_ERR.AXI_SLV_*ID_MISMATCH_ERR.
-If error has detected on AXI master interface, SW can check the AXI ID
+If error has detected on AXI manager interface, SW can check the AXI ID
 on ERROR_INFO field and clear the interrupt by setting
 ERROR_INFO.SPLIT_*ID_MISMATCH_ERR.
 
@@ -2162,7 +2435,7 @@ goes high.
   sequence.
 
 **3. R/B response error debug feature**
-When AOU_CORE receive AXI R/B response error from master interface, It
+When AOU_CORE receive AXI R/B response error from manager interface, It
 internally store the AXI ID, Address, Resp in dedicated FIFO. After
 Remote die receive AXI response error, it can access this error
 information by AXI read. Error information is stored up to 4.
@@ -2323,10 +2596,10 @@ AOU_CORE.
 
 This system provides a bus cleany mechanism:
 
-- Slave bus cleanly indicates whether the local die has received all
+- Subordinate bus cleanly indicates whether the local die has received all
   responses to the requests it sent to the remote die.
 
-- Master bus cleanly indicates whether the remote die has received all
+- Manager bus cleanly indicates whether the remote die has received all
   responses to the requests it sent to the local die.
 
 After the local die sends a DeactivateReq, if the remote die issues a
@@ -2360,7 +2633,7 @@ backpressure must occur on the local die's MI AW/AR/W channels.
 
 **INT_DEACTIVATE_START**
 
-- When AOU_CON0.CREDIT_MANAGE = 0: if the interrupt is detected, the master IP must stop sending new request messages and AOU_INIT.DEACTIVATE_START SFR must be set to 1.
+- When AOU_CON0.CREDIT_MANAGE = 0: if the interrupt is detected, the manager IP must stop sending new request messages and AOU_INIT.DEACTIVATE_START SFR must be set to 1.
 - When AOU_CON0.CREDIT_MANAGE = 1: if the interrupt is detected, this serves only as a hint that the remote die intends to deactivate. The local die can continue sending request messages. Once all messages have been sent, AOU_INIT.DEACTIVATE_START SFR must be set. Otherwise, the remote die may end up in a state where it can never send requests again.
 - When AOU_INIT.ACTIVATE_STATE_DISABLED becomes 1, write 1 to clear the AOU_INIT.INT_DEACTIVATE_START W1C SFR.
 - An interrupt is asserted when AOU_INIT.DEACTIVATE_START SFR is not set and the local die receives a DeactivateReq message from the remote die.
