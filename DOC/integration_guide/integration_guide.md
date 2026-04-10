@@ -1,8 +1,11 @@
 # Table of Contents
 
+- [Integration Options](#integration-options)
 - [1. Module Overview](#1-module-overview)
-  - [1.1 Purpose and Function](#11-purpose-and-function)
-  - [1.2 Key Features](#12-key-features)
+  - [1.1 AOU_TOP](#11-aou_top)
+  - [1.2 AOU_CORE_TOP](#12-aou_core_top)
+    - [1.2.1 Purpose and Function](#121-purpose-and-function)
+    - [1.2.2 Key Features](#122-key-features)
 - [2. Parameter List](#2-parameter-list)
 - [3. Interface Signals](#3-interface-signals)
   - [3.1 Clock and Reset](#31-clock-and-reset)
@@ -18,6 +21,12 @@
   - [3.11 Interrupt and Error (to Error Handler)](#311-interrupt-and-error-to-error-handler)
   - [3.12 UCIe / External Control and Status](#312-ucie--external-control-and-status)
   - [3.13 DFT](#313-dft)
+    - [3.13.1 TIEL_DFT_MODESCAN Usage](#3131-tiel_dft_modescan-usage)
+    - [3.13.2 Integrator DFT Responsibilities](#3132-integrator-dft-responsibilities)
+  - [3.14 FDI Bringup Control Interface (AOU_TOP only)](#314-fdi-bringup-control-interface-aou_top-only)
+  - [3.15 FDI Bringup Software Control (AOU_TOP only)](#315-fdi-bringup-software-control-aou_top-only)
+  - [3.16 FDI Bringup Status (AOU_TOP only)](#316-fdi-bringup-status-aou_top-only)
+  - [3.17 AOU_CORE_TOP-only Ports (not on AOU_TOP)](#317-aou_core_top-only-ports-not-on-aou_top)
 - [4. Software Operation Guide](#4-software-operation-guide)
   - [4.1 Register Map](#41-register-map)
 - [5. Interrupts](#5-interrupts)
@@ -31,26 +40,29 @@
     - [6.5.1 PM Entry SW Sequence](#651-pm-entry-sw-sequence)
     - [6.5.2 Link Disable SW Sequence](#652-link-disable-sw-sequence)
     - [6.5.3 Link Reset SW Sequence](#653-link-reset-sw-sequence)
-- [7. Debugging Features](#7-debugging-features)
-  - [7.1 AXI ID mismatch error](#71-axi-id-mismatch-error)
-  - [7.2 LinkReset](#72-linkreset)
-  - [7.3 R/B response error debug feature](#73-rb-response-error-debug-feature)
-  - [7.4 WRITE_EARLY_RESPONSE](#74-write_early_response)
-- [8. Verification Testbench](#8-verification-testbench)
-  - [8.1 Architecture](#81-architecture)
-  - [8.2 Components](#82-components)
-  - [8.3 Running the Testbench](#83-running-the-testbench)
-- [9. IP Integration Collateral](#9-ip-integration-collateral)
-  - [9.1 Generated Outputs (Phase 1)](#91-generated-outputs-phase-1)
-  - [9.2 Single Source of Truth](#92-single-source-of-truth)
-  - [9.3 Regeneration](#93-regeneration)
-  - [9.4 Planned: Full IP-XACT Component (Phase 2)](#94-planned-full-ip-xact-component-phase-2)
-  - [9.5 Timing Constraints (SDC)](#95-timing-constraints-sdc)
-    - [9.5.1 Clock Definitions](#951-clock-definitions)
-    - [9.5.2 I/O Delay Budgeting Strategy](#952-io-delay-budgeting-strategy)
-    - [9.5.3 Clock Domain Crossings](#953-clock-domain-crossings)
-  - [9.6 UPF Power Intent](#96-upf-power-intent)
-  - [9.7 Library Cell Replacement](#97-library-cell-replacement)
+  - [6.6 FDI Bringup Flow (AOU_TOP only)](#66-fdi-bringup-flow-aou_top-only)
+    - [6.6.1 Overview](#661-overview)
+    - [6.6.2 Bringup Sequence](#662-bringup-sequence)
+    - [6.6.3 Supported State Transitions](#663-supported-state-transitions)
+    - [6.6.4 PHY Type Mux](#664-phy-type-mux)
+    - [6.6.5 Software Bringup Control](#665-software-bringup-control)
+    - [6.6.6 Known Limitations](#666-known-limitations)
+- [7. Verification Testbench](#7-verification-testbench)
+  - [7.1 Architecture](#71-architecture)
+  - [7.2 Components](#72-components)
+  - [7.3 Running the Testbench](#73-running-the-testbench)
+- [8. IP Integration Collateral](#8-ip-integration-collateral)
+  - [8.1 Generated Outputs (Phase 1)](#81-generated-outputs-phase-1)
+  - [8.2 Single Source of Truth](#82-single-source-of-truth)
+  - [8.3 Regeneration](#83-regeneration)
+  - [8.4 Planned: Full IP-XACT Component (Phase 2)](#84-planned-full-ip-xact-component-phase-2)
+  - [8.5 Timing Constraints (SDC)](#85-timing-constraints-sdc)
+    - [8.5.1 Clock Definitions](#851-clock-definitions)
+    - [8.5.2 I/O Delay Budgeting Strategy](#852-io-delay-budgeting-strategy)
+    - [8.5.3 Clock Domain Crossings](#853-clock-domain-crossings)
+  - [8.6 UPF Power Intent](#86-upf-power-intent)
+  - [8.7 Library Cell Replacement](#87-library-cell-replacement)
+    - [8.7.1 Scan-Friendly Cell Requirements](#871-scan-friendly-cell-requirements)
 - [References](#references)
 
 ## References
@@ -65,15 +77,66 @@ Arm, AMBA, AXI, APB, and ACE are registered trademarks or trademarks of Arm Limi
 
 ---
 
-# AOU_CORE_TOP Integration Guide
+# AOU Integration Guide
+
+## Integration Options
+
+The AOU IP can be integrated at two levels. Choose the option that
+matches your system's FDI bringup strategy:
+
+| Option | Module | When to use | FDI bringup | Additional ports |
+| :---- | :---- | :---- | :---- | :---- |
+| A (recommended) | `AOU_TOP` | Turn-key FDI bringup control is desired | Handled internally by `AOU_FDI_BRINGUP_CTRL` | FDI bringup control, SW bringup control, bringup status |
+| B | `AOU_CORE_TOP` | You have an external UCIe controller or custom FDI state machine | Must be handled externally | `I_INT_FSM_IN_ACTIVE`, `O_AOU_ACTIVATE_ST_*`, `O_AOU_REQ_LINKRESET` |
+
+> **Note:** All AXI, APB, FDI datapath, interrupt, and DFT interfaces
+> are identical between `AOU_TOP` and `AOU_CORE_TOP`. The sections
+> below that document these interfaces (Sections 2-8) apply to both
+> modules unless otherwise noted.
+
+For detailed micro-architecture information -- including datapath
+internals, error handling, debugging features, and credit management --
+refer to the *AOU_CORE Micro-Architecture Specification*
+(`DOC/MAS/aou_core_mas.md`).
+
+---
 
 ## 1. Module Overview
+
+### 1.1 AOU_TOP
+
+`AOU_TOP` is the recommended top-level integration module. It
+instantiates two submodules:
+
+- **`AOU_FDI_BRINGUP_CTRL`** -- A UCIe 3.0 FDI state machine that
+  manages the four FDI handshake pairs (wake, clock, state negotiation,
+  RX activation) required to bring the FDI link from RESET to ACTIVE and
+  handle teardown, LinkError recovery, Retrain, and L1 entry/exit.
+
+- **`AOU_CORE_TOP`** -- The AXI-over-UCIe protocol engine described in
+  [Section 1.2](#12-aou_core_top).
+
+The bringup controller drives `I_INT_FSM_IN_ACTIVE` into the protocol
+engine internally, so this signal is not exposed as a top-level port on
+`AOU_TOP`. Instead, `AOU_TOP` exposes:
+
+- FDI bringup control ports for the physical layer handshakes
+  ([Section 3.14](#314-fdi-bringup-control-interface-aou_top-only))
+- Software bringup control pins
+  ([Section 3.15](#315-fdi-bringup-software-control-aou_top-only))
+- Bringup status outputs
+  ([Section 3.16](#316-fdi-bringup-status-aou_top-only))
+
+The FDI bringup flow is described in
+[Section 6.6](#66-fdi-bringup-flow-aou_top-only).
+
+### 1.2 AOU_CORE_TOP
 
 Figure 1 shows high level block diagram of AOU CORE TOP.
 
 ![Figure 1 - AOU Core Top](images/block_diagram.png)
 
-### 1.1 Purpose and Function
+#### 1.2.1 Purpose and Function
 
 The AOU_CORE_TOP is a bridge between AXI interface and the UCIe FDI interface, defined in AoU
 standard, AXI over UCIe Protocol Specification v0.7.
@@ -119,7 +182,12 @@ The block consists of the following sub blocks
 - ASYNC_APB_BRIDGE
   This block synchronizes APB transactions to the local core clock.
 
-### 1.2 Key Features
+When using `AOU_CORE_TOP` directly, the integrator must provide an
+external FDI state machine that drives `I_INT_FSM_IN_ACTIVE` and the
+associated control/status signals listed in
+[Section 3.12](#312-ucie--external-control-and-status).
+
+#### 1.2.2 Key Features
 
 - Single APB interface
   Configuration/control/status register access
@@ -353,6 +421,12 @@ The block consists of the following sub blocks
 
 ### 3.12 UCIe / External Control and Status
 
+> **AOU_TOP users:** The signals in this table are present on
+> `AOU_CORE_TOP` only. When integrating via `AOU_TOP`, these signals are
+> consumed/generated internally by `AOU_FDI_BRINGUP_CTRL` and are not
+> exposed as top-level ports. See
+> [Section 3.17](#317-aou_core_top-only-ports-not-on-aou_top).
+
 | Signal | Direction | Width | Description |
 | :---- | :---- | :---- | :---- |
 | I_INT_FSM_IN_ACTIVE | input | 1 | Initialization done / FSM in active state indicator. |
@@ -366,7 +440,100 @@ The block consists of the following sub blocks
 
 | Signal | Direction | Width | Description |
 | :---- | :---- | :---- | :---- |
-| TIEL_DFT_MODESCAN | input | 1 | DFT mode scan tie-off. |
+| TIEL_DFT_MODESCAN | input | 1 | Scan-mode indicator. Tie low in functional operation; assert high from the SoC scan controller during scan shift and capture. |
+
+#### 3.13.1 TIEL_DFT_MODESCAN Usage
+
+`TIEL_DFT_MODESCAN` controls a glitch-free mux (`u_sw_reset_mux`, instance of `AOU_SOC_GFMUX_LVT`) that selects the reset source for `AOU_CORE`:
+
+```
+                          TIEL_DFT_MODESCAN
+                                |
+                              I_SEL
+                         +-------------+
+  ~r_sw_reset & I_RESETN |  I_A        |
+  (functional SW reset)  |   GFMUX     |---> w_DFTED_sw_resetn ---> AOU_CORE.I_RESETN
+                         |  I_B        |
+  AOU_SOC_BUF(1'b0)     |             |
+  (scan bypass: low)     +-------------+
+```
+
+- **Functional mode** (`TIEL_DFT_MODESCAN` = 0): The mux selects `I_A`, the functional software-controlled reset path (`~r_sw_reset & I_RESETN`). This allows the CSR-writable SW reset to combine with the hardware reset.
+- **Scan mode** (`TIEL_DFT_MODESCAN` = 1): The mux selects `I_B`, a constant `1'b0` driven through `AOU_SOC_BUF` (`dft_persistent_buf_scan_resetn_sw`). This value de-asserts the active-low SW reset, neutralizing it so that scan chains can shift freely without the software reset logic interfering with controllability or observability.
+
+The `AOU_SOC_BUF` instance exists solely to prevent the synthesis tool from optimizing away the tied-low constant; it must be preserved as a persistent buffer (see [Section 8.7](#87-library-cell-replacement)).
+
+The SDC file (`INTEG/constraints/aou_core_top.sdc`) constrains this pin with `set_case_analysis 0` in functional timing mode.
+
+#### 3.13.2 Integrator DFT Responsibilities
+
+The design provides internal DFT muxing only for the software-controlled reset path (`w_DFTED_sw_resetn`). The two primary hardware resets and all scan infrastructure are the integrator's responsibility:
+
+| Responsibility | Detail |
+| :---- | :---- |
+| **HW reset DFT muxes** | `I_RESETN` and `I_PRESETN` have no internal scan-mode bypass. The integrator must add external DFT muxes (or equivalent) on both resets so they can be held inactive (high) during scan shift and capture. Without this, all flip-flops using these resets will be uncontrollable during ATPG. |
+| **Scan chain insertion** | The design has no `SCAN_EN`, `SCAN_IN`, or `SCAN_OUT` ports. The integrator must insert scan chains via the synthesis tool's DFT insertion flow or by adding scan ports manually. |
+| **Multi-clock scan definition** | `I_CLK` (1 GHz core) and `I_PCLK` (100 MHz APB) must be defined as separate scan clocks. The ATPG tool must not shift both domains simultaneously, or lockup latches must be inserted at domain boundaries. |
+| **I/O constraints during scan** | AXI and FDI interface ports should be constrained to safe values during scan (via wrapper cells or top-level scan constraints) to prevent unintended activity on external buses. |
+| **CDC synchronizer handling** | The `AOU_SOC_SYNCHSR` instances in the `ASYNC_APB_BRIDGE` require scan-safe treatment. See [Section 8.7](#87-library-cell-replacement) for replacement cell requirements. |
+
+### 3.14 FDI Bringup Control Interface (AOU_TOP only)
+
+These signals connect `AOU_TOP` to the D2D adapter's physical layer for
+FDI bringup control. They are not present on `AOU_CORE_TOP`.
+
+| Signal | Direction | Width | Description |
+| :---- | :---- | :---- | :---- |
+| I_PL_INBAND_PRES | input | 1 | Inband presence detect from PL. The bringup FSM waits for this before initiating the wake handshake. |
+| I_PL_CLK_REQ | input | 1 | PL clock request. LP responds with `O_LP_CLK_ACK`. |
+| I_PL_WAKE_ACK | input | 1 | PL acknowledgement of LP wake request. |
+| I_PL_RX_ACTIVE_REQ | input | 1 | PL requests RX activation. LP responds with `O_LP_RX_ACTIVE_STS`. |
+| O_LP_STATE_REQ | output | [3:0] | LP state request (RESET=0, ACTIVE=1, LinkError=2, Retrain=3, L1=4). |
+| O_LP_WAKE_REQ | output | 1 | LP-initiated wake request. |
+| O_LP_CLK_ACK | output | 1 | LP acknowledgement of PL clock request. |
+| O_LP_RX_ACTIVE_STS | output | 1 | LP RX active status in response to `I_PL_RX_ACTIVE_REQ`. |
+
+The four handshake pairs correspond to UCIe 3.0 FDI bringup control signals:
+
+| Handshake | LP signal | PL signal | Purpose |
+| :---- | :---- | :---- | :---- |
+| Wake | `O_LP_WAKE_REQ` | `I_PL_WAKE_ACK` | LP-initiated link wake from low-power |
+| Clock | `O_LP_CLK_ACK` | `I_PL_CLK_REQ` | PL-initiated clock request |
+| State | `O_LP_STATE_REQ` | (via `I_FDI_PL_*_STATE_STS`) | State negotiation |
+| RX Active | `O_LP_RX_ACTIVE_STS` | `I_PL_RX_ACTIVE_REQ` | RX path activation |
+
+### 3.15 FDI Bringup Software Control (AOU_TOP only)
+
+These top-level ports provide direct software control over the FDI
+bringup FSM. They are **not SFR-mapped**; the integrator must drive them
+from external logic or tie them as needed.
+
+| Signal | Direction | Width | Description |
+| :---- | :---- | :---- | :---- |
+| I_SW_ACTIVATE_START | input | 1 | Trigger FDI bringup (RESET to ACTIVE). ORed internally with the core's `INT_ACTIVATE_START`. |
+| I_SW_DEACTIVATE_START | input | 1 | Trigger FDI teardown. ORed internally with the core's `INT_DEACTIVATE_START`. |
+| I_SW_RETRAIN_REQ | input | 1 | Request link retrain (LP-initiated). |
+| I_SW_LINKERROR_INJECT | input | 1 | Force the bringup FSM into LinkError state for debug/test. |
+
+### 3.16 FDI Bringup Status (AOU_TOP only)
+
+| Signal | Direction | Width | Description |
+| :---- | :---- | :---- | :---- |
+| O_FDI_FSM_STATE | output | [3:0] | Current FDI state. Encoding matches UCIe 3.0: RESET=0, ACTIVE=1, LinkError=2, Retrain=3, L1=4, L2=5, Disabled=6. |
+| O_FDI_LINK_UP | output | 1 | Asserted when the FDI bringup FSM is in the ACTIVE state. |
+
+### 3.17 AOU_CORE_TOP-only Ports (not on AOU_TOP)
+
+The following signals are present on `AOU_CORE_TOP` but are **not**
+exposed on `AOU_TOP`. In `AOU_TOP`, they are consumed or generated
+internally by `AOU_FDI_BRINGUP_CTRL`.
+
+| Signal | Direction (on AOU_CORE_TOP) | Description |
+| :---- | :---- | :---- |
+| I_INT_FSM_IN_ACTIVE | input | FDI link active indicator. Driven by the bringup FSM's `O_INT_FSM_IN_ACTIVE` inside `AOU_TOP`. |
+| O_AOU_ACTIVATE_ST_DISABLED | output | Protocol activation state: disabled. Fed back to bringup FSM. |
+| O_AOU_ACTIVATE_ST_ENABLED | output | Protocol activation state: enabled. Fed back to bringup FSM. |
+| O_AOU_REQ_LINKRESET | output | Protocol-level LinkReset request. Fed back to bringup FSM. |
 
 ---
 
@@ -402,9 +569,16 @@ To regenerate after editing the RDL source, see [DOC/csr/README.md](../csr/READM
   been sent through the AXI Slave Interface, and a subsequent actual B response arrives with an Error. SW can check the ID and error type of the transaction in which the error occurred by reading AOU_CORE.WRITE_EARLY_RESPONSE SFR. The interrupt can be cleared by writing '1' to the AOU_CORE.WRITE_EARLY_RESPONSE.WRITE_RESP_ERR SFR.
 
 - **INT_REQ_LINKRESET**
-  An interrupt that occurs when AOU_CORE receives AOU_CORE protocol violation. Refer 7.2 Debugging features, LinkReset. When AOU_CORE receives protocol violation. SW needs to do SW reset AOU_CORE and re-enter activation sequence.
+  An interrupt that occurs when AOU_CORE receives a protocol violation. Refer to the *AOU_CORE Micro-Architecture Specification* (`DOC/MAS/aou_core_mas.md`) for debugging details. When AOU_CORE receives a protocol violation, SW needs to do SW reset AOU_CORE and re-enter the activation sequence.
 
 ## 6. Activation Flow
+
+> **AOU_TOP users:** When using `AOU_TOP`, FDI bringup (RESET to
+> ACTIVE) is handled by `AOU_FDI_BRINGUP_CTRL` before protocol-level
+> activation begins. The protocol activation described in this section
+> occurs after `O_FDI_LINK_UP` is asserted. See
+> [Section 6.6](#66-fdi-bringup-flow-aou_top-only) for the FDI bringup
+> sequence.
 
 The Activation of AOU_CORE begins after the UCIe Link-up process has been successfully
 completed. The completion of UCIe link-up is indicated by the **I_INT_FSM_IN_ACTIVE**
@@ -508,7 +682,7 @@ For PM entry / LinkReset / LinkDisable entry sequence, UCIE_CORE should check AO
 
 Since current AOU SPEC has no way to send AXI responses after sending DeactiveReq. CREDIT_MANAGE = 0 (Type 0) is matched with current AOU_SPEC. For this case, SW needs to check whether there is pending AXI transaction.
 
-#### 6.51 PM Entry SW Sequence
+#### 6.5.1 PM Entry SW Sequence
 
 1. Write AOU_INIT.DEACTIVATE_START to 1.
 
@@ -524,7 +698,7 @@ Since current AOU SPEC has no way to send AXI responses after sending DeactiveRe
 
 ![Figure 4 - PM Entry Sequence](images/pm_entry.png)
 
-#### 6.52 Link Disable SW Sequence
+#### 6.5.2 Link Disable SW Sequence
 
 Same as PM entry, before doing UCIe state transition, AOU_CORE needs to be Disabled properly.
 
@@ -540,61 +714,150 @@ Same as PM entry, before doing UCIe state transition, AOU_CORE needs to be Disab
 
 4. Do LinkReset / LinkDisable Sequence on UCIE_CORE.
 
-#### 6.53 Link Reset SW Sequence
+#### 6.5.3 Link Reset SW Sequence
 
 If AOU_CORE faces an uncorrectable error (ex. AOU SPEC violation), AOU_CORE sends LinkReset to CPU and D2D adapter. LinkReset indicates that an error has occurred which requires the Link to go down.
 
 While handling LinkReset, SW needs  to do AOU_CORE SW reset by setting AOU_CON0.AOU_SW_RESET.
 
-## 7. Debugging Features
+### 6.6 FDI Bringup Flow (AOU_TOP only)
 
-AOU_CORE includes several features for debugging. SFR name including ERROR is related to
-debugging features.
+> This section applies **only** when integrating via `AOU_TOP`. If you
+> are using `AOU_CORE_TOP` directly, you must implement an equivalent
+> FDI state machine externally.
 
-### 7.1. AXI ID mismatch error
+#### 6.6.1 Overview
 
-For AOU_CORE AXI interface, core generates interrupt when it receives AXI ID that was not
-Issued earlier. If error is detected on AXI slave interface, SW can check the AXI ID on
-AXI_SLV_ID_MISMATCH_ERR field and clear the interrupt by setting AXI_SLV_ID_MISMATCH_ERR.AXI_SLV_*ID_MISMATCH_ERR. If error is detected on AXI master interface, SW can check the AXI ID on ERROR_INFO field and clear the interrupt by setting ERROR_INFO.SPLIT_*ID_MISMATCH_ERR.
+`AOU_FDI_BRINGUP_CTRL` manages the UCIe 3.0 FDI state machine,
+handling the four handshake pairs required to bring the FDI link from
+RESET to ACTIVE and to manage teardown, LinkError recovery, Retrain,
+and L1 entry/exit.
 
-### 7.2. LinkReset
+The bringup FSM operates in the `I_CLK` domain and uses 12 internal
+states. The status output `O_FDI_FSM_STATE` maps these to the standard
+UCIe 3.0 FDI state encoding.
 
-For Activation/Deactivation error, core drives interrupt by INT_REQ_LINKRESET and
-AOU_REQ_LINKRESET to FDI. The Protocol layer requests the CPU to Reset the Link. There are
-several cases for which AOU_REQ_LINKRESET is asserted.
+Once the bringup FSM reaches ACTIVE, it asserts `O_INT_FSM_IN_ACTIVE`
+into `AOU_CORE_TOP`, which enables protocol-level activation as
+described in [Section 6](#6-activation-flow).
 
-- **Request to Acknowledge message timeout error**
-  If the remote die does not return an Acknowledge within the configured timeout, the local die may report a Request to Acknowledge timeout. As per the AOU_SPEC, when the local die issues an Activation or Deactivation request, the remote die should respond with an Acknowledgement message indicating successful receipt of the request. If no Acknowledgement message is received before the timeout value, the AOU_CORE asserts INT_AOU_REQ_LINKRESET to CPU and SW should do LinkReset sequence. SW can configure timeout value by setting LP_LINKRESET.ACK_TIME_OUT_VALUE.
+#### 6.6.2 Bringup Sequence
 
-- **Invalid ACTMSG**
-  If an ACTMSG that is not permitted in the current Activation state is received, AOU_CORE will treat it as a protocol violation and assert INT_AOU_REQ_LINKRESET. In AOU specification, each activation state defines allowable ACTMSG opcodes. Any ACTMSG outside this will trigger INT_AOU_REQ_LINKRESET in the next cycle. SW can debug Invalid OPCODE of ACTMSG and should do LinkReset sequence.
+The normal (happy-path) bringup from cold reset proceeds as follows:
 
-- **ActivateAck to MSGCREDIT timeout error**
-  MSGCREDIT should send to the remote die indicating how many resource planes the local die has. If local die does not receive MSGCREDIT within the configured timeout, local die may report msgcredit error.  SW should do a LinkReset sequence. SW can configure timeout value by setting LP_LINKRESET.MSGCREDIT_TIME_OUT_VALUE.
+```mermaid
+sequenceDiagram
+    participant LP as LP (AOU_FDI_BRINGUP_CTRL)
+    participant PL as PL (D2D Adapter)
 
-### 7.3. R/B response error debug feature
+    Note over LP: ST_RESET
+    LP->>LP: Wait for pl_state_sts == RESET
+    PL->>LP: pl_inband_pres = 1
+    Note over LP: ST_WAIT_PRESENCE
+    LP->>LP: Wait for activate trigger or pl_clk_req
+    Note over LP: ST_WAKE_ASSERT
+    LP->>PL: lp_wake_req = 1
+    Note over LP: ST_WAKE_WAIT_ACK
+    PL->>LP: pl_wake_ack = 1
+    Note over LP: ST_REQ_ACTIVE
+    LP->>PL: lp_state_req = ACTIVE
+    PL->>LP: pl_state_sts = ACTIVE
+    PL->>LP: pl_rx_active_req = 1
+    LP->>PL: lp_rx_active_sts = 1
+    Note over LP: ST_ACTIVE
+    LP->>LP: O_INT_FSM_IN_ACTIVE = 1 → protocol activation begins
+```
 
-When AOU_CORE receives AXI R/B response error from master interface, it internally stores
-the AXI ID, Address, Resp in a dedicated FIFO. After Remote die receive AXI response error, it
-can access this error information by AXI read. Error information is stored up to 4 entries.
+The steps in detail:
 
-Unlike normal AXI transactions, accessing the error information requires an explicit enable
-and a dedicated address. First, set DEBUG_UPPER_ADDR and DEBUG_LOWER_ADDR to
-define the target address and set ERROR_INFO_ACCESS_EN to 1 to enable access. When an
-AXI read is issued to the address, the remote die can read out the corresponding error
-information. Remote die can write 1 to the dedicated address to pop the debug information.
+1. **RESET**: After hardware reset, the FSM waits for PL to report
+   `pl_state_sts = RESET` and assert `pl_inband_pres` (remote die
+   detected).
 
-### 7.4. WRITE_EARLY_RESPONSE
+2. **WAIT_PRESENCE**: Remote die is present. The FSM asserts
+   `lp_rx_active_sts` (if PL requests it) and waits for an activation
+   trigger. The trigger can be:
+   - `I_SW_ACTIVATE_START` (top-level port)
+   - `I_INT_ACTIVATE_START` (from the core's activation controller)
+   - `I_PL_CLK_REQ` (PL-initiated clock request)
 
-The error is generated when Write Early Response is enabled and a BRESP error arrives for a
-previously sent early response. When a BRESP error occurs, an interrupt is issued and SW can
-check the BRESP AXI ID and error type by reading SFR and clear the error.
+3. **WAKE_ASSERT / WAKE_WAIT_ACK**: The LP-initiated wake handshake.
+   `lp_wake_req` is asserted and the FSM waits for `pl_wake_ack`.
 
-## 8 Verification Testbench
+4. **REQ_ACTIVE**: Wake handshake complete. The FSM drives
+   `lp_state_req = ACTIVE` and waits for both `pl_state_sts = ACTIVE`
+   and `pl_rx_active_req = 1`.
+
+5. **ACTIVE**: The FDI link is up. `O_FDI_LINK_UP` and
+   `O_INT_FSM_IN_ACTIVE` are asserted. Protocol-level activation
+   ([Section 6](#6-activation-flow)) can now proceed.
+
+#### 6.6.3 Supported State Transitions
+
+| From | To | Trigger |
+| :---- | :---- | :---- |
+| ACTIVE | LINKERROR | `pl_state_sts = LinkError`, `I_AOU_REQ_LINKRESET`, or `I_SW_LINKERROR_INJECT` |
+| ACTIVE | RETRAIN | `pl_state_sts = Retrain` or `I_SW_RETRAIN_REQ` |
+| ACTIVE | DEACTIVATE | Deactivate request AND `AOU_ACTIVATE_ST_DISABLED` |
+| ACTIVE | L1 | `pl_state_sts = L1` (PL-initiated only) |
+| LINKERROR | RESET | `pl_state_sts = RESET` |
+| RETRAIN | ACTIVE | `pl_state_sts = ACTIVE` |
+| RETRAIN | LINKERROR | `pl_state_sts = LinkError` |
+| DEACTIVATE | UNWAKE_WAIT | Unconditional (1 cycle) |
+| UNWAKE_WAIT | RESET | `pl_wake_ack = 0` AND `pl_state_sts = RESET` |
+| L1 | L1_CLK_WAKE | `pl_clk_req = 1` |
+| L1 | WAKE_ASSERT | Activate request |
+| L1_CLK_WAKE | WAKE_ASSERT | Unconditional (1 cycle, asserts `lp_clk_ack`) |
+
+#### 6.6.4 PHY Type Mux
+
+`AOU_TOP` includes a PHY-type multiplexer controlled by `I_PHY_TYPE`:
+
+| I_PHY_TYPE | PHY width | `pl_state_sts` source | `pl_stallreq` source |
+| :---- | :---- | :---- | :---- |
+| 0 | 32B (256-bit) | `I_FDI_PL_32B_STATE_STS` | `I_FDI_PL_32B_STALLREQ` |
+| 1 | 64B (512-bit) | `I_FDI_PL_64B_STATE_STS` | `I_FDI_PL_64B_STALLREQ` |
+
+The muxed `pl_state_sts` and `pl_stallreq` are routed to the bringup
+controller. FDI datapath signals (data, valid, trdy, etc.) pass through
+to `AOU_CORE_TOP` unchanged -- the core's `AOU_TX_FDI_IF` and
+`AOU_RX_FDI_IF` handle PHY-width-specific data path switching
+internally.
+
+#### 6.6.5 Software Bringup Control
+
+The `I_SW_ACTIVATE_START` and `I_SW_DEACTIVATE_START` ports on
+`AOU_TOP` are **not SFR-mapped**. They are top-level pins that must be
+driven by external logic (e.g. a system controller or GPIO). The bringup
+FSM ORs `I_SW_ACTIVATE_START` with the core's internal
+`INT_ACTIVATE_START` to form the combined activation trigger.
+
+> **Note (GAP-15):** The SFR register at address 0x8 bit[0]
+> (`activate_start`) feeds the protocol-level activation controller, not
+> the FDI bringup FSM. Writing this bit has no effect until the FDI link
+> is already in the ACTIVE state. To trigger cold-start FDI bringup via
+> software, assert `I_SW_ACTIVATE_START` on the `AOU_TOP` port or
+> arrange for PL to drive `pl_clk_req`.
+
+#### 6.6.6 Known Limitations
+
+The current implementation covers the core FDI bringup happy path. The
+following limitations apply (see `RTL/fdi-bringup-todo.md` for the full
+gap analysis):
+
+| ID | Description |
+| :---- | :---- |
+| GAP-1 | No wake handshake timeout. If `pl_wake_ack` never arrives, the FSM hangs in ST_WAKE_WAIT_ACK indefinitely. |
+| GAP-3 | L2 (deep low-power) state is not implemented. |
+| GAP-4 | Disabled state is not implemented. |
+| GAP-9 | LP-initiated L1 entry is not supported (L1 entry is PL-initiated only). |
+| GAP-15 | SFR `activate_start` (0x8 bit[0]) is disconnected from the FDI bringup FSM. |
+
+## 7 Verification Testbench
 
 A sample testbench (`VERIF/aou_tb.sv`) is provided that instantiates two AOU_CORE_TOP modules connected back-to-back via their 64B FDI interfaces, along with open-source AMBA AXI verification IP and a protocol-aware FDI flit decoder. The two DUT instances use different AXI data widths (512b and 256b) to exercise the interoperability path.  Refer to the README.md in the VERIF directory for additional information.
 
-### 8.1 Architecture
+### 7.1 Architecture
 
 ```
                         AXI SI                          AXI MI
@@ -629,7 +892,7 @@ The data flow for a write transaction initiated on `u_dut1`'s AXI slave interfac
 
 The reverse direction (initiated from `u_dut2` SI to `u_dut1` MI) operates symmetrically.
 
-### 8.2 Components
+### 7.2 Components
 
 | Component | Instance | Description |
 | :---- | :---- | :---- |
@@ -656,7 +919,7 @@ Key testbench parameters:
 | AXI_ADDR_WIDTH | 64 | AXI address width. |
 | AXI_ID_WIDTH | 10 | AXI ID width. |
 
-### 8.3 Running the Testbench
+### 7.3 Running the Testbench
 
 A VCS compile-and-run script is provided at `VERIF/run_vcs.sh`. From the `VERIF` directory:
 
@@ -666,11 +929,11 @@ A VCS compile-and-run script is provided at `VERIF/run_vcs.sh`. From the `VERIF`
 
 The script compiles all sources listed in `VERIF/aou_tb.f`, enables AXI and FDI transaction logging (`+define+AXI_LOG`), and runs the simulation. Any data integrity failures are reported by the `axi_scoreboard` as `$warning` or `$error` messages in the simulation log.
 
-## 9. IP Integration Collateral
+## 8. IP Integration Collateral
 
 Machine-readable integration collateral is generated from the SystemRDL register source (`csr/aou-core.rdl`) using PeakRDL.  This section describes the available outputs, the single-source workflow, and regeneration instructions.
 
-### 9.1 Generated Outputs (Phase 1)
+### 8.1 Generated Outputs (Phase 1)
 
 | Output | Path | Audience |
 | :--- | :--- | :--- |
@@ -680,7 +943,7 @@ Machine-readable integration collateral is generated from the SystemRDL register
 | UVM register model | `VERIF/aou_core_csr_uvm_pkg.sv` | Verification (UVM `uvm_reg_block` package) |
 | Markdown register docs | `DOC/csr/aou-core-csrs.md` | Quick reference (also linked from [Section 4.1](#41-register-map)) |
 
-### 9.2 Single Source of Truth
+### 8.2 Single Source of Truth
 
 All register information lives in the SystemRDL source file `csr/aou-core.rdl`.  Every output listed above is derived from this single file -- there is no separate register spreadsheet or hand-maintained IP-XACT register map.
 
@@ -694,7 +957,7 @@ csr/aou-core.rdl  ──(peakrdl)──>  IP-XACT register map   (INTEG/ipxact/g
 
 To modify register definitions (addresses, field widths, access types, reset values, descriptions), edit `csr/aou-core.rdl` and regenerate.  IMPORTANT: RTL is not generated from RDL so any modification to RDL files will not be reflected in the design.
 
-### 9.3 Regeneration
+### 8.3 Regeneration
 
 From the repository root, activate the Python virtual environment and run the generation script:
 
@@ -713,13 +976,13 @@ python3 scripts/validate_ipxact.py INTEG/ipxact/gen/aou_core_regmap.xml
 
 See [DOC/csr/README.md](../csr/README.md) for a description of each output file and the top-level [README.md](../../README.md) for virtual-environment setup.
 
-### 9.4 Planned: Full IP-XACT Component (Phase 2)
+### 8.4 Planned: Full IP-XACT Component (Phase 2)
 
 The Phase 1 IP-XACT output contains the `<memoryMaps>` element only (registers, fields, access types, reset values).  A full IP-XACT component -- including `<busInterfaces>` (ARM AMBA AXI4 and APB3), `<ports>`, and `<model>` parameters -- is planned for a later phase.
 
 This is deferred because `AOU_CORE_TOP.sv` uses SystemVerilog 2D packed arrays for its per-RP AXI ports (e.g., `[RP_COUNT-1:0][AXI_ID_WD-1:0]`), which have no clean single-dimension representation in IP-XACT.  Once a wrapper module (`AOU_CORE_TOP_WRAP`) is created that flattens these into individual per-RP port signals, the full IP-XACT component will be generated by merging the PeakRDL register map into a hand-authored component template via `scripts/merge_ipxact.py`.
 
-### 9.5 Timing Constraints (SDC)
+### 8.5 Timing Constraints (SDC)
 
 Constraint files are located in `INTEG/constraints/`.
 
@@ -730,7 +993,7 @@ Constraint files are located in `INTEG/constraints/`.
 
 The SDC file defines timing constraints for synthesis and STA. All delay budget variables are declared at the top of the file and can be overridden by the integrating project.
 
-#### 9.5.1 Clock Definitions
+#### 8.5.1 Clock Definitions
 
 | Clock | Port | Frequency | Period |
 |-------|------|-----------|--------|
@@ -739,7 +1002,7 @@ The SDC file defines timing constraints for synthesis and STA. All delay budget 
 
 Both resets (`I_RESETN`, `I_PRESETN`) are constrained with `set_false_path` and should be synchronised externally or by the integrating design. The DFT scan-mode pin (`TIEL_DFT_MODESCAN`) is held at 0 via `set_case_analysis` in functional mode.
 
-#### 9.5.2 I/O Delay Budgeting Strategy
+#### 8.5.2 I/O Delay Budgeting Strategy
 
 Two budgeting categories are used, based on whether the path between the I/O port and the nearest internal flop is combinational or registered:
 
@@ -759,15 +1022,15 @@ Two budgeting categories are used, based on whether the path between the I/O por
 - **FDI RX inputs**: Combinational -- data/valid pass through an input mux. `FLIT_CANCEL` drives both sequential and combinational logic.
 - **Interrupt/control signals**: Combinational.
 
-#### 9.5.3 Clock Domain Crossings
+#### 8.5.3 Clock Domain Crossings
 
 The only CDC in AOU_CORE_TOP is between `clk_core` and `clk_apb`, handled by the `ASYNC_APB_BRIDGE` module which uses `AOU_SOC_SYNCHSR` (2-flop) synchronisers. The SDC uses `set_clock_groups -asynchronous` to exclude cross-domain paths from STA.
 
-### 9.6 UPF Power Intent
+### 8.6 UPF Power Intent
 
 The current UPF defines a single always-on power domain (`PD_AOU_TOP`) covering the entire `AOU_CORE_TOP` scope with a `VDD`/`VSS` supply pair. No isolation, retention, or level-shifting strategies are required at this time. When power domains are introduced in the future, the UPF should be extended with `create_power_domain` for each switchable domain, along with appropriate isolation and retention strategies.
 
-### 9.7 Library Cell Replacement
+### 8.7 Library Cell Replacement
 
 The `RTL/LIB/` directory contains three behavioral reference models that are used by the design for reset infrastructure and clock-domain crossing. These models are functionally correct for simulation but **must be replaced** with process-appropriate implementations before synthesis or tapeout.
 
@@ -789,3 +1052,36 @@ The `RTL/LIB/` directory contains three behavioral reference models that are use
 - `AOU_SOC_GFMUX_LVT` is on the reset mux path and must be replaced with a glitch-free clock/reset mux cell to avoid glitches during reset switching.
 - `AOU_SOC_BUF` is on the DFT scan-reset path. Replace with a buffer cell that will be preserved through synthesis optimisation (typically via a `dont_touch` or equivalent attribute).
 - The behavioral models can serve as a golden reference for verifying functional equivalence of the replacements.
+
+#### 8.7.1 Scan-Friendly Cell Requirements
+
+Beyond functional correctness, each replacement cell must be compatible with ATPG scan insertion and pattern generation. The behavioral models have no scan awareness; the replacements must address this.
+
+**`AOU_SOC_SYNCHSR` -- Scan-safe synchronizer**
+
+Standard multi-flop synchronizers cause X-propagation during scan shift because the asynchronous input crossing from the other clock domain is not controllable by the ATPG tool. The replacement synchronizer must be **scan-safe** via one of the following approaches:
+
+1. **Built-in scan bypass mux** (preferred): The synchronizer cell includes a scan-mode mux that bypasses the asynchronous first-stage flop during shift. The ATPG tool holds the bypass active during shift and restores normal operation for capture. This is the standard approach used by foundry-provided synchronizer cells (e.g., `SDFF`-based sync cells with a scan-enable input).
+2. **ATPG tool constraint**: If the replacement cell does not have a built-in bypass, the integrator must declare it as a synchronizer in the ATPG tool so the tool forces the input to a known value during shift (e.g., Synopsys `set_dft_signal -type constant` on the synchronizer input).
+
+Foundry-provided synchronizer cells are strongly preferred because they are pre-characterized for both metastability MTBF and scan testability.
+
+**`AOU_SOC_GFMUX_LVT` -- Clock/reset mux recognition**
+
+This cell sits on the scan-mode reset mux path (see [Section 3.13.1](#3131-tiel_dft_modescan-usage)). The replacement must be recognized by the ATPG tool as a **clock or reset mux cell**, not a generic data mux. If the tool treats it as a regular mux, it may toggle `I_SEL` during scan patterns, causing reset glitches that corrupt shift-register state and invalidate test patterns.
+
+The integrator should:
+
+- Use a process library cell explicitly categorized as a clock/reset mux (e.g., a cell from the library's ICG or clock-mux family).
+- Apply the appropriate DFT tool attribute to prevent `I_SEL` toggling during scan. For example, in Synopsys DFT Compiler: `set_dft_signal -view existing_dft -type ScanMux -port u_sw_reset_mux/I_SEL`.
+- Verify in the ATPG tool's DFT rule check that the mux select is classified as a test-mode signal, not a scannable data input.
+
+**`AOU_SOC_BUF` -- Optimization protection**
+
+This buffer drives the tied-low scan-reset bypass value into `u_sw_reset_mux`. Without protection, the synthesis tool will optimize it away (replacing it with a direct tie-off), which may cause the downstream reset mux to be optimized or restructured in ways that break the intended DFT architecture.
+
+The replacement buffer must carry a `dont_touch` or `size_only` attribute (the specific attribute name depends on the synthesis tool) to ensure it survives all optimization passes, including:
+
+- Logic optimization and constant propagation
+- Incremental optimization during place-and-route
+- Post-route optimization

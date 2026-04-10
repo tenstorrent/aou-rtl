@@ -389,10 +389,8 @@ module AOU_FDI_BRINGUP_CTRL (
     //   PL asserts pl_clk_req → LP responds with lp_clk_ack
     //   PL de-asserts pl_clk_req → LP de-asserts lp_clk_ack
     //
-    // lp_clk_ack tracks pl_clk_req, gated by FSM state. It is
-    // asserted when the LP can provide/sustain the clock (any state
-    // where the link is up or waking). Suppressed in RESET and
-    // LINKERROR where the LP cannot guarantee a clock.
+    // lp_clk_ack unconditionally tracks pl_clk_req regardless of
+    // FSM state (state-gated suppression was removed).
     // ================================================================
     logic r_clk_ack;
 
@@ -400,11 +398,7 @@ module AOU_FDI_BRINGUP_CTRL (
         if (!I_RESETN) begin
             r_clk_ack <= 1'b0;
         end else begin
-            case (w_nxt_st)
-                ST_RESET,
-                ST_LINKERROR:    r_clk_ack <= 1'b0;
-                default:         r_clk_ack <= I_PL_CLK_REQ;
-            endcase
+            r_clk_ack <= I_PL_CLK_REQ;
         end
     end
 
