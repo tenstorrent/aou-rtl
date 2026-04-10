@@ -224,7 +224,7 @@ import packet_def_pkg::*;
     output logic                                        O_FDI_LP_64B_STALLACK,
 
     // ================================================================
-    // FDI management interface (to AOU_FDI_BRINGUP_CTRL)
+    // FDI bringup control interface (to AOU_FDI_BRINGUP_CTRL)
     // ================================================================
     input  logic                                        I_PL_INBAND_PRES,
     input  logic                                        I_PL_CLK_REQ,
