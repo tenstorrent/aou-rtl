@@ -23,7 +23,7 @@
   - [3.13 DFT](#313-dft)
     - [3.13.1 TIEL_DFT_MODESCAN Usage](#3131-tiel_dft_modescan-usage)
     - [3.13.2 Integrator DFT Responsibilities](#3132-integrator-dft-responsibilities)
-  - [3.14 FDI Management Interface (AOU_TOP only)](#314-fdi-management-interface-aou_top-only)
+  - [3.14 FDI Bringup Control Interface (AOU_TOP only)](#314-fdi-bringup-control-interface-aou_top-only)
   - [3.15 FDI Bringup Software Control (AOU_TOP only)](#315-fdi-bringup-software-control-aou_top-only)
   - [3.16 FDI Bringup Status (AOU_TOP only)](#316-fdi-bringup-status-aou_top-only)
   - [3.17 AOU_CORE_TOP-only Ports (not on AOU_TOP)](#317-aou_core_top-only-ports-not-on-aou_top)
@@ -86,7 +86,7 @@ matches your system's FDI bringup strategy:
 
 | Option | Module | When to use | FDI bringup | Additional ports |
 | :---- | :---- | :---- | :---- | :---- |
-| A (recommended) | `AOU_TOP` | Turn-key FDI state management is desired | Handled internally by `AOU_FDI_BRINGUP_CTRL` | FDI management, SW bringup control, bringup status |
+| A (recommended) | `AOU_TOP` | Turn-key FDI bringup control is desired | Handled internally by `AOU_FDI_BRINGUP_CTRL` | FDI bringup control, SW bringup control, bringup status |
 | B | `AOU_CORE_TOP` | You have an external UCIe controller or custom FDI state machine | Must be handled externally | `I_INT_FSM_IN_ACTIVE`, `O_AOU_ACTIVATE_ST_*`, `O_AOU_REQ_LINKRESET` |
 
 > **Note:** All AXI, APB, FDI datapath, interrupt, and DFT interfaces
@@ -120,8 +120,8 @@ The bringup controller drives `I_INT_FSM_IN_ACTIVE` into the protocol
 engine internally, so this signal is not exposed as a top-level port on
 `AOU_TOP`. Instead, `AOU_TOP` exposes:
 
-- FDI management ports for the physical layer handshakes
-  ([Section 3.14](#314-fdi-management-interface-aou_top-only))
+- FDI bringup control ports for the physical layer handshakes
+  ([Section 3.14](#314-fdi-bringup-control-interface-aou_top-only))
 - Software bringup control pins
   ([Section 3.15](#315-fdi-bringup-software-control-aou_top-only))
 - Bringup status outputs
@@ -477,10 +477,10 @@ The design provides internal DFT muxing only for the software-controlled reset p
 | **I/O constraints during scan** | AXI and FDI interface ports should be constrained to safe values during scan (via wrapper cells or top-level scan constraints) to prevent unintended activity on external buses. |
 | **CDC synchronizer handling** | The `AOU_SOC_SYNCHSR` instances in the `ASYNC_APB_BRIDGE` require scan-safe treatment. See [Section 8.7](#87-library-cell-replacement) for replacement cell requirements. |
 
-### 3.14 FDI Management Interface (AOU_TOP only)
+### 3.14 FDI Bringup Control Interface (AOU_TOP only)
 
 These signals connect `AOU_TOP` to the D2D adapter's physical layer for
-FDI state management. They are not present on `AOU_CORE_TOP`.
+FDI bringup control. They are not present on `AOU_CORE_TOP`.
 
 | Signal | Direction | Width | Description |
 | :---- | :---- | :---- | :---- |
@@ -493,7 +493,7 @@ FDI state management. They are not present on `AOU_CORE_TOP`.
 | O_LP_CLK_ACK | output | 1 | LP acknowledgement of PL clock request. |
 | O_LP_RX_ACTIVE_STS | output | 1 | LP RX active status in response to `I_PL_RX_ACTIVE_REQ`. |
 
-The four handshake pairs correspond to UCIe 3.0 FDI management signals:
+The four handshake pairs correspond to UCIe 3.0 FDI bringup control signals:
 
 | Handshake | LP signal | PL signal | Purpose |
 | :---- | :---- | :---- | :---- |
