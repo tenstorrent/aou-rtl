@@ -20,18 +20,38 @@ Version 1.00, Feb.27 2026
   - [3.3. RX_CORE](#33-rx_core)
   - [3.4. Message FIFO](#34-message-fifo)
   - [3.5. Data width converter](#35-data-width-converter)
+    - [3.5.1. Overview](#351-overview)
+    - [3.5.2. Width Adaptation Paths](#352-width-adaptation-paths)
+    - [3.5.3. WLAST Regeneration](#353-wlast-regeneration)
   - [3.6. AXI Transaction Splitter](#36-axi-transaction-splitter)
+    - [3.6.1. Overview](#361-overview)
+    - [3.6.2. Burst Splitting](#362-burst-splitting)
+    - [3.6.3. Response Reassembly](#363-response-reassembly)
+    - [3.6.4. SFR Configuration](#364-sfr-configuration)
   - [3.7. Write Early Response Controller](#37-write-early-response-controller)
     - [3.7.1. Overview](#371-overview)
     - [3.7.2. Transaction Flow -- Normal Case](#372-transaction-flow----normal-case)
     - [3.7.3. Transaction Flow -- Error Case](#373-transaction-flow----error-case)
     - [3.7.4. ID Ordering](#374-id-ordering)
-    - [3.7.5. Enable/Disable Procedure](#375-enabledisable-procedure)
-    - [3.7.6. SFR Fields](#376-sfr-fields)
+    - [3.7.5. Write-Outstanding Queue Backpressure](#375-write-outstanding-queue-backpressure)
+    - [3.7.6. Mixed Ordering -- Bufferable Before Non-Bufferable (Same ID)](#376-mixed-ordering----bufferable-before-non-bufferable-same-id)
+    - [3.7.7. Mixed Ordering -- Non-Bufferable Before Bufferable (Same ID)](#377-mixed-ordering----non-bufferable-before-bufferable-same-id)
+    - [3.7.8. Enable/Disable Procedure](#378-enabledisable-procedure)
+    - [3.7.9. SFR Fields](#379-sfr-fields)
   - [3.8. AXI Aggregator](#38-axi-aggregator)
+    - [3.8.1. Overview](#381-overview)
+    - [3.8.2. Write Aggregation](#382-write-aggregation)
+    - [3.8.3. Read Aggregation](#383-read-aggregation)
+    - [3.8.4. SFR Fields](#384-sfr-fields)
   - [3.9. Credit Controller](#39-credit-controller)
   - [3.10. RP Remapping](#310-rp-remapping)
+    - [3.10.1. Configuration Rules](#3101-configuration-rules)
+    - [3.10.2. Header Encoding](#3102-header-encoding)
+    - [3.10.3. Misconfiguration Behavior](#3103-misconfiguration-behavior)
   - [3.11. UCIe Flit cancel mechanism](#311-ucie-flit-cancel-mechanism)
+    - [3.11.1. Cancel Cases](#3111-cancel-cases)
+    - [3.11.2. RX_FDI_IF Buffering](#3112-rx_fdi_if-buffering)
+    - [3.11.3. Timing](#3113-timing)
 - [4. Interrupt](#4-interrupt)
 - [5. Error](#5-error)
 - [6. Integration guide](#6-integration-guide)
@@ -42,6 +62,11 @@ Version 1.00, Feb.27 2026
 - [7. Software operation guide](#7-software-operation-guide)
   - [7.1. SFR setting](#71-sfr-setting)
   - [7.2. Debugging features](#72-debugging-features)
+    - [7.2.1. Overview](#721-overview)
+    - [7.2.2. AXI ID Mismatch Error](#722-axi-id-mismatch-error)
+    - [7.2.3. LinkReset Error Reporting](#723-linkreset-error-reporting)
+    - [7.2.4. R/B Response Error Debug FIFO](#724-rb-response-error-debug-fifo)
+    - [7.2.5. Write Early Response Error](#725-write-early-response-error)
   - [7.3. Activation & Deactivation Flow](#73-activation--deactivation-flow)
     - [7.3.1. Credit Management Type](#731-credit-management-type)
     - [7.3.2. Activation start](#732-activation-start)
@@ -63,11 +88,12 @@ description of AOU_CORE.
 
 The contents of this document are given as follows. Section 1 is for
 overview. Section 2 is for features, implementation specific features,
-and asumptions. In section 3, the architecture and operation of AoU IP
-are given. Section 4 includes the integration guidelines such as clocks,
-reset, interrupts, errors, and I/O description. Section 5 includes the
-software programming guide including register map. Section 6 includes
-performance, power and area information.
+and assumptions. In Section 3, the architecture and operation of AoU IP
+are given. Section 4 covers interrupt sources. Section 5 covers error
+handling. Section 6 includes the integration guidelines such as clocks,
+resets, and I/O descriptions. Section 7 includes the software operation
+guide including the register map and activation flows. Section 8
+includes performance, power, and area information.
 
 ## 1.1. Overview
 
@@ -411,6 +437,8 @@ is configurable.
 
 ## 3.5. Data width converter
 
+### 3.5.1. Overview
+
 <a id="figure-12"></a>
 ![Figure 12. AXI4MUX_3X1_TOP](./media/image12.png)
 
@@ -419,24 +447,69 @@ is configurable.
 According to the AoU specification, even if the data width differs
 between chips, they must be able to transmit AXI transfers to each
 other. Because the remote die may issue read or write transactions with
-data widths of 256, 512, or 1024bits, the local die is responsible for
+data widths of 256, 512, or 1024 bits, the local die is responsible for
 converting the data to align with its own bus data width. The response
 must then be reformatted to match the original request size before being
 returned.
-Within AOU_CORE_TOP, the AOU_AXI4MUX_3X1_TOP performs this function.
-[Figure 12](#figure-12) shows how the structure of the Bypass, AXI Downsizer, and AXI
-Upsizer varies depending on the AXI data width of the local die.
-The Write Data message field does not contain a WLAST signal, so the
-WLAST_GEN module generates the WLAST signal by aligning the phases of
-the WriteReq and Write Data messages. The DLEN field of the Write Data
-message determines which of the three paths the data is routed through,
-while the ARSIZE field of the Read Request message determines the
-routing path for read transactions.
-Finally, the Read Data and Write Response messages are reformatted
-according to the selected path to match the original request before
-being delivered to the remote die through the TX CORE.
+
+Within AOU_CORE_TOP, the `AOU_AXI4MUX_3X1_TOP` module performs this
+function. [Figure 12](#figure-12) shows how the structure of the
+Bypass, AXI Downsizer, and AXI Upsizer varies depending on the AXI data
+width of the local die.
+
+### 3.5.2. Width Adaptation Paths
+
+Three slave channel slots correspond to three possible remote data
+widths: 256 bits, 512 bits, and 1024 bits. Which slot uses an upsizer,
+bypass, or downsizer depends on the local die's `AXI_DATA_WD` parameter.
+A dedicated variant of the width-adapter module is instantiated for each
+supported local width:
+
+| Local AXI_DATA_WD | Variant instantiated | CH0 (256b remote) | CH1 (512b remote) | CH2 (1024b remote) |
+|----|----|----|----|----|
+| 256 | `AOU_AXI4MUX_3X1_256` | Bypass | Downsizer | Downsizer |
+| 512 | `AOU_AXI4MUX_3X1_512` | Upsizer | Bypass | Downsizer |
+| 1024 | `AOU_AXI4MUX_3X1_1024` | Upsizer | Upsizer | Bypass |
+
+**Write path routing:** The `DLEN` field embedded in the Write Data
+message indicates the original data width. `AOU_AXI4MUX_3X1_TOP` uses
+this field to steer write data and strobes to the correct channel slot
+(and therefore through the correct width adapter).
+
+**Read path routing:** The `ARSIZE` field of the Read Request message
+determines which channel slot handles the read response. The 3:1 mux
+selects the active slave R channel based on a 2-bit selector derived
+from `ARSIZE`.
+
+The upsizer (`AOU_AXI_UP`) packs multiple narrow beats into a single
+wider beat, recalculating `AWLEN`/`ARLEN` accordingly. The downsizer
+(`AOU_AXI_DOWN`) splits a single wide beat into multiple narrower beats.
+Both modules regenerate `WLAST` internally using a beat counter that
+compares the current W beat count against the recalculated burst length.
+
+### 3.5.3. WLAST Regeneration
+
+The AoU Write Data message does not carry a `WLAST` signal. The
+`AOU_AXI_WLAST_GEN` module regenerates `WLAST` by aligning the phases
+of WriteReq and Write Data messages. It operates upstream of the width
+adapters in the RX-to-AXI path within `AOU_CORE_RP`.
+
+The module uses `I_S_WDLENGTH` (derived from the `DLEN` field) to
+determine the number of W beats expected for each AW transaction:
+
+- When `AWLEN == 0` (single-beat burst), `WLAST` is asserted immediately
+  on the first AW/W handshake.
+- For multi-beat bursts, `WLAST` is asserted when the internal remaining
+  beat counter `r_m_awch_remain_beat` reaches 1.
+
+In addition to `AOU_AXI_WLAST_GEN`, the upsizer and downsizer modules
+(`AOU_AXI_UP` and `AOU_AXI_DOWN`) each contain their own WLAST
+generation logic to account for the changed burst length after width
+conversion.
 
 ## 3.6. AXI Transaction Splitter
+
+### 3.6.1. Overview
 
 In the AoU specification, the AXI LEN field is fixed at 8 bits, allowing
 the remote die to issue burst transactions up to the maximum supported
@@ -444,13 +517,83 @@ by an 8-bit AXI LEN. However, because the local die's bus may not
 support the full 8-bit burst length, inbound AXI transactions must be
 split into bursts that the local bus can handle and then reassembled to
 match the original request.
+
 Even if the burst length increases as a result of data-width conversion,
 the AXI transactions are always split to ensure they do not exceed the
 maximum burst length supported by the local bus.
-This maximum burst length can be configured in the
-AOU_SPLIT_TR.MAX_AxBURSTLEN SFR.
-AXI Transaction Splitter exists for each RP, and the maximum burst
-length can be configured differently for each RP.
+
+The splitter (`AOU_AXI_SPLIT_TR`) sits between the 3:1 arbitration mux
+and the [AXI Aggregator](#38-axi-aggregator) inside
+`AOU_AXI4MUX_3X1_TOP`. One instance exists per RP, and the maximum
+burst length can be configured independently for each RP through the
+`AOU_SPLIT_TR_RPn` SFRs.
+
+> **Note:** The `AOU_CON0.AXI_SPLIT_TR_EN` field exists in the SFR but
+> is currently tied to `1'b0` in `AOU_CORE_RP`, making the splitter
+> always active. The enable bit is reserved for future use.
+
+### 3.6.2. Burst Splitting
+
+The splitter uses internal address-generator submodules
+(`aou_axi_split_addrgen_ar` for reads, `aou_axi_split_addrgen_aw` for
+writes) to decompose a single long burst into multiple sub-bursts, each
+no longer than `MAX_AxBURSTLEN + 1` beats. Addresses for each sub-burst
+are computed from the original base address, burst type, and size.
+
+The `MAX_AxBURSTLEN` value must be of the form 2^n - 1. Legal values
+are:
+
+| MAX_AxBURSTLEN | Max beats per sub-burst |
+|----|----|
+| 0 | 1 |
+| 1 | 2 |
+| 3 | 4 |
+| 7 | 8 |
+| 15 | 16 |
+| 31 | 32 |
+| 63 | 64 |
+| 127 | 128 |
+| 255 | 256 (no split) |
+
+**ID width:** The splitter reserves 2 bits from the AXI ID for internal
+sub-burst tracking. Master-side IDs are therefore `ID_WD - 2` bits wide.
+The 2 extra bits allow the splitter to correlate responses from up to 4
+outstanding sub-bursts per original transaction.
+
+### 3.6.3. Response Reassembly
+
+**Read path:** The `aou_split_tr_arch` reorder buffer tracks the
+sub-burst sequence for each outstanding read. Slave-side `RLAST` is
+asserted only when the final beat of the last sub-burst is received,
+reconstructing the original burst boundary. Intermediate `RLAST` signals
+from the master side are consumed internally.
+
+**Write path:** B responses from sub-bursts are merged. The splitter
+tracks outstanding write sub-bursts with `r_wr_pending_cnt` and returns
+a single B response to the slave side once all sub-bursts have
+completed. If any sub-burst returns an error (`|I_M_BRESP_RS`), the
+merged `BRESP_ERR` flag is set, propagating the error to the slave-side
+response.
+
+**ID mismatch detection:** The splitter exports `DEST_TABLE_RID_ERR` and
+`DEST_TABLE_BID_ERR` signals that flag responses with IDs not matching
+any outstanding transaction. These feed the
+[INT_MI0_ID_MISMATCH](#4-interrupt) interrupt source via
+`AOU_AXI4MUX_3X1_TOP`.
+
+### 3.6.4. SFR Configuration
+
+| SFR | Field | Description |
+|----|----|----|
+| `AOU_CON0` | `AXI_SPLIT_TR_EN` | Global enable (reserved, tied inactive in current RTL) |
+| `AOU_SPLIT_TR_RP0` | `MAX_AWBURSTLEN` | Max write burst length for RP0 (must be 2^n - 1) |
+| `AOU_SPLIT_TR_RP0` | `MAX_ARBURSTLEN` | Max read burst length for RP0 (must be 2^n - 1) |
+| `AOU_SPLIT_TR_RP1` | `MAX_AWBURSTLEN` / `MAX_ARBURSTLEN` | Same for RP1 |
+| `AOU_SPLIT_TR_RP2` | `MAX_AWBURSTLEN` / `MAX_ARBURSTLEN` | Same for RP2 |
+| `AOU_SPLIT_TR_RP3` | `MAX_AWBURSTLEN` / `MAX_ARBURSTLEN` | Same for RP3 |
+
+These SFRs must be configured before activation and must not be changed
+during normal operation.
 
 ## 3.7. Write Early Response Controller
 
@@ -749,30 +892,103 @@ See the full register map in Section 7.1 for the complete SFR listing.
 
 ## 3.8. AXI Aggregator
 
-AXI aggregator combines narrow read & write data and send it to BUS. AXI
-aggregator is added to improve BUS efficiency. This functionality may
-modify AXI Len & Size.
-For example, for the read aggregator, an incoming AR with size 256-bit
-and burst length 16 is converted to size 1024-bit and burst length 4,
-then issued on the AXI manager interface (AR). When R data returns to the
-aggregator, it is split to restore the original format.
-For the write aggregator, an incoming AW with size 256-bit and burst
-length 16 is converted to size 1024-bit and burst length 4 and sent on
-the AXI manager interface (AW/W). The aggregator then forwards the
-received B response.
-This operation can be controlled via SFR setting.
+### 3.8.1. Overview
 
-AXI aggregator exists for each RP, and it can be configured differently
-for each RP through SFR to turn it on or off.
+The AXI Aggregator (`AOU_AGGREGATOR`) combines narrow read and write
+data into full-width bus beats to improve bus utilization. It sits
+downstream of the
+[AXI Transaction Splitter](#36-axi-transaction-splitter) and is the
+last processing stage before the AXI manager port inside
+`AOU_AXI4MUX_3X1_TOP`. One instance exists per RP.
+
+When enabled, the aggregator promotes `AWSIZE`/`ARSIZE` to the full bus
+width and recalculates `AWLEN`/`ARLEN` accordingly. For example, an
+incoming AR with size 256 bits and burst length 16 is converted to size
+1024 bits and burst length 4, then issued on the AXI manager interface.
+When R data returns, it is split to restore the original format. The
+same principle applies to writes.
+
+When disabled via the per-RP `AOU_CON0.RPn_AXI_AGGREGATOR_EN` SFR, all
+master-side signals bypass the aggregator entirely and flow directly to
+the AXI manager port without modification.
+
+### 3.8.2. Write Aggregation
+
+Write aggregation is activated when **both** conditions are met:
+
+1. `AWSIZE` is narrower than the full bus width (`AXSIZE < $clog2(DATA_WD/8)`).
+2. `AWLEN` is non-zero (multi-beat burst).
+
+When activated, the aggregator:
+
+- Promotes `AWSIZE` to the full bus width.
+- Recalculates `AWLEN` based on the ratio between original and promoted
+  sizes.
+- OR-merges `WDATA` and `WSTRB` across consecutive narrow beats until a
+  full-width beat is assembled, then emits the merged beat on the master
+  W channel.
+- `AWBURST` is passed through unchanged.
+
+A depth-16 synchronous FIFO decouples the AW and W channels. The AW
+is issued on the master side only after confirming that sufficient W
+FIFO space is available for the recalculated `AWLEN`, preventing
+deadlocks when the downstream bus back-pressures the W channel.
+
+```mermaid
+sequenceDiagram
+    participant S as Splitter Output
+    participant AGG as Aggregator
+    participant M as AXI Manager
+
+    S->>AGG: AW (AWSIZE=256b, AWLEN=15)
+    Note over AGG: Promote AWSIZE=1024b, AWLEN=3
+    S->>AGG: W beat 0 (256b)
+    S->>AGG: W beat 1 (256b)
+    S->>AGG: W beat 2 (256b)
+    S->>AGG: W beat 3 (256b, OR-merge complete)
+    AGG->>M: AW (AWSIZE=1024b, AWLEN=3)
+    AGG->>M: W beat 0 (1024b merged)
+    Note over AGG: Repeat for remaining 3 merged beats
+    M-->>AGG: B response
+    AGG-->>S: B response (forwarded)
+```
+
+*Figure 13. Write Aggregation -- Narrow-to-Wide Beat Merging*
+
+### 3.8.3. Read Aggregation
+
+Read aggregation follows the same size-promotion logic as writes.
+`ARSIZE` and `ARLEN` are promoted to the full bus width, and `ARBURST`
+is passed through (the aggregator does not restrict burst type to INCR).
+
+The `AOU_AGGREGATOR_INFO` submodule tracks outstanding AR transactions.
+For each issued AR, it records the original burst geometry (size, length)
+so that when wide R data returns from the manager side, the module can
+regenerate the correct slave-side `RLAST` at the original burst
+boundaries. Wide R beats are presented to the slave side multiple times
+(once per original narrow beat) with the appropriate byte-lane
+selection.
+
+### 3.8.4. SFR Fields
+
+| SFR | Field | Bits | Description |
+|----|----|----|----|
+| `AOU_CON0` | `RP0_AXI_AGGREGATOR_EN` | [20] | Enable aggregator for RP0 |
+| `AOU_CON0` | `RP1_AXI_AGGREGATOR_EN` | [21] | Enable aggregator for RP1 |
+| `AOU_CON0` | `RP2_AXI_AGGREGATOR_EN` | [22] | Enable aggregator for RP2 |
+| `AOU_CON0` | `RP3_AXI_AGGREGATOR_EN` | [23] | Enable aggregator for RP3 |
+
+These fields must be configured before activation and must not be
+changed during normal operation.
 
 ## 3.9. Credit Controller
 
-<a id="figure-13"></a>
-![Figure 13. Block Diagram of AOU_CRD_CTRL](./media/image13.png)
+<a id="figure-14"></a>
+![Figure 14. Block Diagram of AOU_CRD_CTRL](./media/image13.png)
 
-*Figure 13. Block Diagram of AOU_CRD_CTRL*
+*Figure 14. Block Diagram of AOU_CRD_CTRL*
 
-[Figure 13](#figure-13) shows the simplified block diagram of AOU_CRD_CTRL. The Credit
+[Figure 14](#figure-14) shows the simplified block diagram of AOU_CRD_CTRL. The Credit
 Controller manages both the credits granted to the remote die and the
 credits received from the remote die. It considers the credit consumed
 when the TX CORE packs an AXI message into the ring buffer, and
@@ -822,14 +1038,14 @@ received. Separate FIFOs are provided for data and for strobe, each with
 the same FIFO depth. Each FIFO entry is 256 bits wide for DATA and 32
 bits wide for STRB, ensuring efficient utilization of the FIFO.
 Accordingly, 512-bit width data occupies two entries, while 1024-bit
-width data occupies four entries. As illustrated in [Figure 13](#figure-13), for
+width data occupies four entries. As illustrated in [Figure 14](#figure-14), for
 non-Writefull message types, WDATA is stored in the DATA FIFO and WSTRB
 is stored in the STRB FIFO.
 
-<a id="figure-14"></a>
-![Figure 14. Example of WDATA and WSTRB FIFO Operation](./media/image14.png)
+<a id="figure-15"></a>
+![Figure 15. Example of WDATA and WSTRB FIFO Operation](./media/image14.png)
 
-*Figure 14. Example of WDATA and WSTRB FIFO Operation*
+*Figure 15. Example of WDATA and WSTRB FIFO Operation*
 
 ```
 Occupying Data entry per message = WDATA Width / DATA FIFO Width
@@ -868,10 +1084,10 @@ when sending is determined by the AXI_DATA_WD of the local die. For
 example, if AXI_DATA_WD is 512, the AR will request RDATA of 512 bits or
 less, and the received RDATA will therefore be 512 or 256 bits wide.
 
-<a id="figure-15"></a>
-![Figure 15. Example of RDATA FIFO Operation](./media/image15.png)
+<a id="figure-16"></a>
+![Figure 16. Example of RDATA FIFO Operation](./media/image15.png)
 
-*Figure 15. Example of RDATA FIFO Operation*
+*Figure 16. Example of RDATA FIFO Operation*
 
 <a id="table-3"></a>
 | RDATA Width | Granule size | Occupying entry (RDATA width / FIFO width) | Granules per FIFO entry (Granule size / Occupying entry) |
@@ -964,60 +1180,134 @@ Timing**
 
 ## 3.10. RP Remapping
 
-The Resource Plane(RP) operates based on the smaller RP count between
+### 3.10.1. Configuration Rules
+
+The Resource Plane (RP) operates based on the smaller RP count between
 the local and remote dies and follows a strict one-to-one mapping. RP
 assignments are configured through the **DEST_RP** SFR. The values of
-RP3_DEST, RP2_DEST, RP1_DEST, and RP0_DEST must be unique, and for any
-RP that is utilized, the configuration on the local and remote dies must
-be symmetrical. For AXI messages, the Tx Core encodes the destination
-RP, while for credit grants, it encodes its own RP. These rules apply
-even when the local and remote dies are configured with different
-numbers of RPs. This configuration must remain static and must not be
-altered during normal operation.
+`RP3_DEST`, `RP2_DEST`, `RP1_DEST`, and `RP0_DEST` must be unique, and
+for any RP that is utilized, the configuration on the local and remote
+dies must be symmetrical.
 
-<a id="figure-16"></a>
-![Figure 16. Resource Plane Remapping](./media/image16.png)
+This configuration must remain static and must be programmed before
+activation. It must not be altered during normal operation.
 
-*Figure 16. Resource Plane Remapping*
+When the local and remote dies have different `RP_COUNT` values, the
+effective RP count is the smaller of the two. Unused RP slots in the
+`DEST_RP` register are functionally don't-care but should be set to
+non-overlapping values for clean credit routing (see
+[Section 3.10.3](#3103-misconfiguration-behavior)).
+
+<a id="figure-17"></a>
+![Figure 17. Resource Plane Remapping](./media/image16.png)
+
+*Figure 17. Resource Plane Remapping*
+
+### 3.10.2. Header Encoding
+
+For AXI messages (WriteReq, WriteData, ReadReq), the TX path
+(`AOU_TX_AXI_BUFFER`) embeds the `DEST_RP` field from the SFR into the
+destination RP field of every outgoing message header. The remote die
+uses this field to route the received message to the correct RP for
+processing.
+
+For credit grant messages, `AOU_TX_CRD_CTRL` encodes the *local* RP
+index (not the `DEST_RP` value) so that the remote die can route
+returned credits to the correct local RP's credit counter. This
+asymmetry -- destination RP in data messages, source RP in credit
+messages -- is fundamental to the RP remapping scheme.
+
+### 3.10.3. Misconfiguration Behavior
+
+No hardware duplicate-detection logic exists for the `DEST_RP` register.
+If `DEST_RP` values are configured with overlapping (duplicate) entries,
+the credit routing logic in `AOU_TX_CRD_CTRL` -- which uses a
+`unique case` statement on `I_RP_DEST_RP[i]` -- will fall through to the
+`default` case, mapping to the RP0 credit view. This results in silent
+credit accounting errors rather than a flagged interrupt or error
+condition.
+
+Software is responsible for ensuring uniqueness and symmetry of the
+`DEST_RP` configuration on both link partners before initiating
+activation.
 
 ## 3.11. UCIe Flit cancel mechanism
 
-AOU_CORE supports all of UCIe flit cancel mechanisms.
-
-<a id="figure-17"></a>
-![Figure 17. UCIe Flit Cancel - Retransmit case](./media/image17.png)
-
-*Figure 17. UCIe Flit Cancel - Retransmit case*
+AOU_CORE supports all UCIe flit cancel mechanisms. The three cases --
+retransmit, flit partially valid, and full flit cancel -- are handled by
+the `AOU_RX_FDI_IF` submodule within RX_CORE.
 
 <a id="figure-18"></a>
-![Figure 18. UCIe Flit Cancel - Flit Partially Valid case](./media/image18.png)
+![Figure 18. UCIe Flit Cancel - Retransmit case](./media/image17.png)
 
-*Figure 18. UCIe Flit Cancel - Flit Partially Valid case*
+*Figure 18. UCIe Flit Cancel - Retransmit case*
 
 <a id="figure-19"></a>
-![Figure 19. UCIe Flit Cancel - Full Flit Cancel case](./media/image19.png)
+![Figure 19. UCIe Flit Cancel - Flit Partially Valid case](./media/image18.png)
 
-*Figure 19. UCIe Flit Cancel - Full Flit Cancel case*
-
-The RX_FDI_IF submodule within RX_CORE temporarily stores each incoming
-chunk and forwards only the valid data that has not been canceled by
-flit cancel to RX_CORE.
-
-As a result, RX_CORE performs message decoding exclusively with valid
-chunks.
-
-The figure below illustrates an example of how only valid chunk data is
-delivered to RX_CORE.
-
-Within the design, pl_data, pl_valid, and pl_flit_cancel are defined as
-part of the FDI interface. In contrast, rx_chunk_data and
-rx_chunk_data_valid represent the signals responsible for delivering
-valid chunks to RX_CORE.
+*Figure 19. UCIe Flit Cancel - Flit Partially Valid case*
 
 <a id="figure-20"></a>
-![Figure 20. Example of selecting valid chunks for RX_CORE](./media/image20.png)
+![Figure 20. UCIe Flit Cancel - Full Flit Cancel case](./media/image19.png)
 
-*Figure 20. Example of selecting valid chunks for RX_CORE*
+*Figure 20. UCIe Flit Cancel - Full Flit Cancel case*
+
+### 3.11.1. Cancel Cases
+
+The `AOU_RX_FDI_IF` module uses the FDI `pl_valid` and `pl_flit_cancel`
+signals to determine how to handle each incoming chunk. Three cases are
+distinguished:
+
+| `pl_valid` | `pl_flit_cancel` | Action |
+|----|----|----|
+| 1 | 0 | **Normal**: Phase counter increments. Chunk is stored in the staging buffer. |
+| 1 | 1 | **Retransmit / Partial Valid**: Phase counter decrements by 1. The staging buffer is re-aligned with `{zero_data, pl_data}` and a valid pattern of `{1'b0, 1'b1}`, replacing the previously stored partial chunk with the corrected data. |
+| 0 | 1 | **Full Flit Cancel**: Phase counter decrements by 2. Staging buffer entries are cleared. This is the strongest rollback, discarding the entire in-progress half-flit. |
+
+### 3.11.2. RX_FDI_IF Buffering
+
+The `AOU_RX_FDI_IF` module maintains a staging buffer (`r_data`) that
+is `HF_PHASE_CNT` entries deep, where `HF_PHASE_CNT = PHASE_CNT / 2`.
+For the default 512-bit FDI data width, `PHASE_CNT = 4` and
+`HF_PHASE_CNT = 2`, so the staging buffer holds 2 chunk entries -- one
+half-flit of data.
+
+A parallel valid array (`r_data_valid`) tracks which staging buffer
+entries contain valid chunk data. The output to RX_CORE is gated:
+
+```
+rx_chunk_data_valid = r_data_valid[1] && !pl_flit_cancel
+```
+
+This ensures that chunk presentation is suppressed whenever
+`pl_flit_cancel` is asserted, even if valid data exists in the staging
+buffer. Downstream, `AOU_RX_CORE` advances its phase counter
+(`r_aou_rx_phase`) only when `rx_chunk_data_valid` is high, so
+cancel-suppressed cycles stall the RX phase progression without data
+loss.
+
+### 3.11.3. Timing
+
+Cancel handling is purely combinational on the same clock edge as the
+FDI input signals. No additional pipeline stages are introduced beyond
+the 2-entry staging buffer and the phase FSM. The latency from FDI
+input to valid chunk presentation at RX_CORE is therefore determined
+solely by the half-flit fill time under normal operation.
+
+> **Note:** The `flit_packing_state` counter (a TX-side concept in
+> `AOU_TX_CORE`) is unrelated to RX cancel handling. RX cancel operates
+> entirely within `AOU_RX_FDI_IF` using the phase counter `r_phase`.
+
+The figures below illustrate an example of how only valid chunk data is
+delivered to RX_CORE. Within the design, `pl_data`, `pl_valid`, and
+`pl_flit_cancel` are defined as part of the FDI interface. In contrast,
+`rx_chunk_data` and `rx_chunk_data_valid` represent the signals
+responsible for delivering valid chunks to RX_CORE.
+
+<a id="figure-21"></a>
+![Figure 21. Example of selecting valid chunks for RX_CORE](./media/image20.png)
+
+*Figure 21. Example of selecting valid chunks for RX_CORE*
 
 # 4. Interrupt
 
@@ -1038,52 +1328,64 @@ valid chunks to RX_CORE.
 An interrupt that occurs when activation of the AoU Protocol layer is
 required. The interrupt can be cleared by writing '1' to the
 AOU_CORE.AOU_INIT.INT_ACTIVATE_START SFR.
-For details, please refer to the Interrupt description in Section 7.3
-"Activation & Deactivation Flow".
+For details, please refer to the Interrupt description in
+[Section 7.3](#73-activation--deactivation-flow) "Activation &
+Deactivation Flow".
 
 - **INT_DEACTIVATE_START**
 
 An interrupt that occurs when deactivation of the AoU Protocol layer is
 required. The interrupt can be cleared by writing '1' to the
 AOU_CORE.AOU_INIT.INT_DEACTIVATE_START SFR.
-For details, please refer to the Interrupt description in Section 3.10
-"Activation & Deactivation Flow".
+For details, please refer to the Interrupt description in
+[Section 7.3](#73-activation--deactivation-flow) "Activation &
+Deactivation Flow".
 
 - **INT_SI0_ID_MISMATCH**
 
 An interrupt that occurs on the AXI Subordinate Interface when a B or R
 channel response is received with an ID that was not previously issued
-as a request.
+as a request. For details on ID mismatch detection, see
+[Section 3.7.4](#374-id-ordering).
 
-SW can check the mismatched AXI ID by reading
-AOU_CORE.AXI_SLV_ID_MISMATCH_ERR SFR. The interrupt can be cleared by
-writing '1' to the AOU_CORE.AXI_SLV_ID_MISMATCH_ERR.SLV_B/RRESP_ERR SFR.
+Software can check the mismatched AXI ID by reading
+`AOU_CORE.AXI_SLV_ID_MISMATCH_ERR` SFR. The interrupt can be cleared by
+writing '1' to
+`AOU_CORE.AXI_SLV_ID_MISMATCH_ERR.SLV_BRESP_ERR` / `SLV_RRESP_ERR`.
 
 - **INT_MI0_ID_MISMATCH**
 
 An interrupt that occurs on the AXI Manager Interface when a B or R
 channel response is received with an ID that was not previously issued
-as a request.
-SW can check the mismatched AXI ID by reading AOU_CORE.ERROR_INFO SFR.
-The interrupt can be cleared by writing '1' to the
-AOU_CORE.ERROR_INFO.SPLIT_B/RID_MISMATCH_ERR SFR.
+as a request. This is detected by the
+[AXI Transaction Splitter](#36-axi-transaction-splitter) destination
+table.
+
+Software can check the mismatched AXI ID by reading
+`AOU_CORE.ERROR_INFO` SFR. The interrupt can be cleared by writing '1'
+to `AOU_CORE.ERROR_INFO.SPLIT_BID_MISMATCH_ERR` /
+`SPLIT_RID_MISMATCH_ERR`.
 
 - **INT_EARLY_RESP_ERR**
 
-An interrupt that occurs when, due to the Write Early Response feature,
-a B response has already been sent through the AXI Subordinate Interface, and
-a subsequent actual B response arrives with an error.
-SW can check the ID and error type of the transaction in which the error
-occured by reading AOU_CORE.WRITE_EARLY_RESPONSE SFR. The interrupt can
-be cleared by writing '1' to the
-AOU_CORE.WRITE_EARLY_RESPONSE.WRITE_RESP_ERR SFR.
+An interrupt that occurs when, due to the
+[Write Early Response](#37-write-early-response-controller) feature, a B
+response has already been sent through the AXI Subordinate Interface,
+and a subsequent actual B response arrives with an error. For details,
+see [Section 3.7.3](#373-transaction-flow----error-case).
+
+Software can check the ID and error type of the transaction in which the
+error occurred by reading `AOU_CORE.WRITE_EARLY_RESPONSE` SFR. The
+interrupt can be cleared by writing '1' to
+`AOU_CORE.WRITE_EARLY_RESPONSE.WRITE_RESP_ERR`.
 
 - **INT_REQ_LINKRESET**
 
-An interrupt that occurs when AOU_CORE receive AOU_CORE protocol
-violation. Refer 7.2 Debugging features, LinkReset. When AOU_CORE
-receives protocol violation. SW needs to do SW reset AOU_CORE and
-re-enter activation sequence.
+An interrupt that occurs when AOU_CORE receives an AoU protocol
+violation. Refer to [Section 7.2.3](#723-linkreset-error-reporting)
+LinkReset Error Reporting. When AOU_CORE receives a protocol violation,
+software must perform a software reset of AOU_CORE and re-enter the
+activation sequence.
 
 # 5. Error
 
@@ -2270,8 +2572,9 @@ This section gives information about operation guide for the AOU_CORE.
 **ERR SET is restricted to change the value while the system is
 running**
 
-For details on the ACTIVATE and DEACTIVATE SFRs, please refer to Section
-3.5: Activation/Deactivation & Flow.
+For details on the ACTIVATE and DEACTIVATE SFRs, please refer to
+[Section 7.3](#73-activation--deactivation-flow): Activation &
+Deactivation Flow.
 
 **AOU_INIT.ACTIVATE_START**
 
@@ -2345,8 +2648,8 @@ completed.
   creditgrant message is not received within the specified
   MSGCREDIT_TIME_OUT_VALUE, a LinkReset interrupt is sent to the SW.
 
-- This fields are 3 bits wide and encodes a timeout of 2
-  ^(TIME_OUT_VALUE + 8) cycles.
+- These fields are 3 bits wide and encode a timeout of
+  2^(TIME_OUT_VALUE + 18) core clock cycles.
 
 **WRITE_EARLY_RESPONSE**
 
@@ -2378,86 +2681,190 @@ completed.
   AOU_CON0.TX_LP_MODE_THRESHOLD value, SW can configure the message
   transmission frequency.
 
-<a id="figure-21"></a>
-![Figure 21. Bubble inserted when Transmitter de-assert LP_VALID](./media/image21.png)
+<a id="figure-22"></a>
+![Figure 22. Bubble inserted when Transmitter de-assert LP_VALID](./media/image21.png)
 
-*Figure 21. Bubble inserted when Transmitter de-assert LP_VALID*
+*Figure 22. Bubble inserted when Transmitter de-assert LP_VALID*
 
 - Default value is 0. AOU_CORE always sends messages to FDI for lowering
   latency
 
-## 7.2. Debugging features
+## 7.2. Debugging Features
 
-AOU_CORE includes several features for debugging. SFR name including
-ERROR is related to debugging features.
+### 7.2.1. Overview
 
-**1. AXI ID mismatch error**
-For AOU_CORE AXI interface, it generates interrupt when receive AXI ID
-that was not issued, an interrupt occurs.
-If error detected on AXI subordinate interface, SW can check the AXI ID on
-AXI_SLV_ID_MISMATCH_ERR field and clear the interrupt by setting
-AXI_SLV_ID_MISMATCH_ERR.AXI_SLV_*ID_MISMATCH_ERR.
-If error has detected on AXI manager interface, SW can check the AXI ID
-on ERROR_INFO field and clear the interrupt by setting
-ERROR_INFO.SPLIT_*ID_MISMATCH_ERR.
+AOU_CORE provides several error-detection and debug features, each with
+a dedicated interrupt output and a per-feature mask bit in the
+`AOU_INTERRUPT_MASK` register (0x000C). The table below summarises the
+mask bits and corresponding interrupt signals.
 
-**2.** **LinkReset**
-For Activation/Deactivation error, it drives interrupt by
-INT_REQ_LINKRESET and AOU_REQ_LINKRESET to FDI. Protocol layer requests
-CPU to Reset the Link. There are several cases for AOU_REQ_LINKRESET
-goes high.
+| Mask Bit | Feature | Interrupt Signal |
+| :------- | :------ | :--------------- |
+| [8] | Activate-ack timeout | INT_REQ_LINKRESET |
+| [7] | Deactivate-ack timeout | INT_REQ_LINKRESET |
+| [6] | Invalid ACTMSG | INT_REQ_LINKRESET |
+| [5] | MsgCredit timeout | INT_REQ_LINKRESET |
+| [4] | Early write-response error | INT_EARLY_RESP_ERR |
+| [3] | Manager ID mismatch | INT_MI0_ID_MISMATCH |
+| [2] | Subordinate ID mismatch | INT_SI0_ID_MISMATCH |
 
-- **Request to Acknowledge message timeout error**
-  If the remote die does not return an Acknowledge within the configured
-  timeout, the local die may report a Request to Acknowledge timeout.
-  Per the AOU_SPEC, when the local die issues an Activation or
-  Deactivation request, the remote die may respond with an Acknowledge
-  indicating successful receipt of the request. If no Acknowledge is
-  received before the timeout value, the AOU_CORE assert
-  INT_AOU_REQ_LINKRESET to SW and SW should do LinkReset sequence. SW
-  can configure timeout value by setting
-  LP_LINKRESET.ACK_TIME_OUT_VALUE.
+Setting a mask bit to 1 masks (disables) the corresponding interrupt.
 
-- **Invalid ACTMSG**
-  If an ACTMSG that is not permitted in the current Activation state is
-  received, AOU_CORE may treat it as a protocol violation and assert
-  INT_AOU_REQ_LINKRESET. In AOU specification, each activation state
-  defines the allowable ACTMSG opcode. Any ACTMSG outside this may
-  trigger INT_AOU_REQ_LINKRESET in next cycle. SW can debug Invalid
-  OPCODE of ACTMSG and should do LinkReset sequence.
+### 7.2.2. AXI ID Mismatch Error
 
-- **ActivateAck to MSGCREDIT timout error**
-  MSGCREDIT should send to remote die indicating how many resource plane
-  does local die have. If local die does not receive MSGCREDIT within
-  the configured timeout, local die may reports msgcredit error. SW can
-  configure timeout value by setting
-  LP_LINKRESET.MSGCREDIT_TIME_OUT_VALUE and should do LinkReset
-  sequence.
+AOU_CORE can detect AXI ID mismatches on both the manager and
+subordinate interfaces. A mismatch occurs when a B or R response
+arrives with an AXI ID that does not correspond to any outstanding
+request.
 
-**3. R/B response error debug feature**
-When AOU_CORE receive AXI R/B response error from manager interface, It
-internally store the AXI ID, Address, Resp in dedicated FIFO. After
-Remote die receive AXI response error, it can access this error
-information by AXI read. Error information is stored up to 4.
+**Manager side.** The split/aggregator path (`AOU_AXI_SPLIT_TR` /
+`AOU_AXI4MUX_3X1_TOP`) maintains pending-ID tables for both read and
+write transactions (`AOU_SPLIT_RD_PENDING_INFO` and
+`AOU_SPLIT_WR_PENDING_INFO`). When a B response arrives with an ID that
+does not match any pending write entry, `SPLIT_BID_MISMATCH_ERR` is
+asserted and the offending ID is captured in `SPLIT_BID_MISMATCH_INFO`.
+The same logic applies to R responses via `SPLIT_RID_MISMATCH_ERR` and
+`SPLIT_RID_MISMATCH_INFO`. These fields are in the per-RP
+`ERROR_INFO_RPn` register (RP0 at 0x0024, RP1 at 0x003C, RP2 at
+0x0054, RP3 at 0x006C). SW clears each error by writing 1 to the
+corresponding W1C bit. The aggregate interrupt is
+`INT_MI0_ID_MISMATCH`.
 
-<a id="figure-22"></a>
-![Figure 22. Error Information Access Flow](./media/image22.png)
+**Table depth and backpressure.** Each pending-ID table is sized by
+`M_RD_MO_CNT` / `M_WR_MO_CNT` (default 32), matching the manager
+interface outstanding transaction limit. An entry is allocated on the
+split-AR or split-AW handshake and freed when the corresponding R (with
+RLAST) or B response completes. When all entries are occupied, the
+`O_AR_Slot_Available_Flag` / `O_AW_Slot_Available_Flag` signal goes low,
+which suppresses new split transactions and effectively deasserts
+ARREADY / AWREADY toward the upstream path. This is backpressure, not
+an error -- no entries are overwritten or dropped. Because the table
+depth equals the AXI outstanding count, the table should never overflow
+during correct operation.
 
-*Figure 22. Error Information Access Flow*
+**No disable mechanism.** There is no RTL parameter or SFR to disable
+the pending-ID tables or the mismatch check. The interrupt can be
+masked via `AOU_INTERRUPT_MASK.INT_MI0_ID_MISMATCH_MASK` [3], but this
+only suppresses the interrupt signal. The tables continue to operate,
+backpressure still applies when full, and the sticky error bits in
+`ERROR_INFO_RPn` are still set on a mismatch.
 
-> Unlike normal AXI transactions, accessing the error information
-> requires an explicit enable and a dedicated address. First, set
-> DEBUG_UPPER_ADDR and DEBUG_LOWER_ADDR to define the target address and
-> set ERROR_INFO_ACCESS_EN to 1 to enable access. When an AXI read is
-> issued to the address, the remote die can read out the corresponding
-> error information. Remote die can write 1 to the dedicated address to
-> pop the debug information.
+**Subordinate side.** An analogous pending-ID table exists in
+`AOU_SLV_AXI_INFO`, with SFR fields in `AXI_SLV_ID_MISMATCH_ERR_RPn`
+(RP0 at 0x0034, RP1 at 0x004C, RP2 at 0x0064, RP3 at 0x007C).
+However, the subordinate-side mismatch outputs are currently tied to 0
+in RTL; the SFR fields are allocated but will always read 0. The
+aggregate interrupt `INT_SI0_ID_MISMATCH` will therefore never fire in
+the current implementation.
 
-**5. WRITE_EARLY_RESPONSE**
-The error is generated when Write Early Response is enabled and a BRESP
-error arrives for a previously sent early response. When a BRESP error
-occurs, an interrupt is issued and SW can check the BRESP AXI ID and
-error type by reading SFR and clear the error.****
+### 7.2.3. LinkReset Error Reporting
+
+When AOU_CORE detects a protocol-level error during activation or
+deactivation, it asserts `O_AOU_REQ_LINKRESET` (to FDI) and
+`INT_REQ_LINKRESET` (to SW). Both signals share the same net and are
+the logical OR of the four sub-conditions below. After handling the
+interrupt, SW must perform a LinkReset sequence.
+
+All LinkReset-related SFR fields reside in `LP_LINKRESET` (0x0010).
+
+**Activate/Deactivate Ack Timeout.** After sending an ActivateReq or
+DeactivateReq message, a counter begins. If the remote die does not
+return an Acknowledge within 2^(`ACK_TIME_OUT_VALUE` + 18) core clock
+cycles, the timeout fires. `ACK_TIME_OUT_VALUE` [13:11] is 3 bits wide
+with a default of 4, giving a default timeout of 2^22 = ~4M cycles.
+The sticky error bits are `ACT_ACK_ERR` [7] and `DEACT_ACK_ERR` [6],
+both W1C.
+
+**Invalid ACTMSG.** The activation FSM (`AOU_ACTIVATION_CTRL`) checks
+each received activation opcode against the current state. If the
+opcode is not permitted in the current state, `INVALID_ACTMSG_ERR` [1]
+is set and the offending 4-bit opcode is captured in
+`INVALID_ACTMSG_INFO` [5:2]. Clear via W1C.
+
+**MsgCredit Timeout.** After the local die receives ActivateAck, it
+expects a CreditGrant message from the remote die indicating the number
+of resource planes. If no CreditGrant arrives within
+2^(`MSGCREDIT_TIME_OUT_VALUE` + 18) core clock cycles, `MSGCREDIT_ERR`
+[0] is set. `MSGCREDIT_TIME_OUT_VALUE` [10:8] defaults to 4. Clear via
+W1C.
+
+### 7.2.4. R/B Response Error Debug FIFO
+
+When the manager interface receives an AXI B or R response with a
+non-OKAY status (SLVERR or DECERR), AOU_CORE captures the error
+details in a dedicated per-RP FIFO so that the remote die can retrieve
+them via AXI read.
+
+**FIFO structure.** The `AOU_ERROR_INFO` module (one instance per RP)
+implements a 4-entry circular FIFO. Each entry stores:
+
+| Field | Width | Description |
+| :---- | :---- | :---------- |
+| AXI ID | AXI_ID_WD | ID of the failing transaction |
+| AXI ADDR | AXI_ADDR_WD | Address of the failing transaction |
+| RESP | 2 bits | BRESP or RRESP value |
+
+Both BRESP and RRESP errors can be pushed simultaneously (two entries
+in one cycle). If the FIFO is full, new errors are silently dropped.
+
+**Enabling access.** Before the remote die can read error information,
+SW must:
+
+1. Set `AOU_CON0.RPn_ERROR_INFO_ACCESS_EN` [27:24] to 1 for the
+   target RP.
+2. Configure the dedicated address window by writing the upper 32 bits
+   to `AXI_ERROR_INFO0_RPn.DEBUG_UPPER_ADDR` and the lower 32 bits to
+   `AXI_ERROR_INFO1_RPn.DEBUG_LOWER_ADDR`.
+
+The `AOU_AXIMUX_1XN_SS` address decoder routes any AXI transaction
+whose address matches `{DEBUG_UPPER_ADDR, DEBUG_LOWER_ADDR}` to the
+`AOU_ERROR_INFO` module instead of the normal datapath.
+
+**Read protocol.** The remote die issues an AXI read (AR) to the
+configured debug address. The module returns the FIFO head entry on
+RDATA (containing the concatenated ID, address, and response fields)
+with RLAST = 1.
+
+**Pop protocol.** To advance to the next entry, the remote die issues a
+dummy AXI write (AW + W) to the same debug address. The simultaneous
+AW and W handshake advances the FIFO read pointer, discarding the head
+entry. A B response (OKAY) is returned.
+
+The typical access sequence is: read the head entry, then pop it, and
+repeat until no more entries remain.
+
+```mermaid
+sequenceDiagram
+    participant RD as Remote Die
+    participant LA as Local AOU
+    participant SW as Local SW
+
+    Note over LA: AXI error on manager interface
+    Note over LA: FIFO push (ID, ADDR, RESP)
+    SW->>LA: Set ERROR_INFO_ACCESS_EN = 1
+    SW->>LA: Configure DEBUG_UPPER/LOWER_ADDR
+    RD->>LA: AR to DEBUG_ADDR
+    LA-->>RD: R (FIFO head: ID + ADDR + RESP)
+    RD->>LA: AW + W to DEBUG_ADDR (dummy write)
+    LA-->>RD: B (OKAY, head entry popped)
+    Note over RD: Repeat AR then AW+W for remaining entries
+```
+
+*Figure 23. R/B Response Error Debug FIFO Access Sequence*
+
+### 7.2.5. Write Early Response Error
+
+When the early write-response feature is enabled
+(`EARLY_BRESP_EN = 1`) and the actual BRESP from the remote die carries
+an error for a transaction that already received an early OKAY, the
+error is reported via the `INT_EARLY_RESP_ERR` interrupt. The failing
+transaction's AXI ID and BRESP type are captured in
+`WRITE_EARLY_RESPONSE_RPn`. SW clears the error by writing 1 to
+`WRITE_RESP_ERR` (W1C).
+
+For a detailed description of the early response error flow, see
+[section 3.7.3 (Transaction Flow -- Error Case)](#373-transaction-flow----error-case)
+and [section 3.7.9 (SFR Fields)](#379-sfr-fields).
 
 ## 7.3. Activation & Deactivation Flow
 
@@ -2471,10 +2878,10 @@ which means the timing of sending **ActivateReq** can differ. Both dies
 must exchange **ActivateReq** and **ActivateAck** messages to transition
 to the **ENABLED** state, at which point credited messages can be
 transmitted.
-<a id="figure-23"></a>
-![Figure 23. Independent Activation Flow](./media/image23.png)
+<a id="figure-24"></a>
+![Figure 24. Independent Activation Flow](./media/image23.png)
 
-*Figure 23. Independent Activation Flow*
+*Figure 24. Independent Activation Flow*
 
 Regardless of its own activation state, a die must send an ActivateAck
 in response to an ActivateReq from the other die, to acknowledge receipt
@@ -2550,10 +2957,10 @@ The ACTIVATION_OP field encodes deactivation messages as follows:
 
 - 3= DeactivateAck
 
-<a id="figure-24"></a>
-![Figure 24. Deactivation sequence with DEACTIVATE_START](./media/image24.png)
+<a id="figure-25"></a>
+![Figure 25. Deactivation sequence with DEACTIVATE_START](./media/image24.png)
 
-*Figure 24. Deactivation sequence with DEACTIVATE_START*
+*Figure 25. Deactivation sequence with DEACTIVATE_START*
 
 ### 7.3.4. Deactivation Sequence Flow
 
@@ -2581,18 +2988,18 @@ all outstanding transactions have been completed and that no new
 transactions will be issued, then such an complicated implementation
 would not be necessary.
 
-[Figure 24](#figure-24) illustrates the current activate/deactivate implementation of
+[Figure 25](#figure-25) illustrates the current activate/deactivate implementation of
 AOU_CORE.
 
-<a id="figure-25"></a>
-![Figure 25. CREDIT_MANAGE 1 Deactivate sequence flow](./media/image25.png)
-
-*Figure 25. CREDIT_MANAGE 1 Deactivate sequence flow*
-
 <a id="figure-26"></a>
-![Figure 26. CREDIT_MANAGE 0 Deactivate sequence flow](./media/image26.png)
+![Figure 26. CREDIT_MANAGE 1 Deactivate sequence flow](./media/image25.png)
 
-*Figure 26. CREDIT_MANAGE 0 Deactivate sequence flow*
+*Figure 26. CREDIT_MANAGE 1 Deactivate sequence flow*
+
+<a id="figure-27"></a>
+![Figure 27. CREDIT_MANAGE 0 Deactivate sequence flow](./media/image26.png)
+
+*Figure 27. CREDIT_MANAGE 0 Deactivate sequence flow*
 
 This system provides a bus cleany mechanism:
 
@@ -2670,10 +3077,10 @@ transaction.
 
 4.  Do PM Entry Sequence on UCIE_CORE.
 
-<a id="figure-27"></a>
-![Figure 27. PM Entry Sequence](./media/image27.png)
+<a id="figure-28"></a>
+![Figure 28. PM Entry Sequence](./media/image27.png)
 
-*Figure 27. PM Entry Sequence*
+*Figure 28. PM Entry Sequence*
 
 - **LinkDisable SW sequence**
 
@@ -2732,15 +3139,15 @@ AOU_CORE.
 The reason of two additional latency for AW and W CH is from WLAST
 signal generator, and data width converter.
 
-<a id="figure-28"></a>
-![Figure 28. Initial Latency of AOU_CORE with UCIe (Cycle)](./media/image28.png)
-
-*Figure 28. Initial Latency of AOU_CORE with UCIe (Cycle)*
-
 <a id="figure-29"></a>
-![Figure 29. AoU Bandwidth Efficiency with Respect to UCIe FDI Latency](./media/image29.png)
+![Figure 29. Initial Latency of AOU_CORE with UCIe (Cycle)](./media/image28.png)
 
-*Figure 29. AoU Bandwidth Efficiency with Respect to UCIe FDI Latency*
+*Figure 29. Initial Latency of AOU_CORE with UCIe (Cycle)*
+
+<a id="figure-30"></a>
+![Figure 30. AoU Bandwidth Efficiency with Respect to UCIe FDI Latency](./media/image29.png)
+
+*Figure 30. AoU Bandwidth Efficiency with Respect to UCIe FDI Latency*
 
 The results of efficiency measurements for read and write operations
 with varying burst lengths are presented. For write operations, two
@@ -2831,10 +3238,10 @@ TBD
 
 ## 8.3. Area
 
-<a id="figure-30"></a>
-![Figure 30. Area of 1 RP AOU](./media/image30.png)
+<a id="figure-31"></a>
+![Figure 31. Area of 1 RP AOU](./media/image30.png)
 
-*Figure 30. Area of 1 RP AOU*
+*Figure 31. Area of 1 RP AOU*
 
 The area for each 1 RP AOU submodule is shown in the figure above.
 
@@ -2870,6 +3277,7 @@ The FIFO depth of the two RPs are identical.
 | --- | --- | --- | --- | --- |
 | v0.1 | 2025/08/20 | Soyoung Min, Jaeyun Lee, Hojun Lee | Kwanho Kim | Initial version. |
 | v0.2 | 2025/09/19 | Soyoung Min, Jaeyun Lee, Hojun Lee | Kwanho Kim | 256, 512, 1024 datawidth verification finished. Early response feature added. |
+|      | 2026/04/09 | Brad Erwin | | Expand explanation of early response feature |
 
 *Table 11. Record of Changes*
 
