@@ -19,10 +19,19 @@ If you find a bug, please report it via [GitHub Issues](https://github.com/tenst
 We welcome bug fixes, improvements, and new features via Pull Requests:
 
 1. **Fork the repository** and create a new branch from `main`
-2. **Make your changes** following the coding standards below
-3. **Test your changes** using the verification testbench
-4. **Commit your changes** with clear, descriptive commit messages
-5. **Submit a Pull Request** with a detailed description of your changes
+2. **Name your branch** using one of the required prefixes:
+   - `feature/` -- new functionality (e.g., `feature/add-fdi-support`)
+   - `bugfix/` -- bug fixes (e.g., `bugfix/fix-clock-gating`)
+   - `hotfix/` -- critical fixes (e.g., `hotfix/critical-reset`)
+   - `chore/` -- maintenance tasks (e.g., `chore/update-ci`)
+
+   A CI check ([`.github/workflows/branch-name-check.yaml`](.github/workflows/branch-name-check.yaml))
+   enforces this convention; PRs from branches that do not match will
+   fail the check.
+3. **Make your changes** following the coding standards below
+4. **Test your changes** using the verification testbench
+5. **Commit your changes** with clear, descriptive commit messages
+6. **Submit a Pull Request** with a detailed description of your changes
 
 ### Review Process
 
