@@ -27,7 +27,7 @@ We welcome bug fixes, improvements, and new features via Pull Requests:
 
    A CI check ([`.github/workflows/branch-name-check.yaml`](.github/workflows/branch-name-check.yaml))
    enforces this convention; PRs from branches that do not match will
-   fail the check.
+   fail the check and not be considered.
 3. **Make your changes** following the coding standards below
 4. **Test your changes** using the verification testbench
 5. **Commit your changes** with clear, descriptive commit messages
