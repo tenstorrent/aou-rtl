@@ -159,9 +159,11 @@ module AOU_DATA_R_FIFO_NS1M
                     ext_fifo[nxt_w_ext_ptr[i]] <= nxt_ext_data[i];  
                 end
             end
-            w_data_ptr <= (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
-            w_ext_ptr <= (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt);
-            w_ex_ext_ptr <= (w_ext_ptr + w_ext_req_cnt  >= FIFO_DEPTH) ? ~w_ex_ext_ptr : w_ex_ext_ptr;
+            if((|I_SVALID) && O_SREADY) begin
+                w_data_ptr <= (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
+                w_ext_ptr <= (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt);
+                w_ex_ext_ptr <= (w_ext_ptr + w_ext_req_cnt  >= FIFO_DEPTH) ? ~w_ex_ext_ptr : w_ex_ext_ptr;
+            end
         end
     end
                       
