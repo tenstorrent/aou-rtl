@@ -87,7 +87,7 @@ logic [RD_MO_IDX_WD-1:0]           w_rid_numbering;
 always_ff @ (posedge I_CLK or negedge I_RESETN) begin
     if (!I_RESETN) begin
         r_arcnt <= 'd0;
-    end else begin
+    end else if ((I_AXI_ArValid & I_AXI_ArReady)|(I_AXI_RLast & I_AXI_RValid & I_AXI_RReady))begin
         r_arcnt <= w_arcnt_next;
     end
 end
@@ -95,7 +95,7 @@ end
 always_comb begin
     w_arcnt_next = r_arcnt;
     if (I_AXI_ArValid & I_AXI_ArReady) begin
-        w_arcnt_next = r_arcnt + 'd1;
+        w_arcnt_next = w_arcnt_next + 'd1;
     end 
 
     if (I_AXI_RLast & I_AXI_RValid & I_AXI_RReady) begin

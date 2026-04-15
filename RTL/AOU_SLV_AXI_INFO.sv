@@ -152,7 +152,7 @@ always_ff @ (posedge I_CLK or negedge I_RESETN) begin
             r_slv_axi_mismatch_r_err <= 1'b1;
             r_slv_axi_mismatch_r_id <= I_RID;
         end
-    end else begin
+    end else if (r_slv_axi_mismatch_r_err) begin
         r_slv_axi_mismatch_r_err <= 1'b0;
         r_slv_axi_mismatch_r_id <= 'b0;
     end
@@ -228,7 +228,7 @@ always_ff @ (posedge I_CLK or negedge I_RESETN) begin
             r_slv_axi_mismatch_w_err <= 1'b1;
             r_slv_axi_mismatch_b_id <= I_BID;
         end
-    end else begin
+    end else if (r_slv_axi_mismatch_w_err) begin
         r_slv_axi_mismatch_w_err <= 1'b0;
         r_slv_axi_mismatch_b_id <= 'b0;
     end
