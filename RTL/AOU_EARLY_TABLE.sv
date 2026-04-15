@@ -88,7 +88,7 @@ assign O_AW_Slot_Available_Flag = (r_awcnt != WR_MO_CNT);
 always_ff @ (posedge I_CLK or negedge I_RESETN) begin
     if (!I_RESETN) begin
         r_awcnt <= 'd0;
-    end else begin
+    end else if ((I_AXI_AwValid & I_AXI_AwReady) | (I_AXI_M_BValid & I_AXI_M_BReady))begin
         r_awcnt <= w_awcnt_next;
     end
 end
@@ -98,7 +98,7 @@ always_comb begin
     w_awcnt_next = r_awcnt;
 
     if (I_AXI_AwValid & I_AXI_AwReady) begin
-        w_awcnt_next = r_awcnt + 'd1;
+        w_awcnt_next = w_awcnt_next + 'd1;
     end
 
     if (I_AXI_M_BValid & I_AXI_M_BReady) begin
