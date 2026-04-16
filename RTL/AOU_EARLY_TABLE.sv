@@ -26,7 +26,7 @@
 `timescale 1ns/1ps
 
 module AOU_EARLY_TABLE #(
-    parameter  AXI_ID_WD         = 4'd4,
+    parameter  AXI_ID_WD         = 4,
 
     parameter  WR_MO_CNT         = 128,
     localparam WR_MO_IDX_WD      = $clog2(WR_MO_CNT),
@@ -35,17 +35,17 @@ module AOU_EARLY_TABLE #(
 (
     input  logic                                I_CLK,
     input  logic                                I_RESETN,
- 
+
     input  logic  [AXI_ID_WD-1:0]               I_AXI_AwId,
-    input  logic                                I_AXI_Bufferable, 
+    input  logic                                I_AXI_Bufferable,
     input  logic                                I_AXI_AwValid,
     input  logic                                I_AXI_AwReady,
-                                                
+
     input  logic  [AXI_ID_WD-1:0]               I_AXI_M_BId,
     input  logic                                I_AXI_M_BValid,
     input  logic                                I_AXI_M_BReady,
     output logic                                O_AW_Slot_Available_Flag,
-                                                
+
     input  logic                                I_AXI_S_BReady,
     output logic                                O_EarlyResponse_Consume,
     output logic                                O_EarlyResponse_Valid,
@@ -58,7 +58,7 @@ typedef struct  packed {
     logic [AXI_ID_WD-1:0]           id;
     logic                           bufferable;
     logic                           pending;
-    logic [WR_MO_IDX_WD-1:0]        wid_numbering;                          
+    logic [WR_MO_IDX_WD-1:0]        wid_numbering;
 
     logic                           out;
     logic                           early_go;
@@ -78,7 +78,7 @@ logic [WR_MO_CNT-1:0]               w_wid_numbering_onehot;
 logic [WR_MO_IDX_WD-1:0]            w_wid_numbering;
 
 
-logic [WR_MO_IDX_WD  -1 :0]         w_early_resp_idx; 
+logic [WR_MO_IDX_WD  -1 :0]         w_early_resp_idx;
 logic [WR_MO_CNT-1:0]               w_wr_same_id_match_flag;
 logic                               w_early_resp_flag;
 logic [WR_MO_IDX_WD-1:0]            w_same_id_tr_cnt;
@@ -163,7 +163,7 @@ always_ff @(posedge I_CLK or negedge I_RESETN) begin
                 awtable[w_awtable_wptr_cur].wid_numbering       <= w_wid_numbering;
             end
         end
-        
+
         for(integer i = 0; i < WR_MO_CNT ; i = i + 1) begin
             if((awtable[i].pending) & (awtable[i].bufferable) & (~awtable[i].out)) begin
                 if(I_AXI_M_BValid & I_AXI_M_BReady & ~O_EarlyResponse_Consume & (awtable[i].id == I_AXI_M_BId)) begin
@@ -172,10 +172,10 @@ always_ff @(posedge I_CLK or negedge I_RESETN) begin
                         awtable[i].early_go <= 1'b1;
                     end
                 end else if (O_EarlyResponse_Valid & I_AXI_S_BReady & (awtable[i].id == awtable[w_early_resp_idx].id)) begin
-                    awtable[i].same_id_tr_cnt <= awtable[i].same_id_tr_cnt - 1;   
+                    awtable[i].same_id_tr_cnt <= awtable[i].same_id_tr_cnt - 1;
                     if(awtable[i].same_id_tr_cnt == 1) begin
-                        awtable[i].early_go <= 1'b1;        
-                    end     
+                        awtable[i].early_go <= 1'b1;
+                    end
                 end
             end
         end
@@ -192,7 +192,7 @@ always_ff @(posedge I_CLK or negedge I_RESETN) begin
             if (I_AXI_M_BValid & I_AXI_M_BReady & awtable[i].pending & (awtable[i].id == I_AXI_M_BId) & (awtable[i].wid_numbering != 'd0)) begin
                 awtable[i].wid_numbering <= awtable[i].wid_numbering -'d1;
             end
-        end         
+        end
     end
 end
 
@@ -254,7 +254,7 @@ aou_early_table_id_err_assertion:
     assert
         property (
             @(posedge I_CLK) disable iff (!I_RESETN)
-            !O_DEST_TABLE_ID_ERR 
+            !O_DEST_TABLE_ID_ERR
         )
         else begin
             $error("\n[%t] AOU_EARLY_TABLE: O_DEST_TABLE_ID_ERR asserted!", $time);
