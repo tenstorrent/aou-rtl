@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Tenstorrent USA Inc
+#
+# RTL lint checks using Verible (style) and Verilator (semantic).
+# Verible findings appear as inline PR review comments via Reviewdog.
+# Both jobs are non-fatal during migration (continue-on-error: true).
+
+name: RTL Lint
+
+on:
+  pull_request:
+    paths: ['RTL/**', 'scripts/**']
+  push:
+    branches: [main, design]
+    paths: ['RTL/**', 'scripts/**']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verible:
+    name: Verible Style Lint
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      VERIBLE_VERSION: "v0.0-4053-g89d4d98a"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verible lint with inline PR comments
+        uses: chipsalliance/verible-linter-action@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reviewdog_reporter: github-pr-review
+          config_file: scripts/.rules.verible_lint
+          paths: RTL/
+          extra_args: --show_diagnostic_context
+
+      - name: Install Verible
+        if: always()
+        run: |
+          curl -fsSL \
+            "https://github.com/chipsalliance/verible/releases/download/${VERIBLE_VERSION}/verible-${VERIBLE_VERSION}-linux-static-x86_64.tar.gz" \
+            | tar xz -C /tmp
+          echo "/tmp/verible-${VERIBLE_VERSION}/bin" >> $GITHUB_PATH
+
+      - name: Run full Verible lint (log capture)
+        if: always()
+        run: bash scripts/run_verible_lint.sh || true
+
+      - name: Upload Verible log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verible-lint-log
+          path: logs/verible_lint.log
+
+  verilator:
+    name: Verilator Semantic Lint
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Verilator 5.046
+        uses: veryl-lang/setup-verilator@v1
+        with:
+          verilator_version: "5.046"
+
+      - name: Run Verilator lint
+        run: bash scripts/run_lint.sh || true
+
+      - name: Upload Verilator log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verilator-lint-log
+          path: logs/verilator_lint.log
