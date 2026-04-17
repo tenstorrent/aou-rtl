@@ -26,7 +26,7 @@
 `timescale 1ns/1ps
 
 module AOU_AXI_DOWN_RDATA_ORDER #(
-    parameter  AXI_ID_WD        = 4'd4,
+    parameter  AXI_ID_WD        = 4,
     parameter  O_DATA_WD        = 512,
     parameter  I_DATA_WD        = 1024,
 
@@ -37,11 +37,11 @@ module AOU_AXI_DOWN_RDATA_ORDER #(
 (
     input  logic                                I_CLK,
     input  logic                                I_RESETN,
-                                                
-    input  logic  [AXI_ID_WD-1:0]               I_AXI_ArId, 
+
+    input  logic  [AXI_ID_WD-1:0]               I_AXI_ArId,
     input  logic                                I_AXI_ArValid,
     input  logic                                I_AXI_ArReady,
-                                                
+
     input  logic  [AXI_ID_WD-1:0]               I_AXI_RId,
     input  logic                                I_AXI_RLast,
     input  logic     [1:0]                      I_AXI_RResp,
@@ -96,7 +96,7 @@ always_comb begin
     w_arcnt_next = r_arcnt;
     if (I_AXI_ArValid & I_AXI_ArReady) begin
         w_arcnt_next = w_arcnt_next + 'd1;
-    end 
+    end
 
     if (I_AXI_RLast & I_AXI_RValid & I_AXI_RReady) begin
         w_arcnt_next = w_arcnt_next - 'd1;
@@ -110,13 +110,13 @@ always_comb begin
     w_rid_numbering = $countones(w_rid_numbering_onehot);
 end
 
-generate 
+generate
 if (UP_N==2) begin
     assign nxt_rdata = I_AXI_RData;
 end else begin
     assign nxt_rdata = {I_AXI_RData, artable[w_artable_rptr_cur].rdata[((UP_N-1)*O_DATA_WD)-1:O_DATA_WD]};
 end
-endgenerate  
+endgenerate
 //------------------------------------------------------------------
 // Update artable
 //------------------------------------------------------------------
@@ -126,10 +126,10 @@ always_ff @(posedge I_CLK or negedge I_RESETN) begin
             artable[i].id            <= {AXI_ID_WD{1'b0}};
             artable[i].burst_cnt     <= '0;
             artable[i].rdata         <= '0;
-            artable[i].rresp         <= '0;              
-    
-            artable[i].pending       <= '0;              
-            artable[i].rid_numbering <= '0;                  
+            artable[i].rresp         <= '0;
+
+            artable[i].pending       <= '0;
+            artable[i].rid_numbering <= '0;
         end
     end
     else begin
@@ -148,7 +148,7 @@ always_ff @(posedge I_CLK or negedge I_RESETN) begin
 
         if (I_AXI_RValid & I_AXI_RReady) begin
             if(I_AXI_RLast) begin
-                artable[w_artable_rptr_cur].pending      <= 1'b0;              
+                artable[w_artable_rptr_cur].pending      <= 1'b0;
             end
             artable[w_artable_rptr_cur].burst_cnt        <= artable[w_artable_rptr_cur].burst_cnt + 1;
             artable[w_artable_rptr_cur].rdata            <= nxt_rdata;
@@ -156,7 +156,7 @@ always_ff @(posedge I_CLK or negedge I_RESETN) begin
                 artable[w_artable_rptr_cur].rresp        <= '0;
             end else begin
                 artable[w_artable_rptr_cur].rresp        <= artable[w_artable_rptr_cur].rresp | I_AXI_RResp;
-            end 
+            end
         end
 
         for (integer i=0; i<RD_MO_CNT; i=i+1) begin
@@ -207,7 +207,7 @@ aou_axi_down_rdata_order_table_id_err_assertion:
     assert
         property (
             @(posedge I_CLK) disable iff (!I_RESETN)
-            !O_DEST_TABLE_ID_ERR 
+            !O_DEST_TABLE_ID_ERR
         )
         else begin
             $error("\n[%t] AOU_AXI_DOWN_RDATA_ORDER: O_DEST_TABLE_ID_ERR asserted!", $time);
@@ -218,4 +218,3 @@ aou_axi_down_rdata_order_table_id_err_assertion:
 `endif
 
 endmodule
-
