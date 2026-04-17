@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Tenstorrent USA Inc
+#
+# Verible lint rules for AOU RTL
+# Based on OCH Verilog Coding Style Guide
+# (.claude/assets/VerilogCodingStyle.md)
+#
+# This file is automatically discovered by verible-verilog-lint when
+# invoked with --rules_config_search.
+
+# ==========================================================================
+# TIER 1 -- Enforced now (structural, best-practice, formatting)
+# ==========================================================================
+
+# -- Formatting ------------------------------------------------------------
+line-length=length:100
+no-tabs
+no-trailing-spaces
+posix-eof
+
+# -- Structural / best practice --------------------------------------------
+always-comb
+always-comb-blocking
+always-ff-non-blocking
+case-missing-default
+generate-label
+module-parameter
+module-port
+forbid-defparam
+typedef-enums
+typedef-structs-unions
+module-begin-block
+forbid-consecutive-null-statements
+v2001-generate-begin
+suggest-parentheses
+suspicious-semicolon
+mismatched-labels
+explicit-function-lifetime
+explicit-task-lifetime
+explicit-parameter-storage-type
+explicit-function-task-parameter-type
+truncated-numeric-literal
+undersized-binary-literal
+packed-dimensions-range-ordering
+unpacked-dimensions-range-ordering
+positive-meaning-parameter-name
+legacy-generate-region
+forbid-line-continuations
+
+# -- Naming (Tier 1 -- matches existing AOU conventions) -------------------
+macro-name-style=style_regex:[A-Z_0-9]+
+parameter-name-style=parameter_style:ALL_CAPS;localparam_style:ALL_CAPS
+
+# -- UVM / testbench (not relevant for RTL, disable) ----------------------
+-create-object-name-match
+-plusarg-assignment
+-constraint-name-style
+-uvm-macro-semicolon
+
+# ==========================================================================
+# TIER 2 -- Disabled for now (require codebase migration to enable)
+#
+# These rules enforce naming conventions from the OCH style guide that
+# the existing codebase does not yet follow. Enable incrementally as
+# modules are migrated.
+# ==========================================================================
+
+# Signals should be lower_snake_case
+-signal-name-style
+# signal-name-style=style_regex:[a-z_0-9]+
+
+# Enum types should end with _e suffix
+-enum-name-style
+# enum-name-style=style_regex:[a-z_0-9]+_e
+
+# Struct/union types should end with _t suffix
+-struct-union-name-style
+# struct-union-name-style
+
+# Interface names should end with _if suffix
+-interface-name-style
+# interface-name-style=style_regex:[a-z_0-9]+_if
+
+# Module name must match filename
+-module-filename
+# module-filename
+
+# Package name must match filename
+-package-filename
+# package-filename
+
+# One module per file
+-one-module-per-file
+# one-module-per-file
+
+# Port suffixes: _i for inputs, _o for outputs, _io for bidirectional
+-port-name-suffix
+# port-name-suffix
+
+# Generate label prefix (guide requires lower_snake_case but not g_/gen_)
+-generate-label-prefix
+
+# DFF naming (_d/_q suffixes)
+-dff-name-style
+# dff-name-style
+
+# Explicit begin/end on all blocks (guide allows omission for single-line)
+-explicit-begin
+# explicit-begin
+
+# Banned name patterns
+-banned-declared-name-patterns
