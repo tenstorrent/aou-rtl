@@ -28,7 +28,6 @@
 //
 // *****************************************************************************
 
-`default_nettype none
 `timescale 1ns/1ps
 
 module AOU_FDI_BRINGUP_CTRL (
@@ -475,5 +474,3 @@ module AOU_FDI_BRINGUP_CTRL (
     assign O_LINK_UP = (r_cur_st == ST_ACTIVE);
 
 endmodule
-
-`default_nettype wire

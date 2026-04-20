@@ -26,7 +26,6 @@
 //
 // *****************************************************************************
 
-`default_nettype none
 `timescale 1ns/1ps
 
 module AOU_TOP
@@ -523,5 +522,3 @@ import packet_def_pkg::*;
     assign INT_DEACTIVATE_START = w_int_deactivate_start;
 
 endmodule
-
-`default_nettype wire
