@@ -98,7 +98,6 @@ This project originated from a collaboration between BOS Semiconductors and Tens
 
 - **Code**: Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license text.
 - **Documentation and images**: All documentation, images, and generated HTML content in the DOC/ directory are licensed under Creative Commons Attribution 4.0 International (CC-BY). See [LICENSE-DOCS](LICENSE-DOCS).
-- **License clarification**: See [LICENSE_understanding.txt](LICENSE_understanding.txt) for common questions about commercial use, modifications, and patent grants.
 - **Copyright holders**: See [COPYRIGHT](COPYRIGHT) for detailed copyright information.
 - **Third-party attributions**: See [NOTICE](NOTICE) for required notices and attributions.
 
