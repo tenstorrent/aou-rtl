@@ -131,7 +131,10 @@ module AOU_AXI_DOWN #(
     input        [RESP_WD-1:0]                             I_M_RRESP,
     input                                                  I_M_RLAST,
     input                                                  I_M_RVALID,
-    output                                                 O_M_RREADY
+    output                                                 O_M_RREADY,
+
+    output  [ID_WD-1:0]                                    O_DOWN_MISMATCH_RID,
+    output                                                 O_DEST_TABLE_RID_ERR
   
 );
 // internal FIFO DEPTH
@@ -366,8 +369,11 @@ AOU_AXI_DOWN_RDATA_ORDER #(
     .O_ReorderBuf_MResp              (O_S_RRESP),
     .O_ReorderBuf_MId                (O_S_RID),
     .O_RReadyNonBlocking             (w_rch_ready_nonblocking),
-    .O_DEST_TABLE_ID_ERR             ()             
+    .O_DEST_TABLE_ID_ERR             (O_DEST_TABLE_RID_ERR)             
 );
+
+assign O_DOWN_MISMATCH_RID = I_M_RID;
+
 // R channel  ================================================
 
 assign O_M_RREADY = w_rch_ready_nonblocking ? 1'b1:  I_S_RREADY;

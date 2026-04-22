@@ -293,7 +293,7 @@ logic   [RP_COUNT-1:0] [7:0]          o_aou_crdtgrant_wdatacred;
 logic   [RP_COUNT-1:0] [7:0]          o_aou_crdtgrant_rreqcred;
 logic   [RP_COUNT-1:0] [7:0]          o_aou_crdtgrant_wreqcred;
 
-logic   [RP_COUNT-1:0] [7:0]          o_aou_msgcrdt_wrespcred; 
+logic   [RP_COUNT-1:0] [3:0]          o_aou_msgcrdt_wrespcred; 
 logic   [RP_COUNT-1:0] [7:0]          o_aou_msgcrdt_rdatacred;
 logic   [RP_COUNT-1:0] [7:0]          o_aou_msgcrdt_wdatacred;
 logic   [RP_COUNT-1:0] [7:0]          o_aou_msgcrdt_rreqcred;
@@ -420,19 +420,21 @@ generate
                 end
             end
         end
-
     end
+
+    if(RP_COUNT <4) begin: GEN_BEST_SEL_DEFAULT
+        always_comb begin
+            for(int unsigned k = RP_COUNT; k < 4 ; k=k+1) begin
+                best_index_aw[k] ='d0;
+                best_index_ar[k] ='d0;
+                best_index_w[k] ='d0;
+                best_index_r[k] = 'd0;
+                best_index_b[k] ='d0;
+            end
+    end
+    end
+
 endgenerate
-
-always_comb begin
-    for(int unsigned j = RP_COUNT; j < 4 ; j=j+1) begin
-        best_index_aw[j] ='d0;
-        best_index_ar[j] ='d0;
-        best_index_w[j] ='d0;
-        best_index_r[j] = 'd0;
-        best_index_b[j] ='d0;
-    end
-end
 
 //-------------------------------------------------------------
 always_comb begin

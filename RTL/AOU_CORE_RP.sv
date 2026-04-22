@@ -98,6 +98,7 @@ module AOU_CORE_RP #(
     input   [AXI_ID_WD-1:0]                 I_AOU_TX_AXI_S_ARID,
     input                                   I_AOU_TX_AXI_S_ARVALID,
     input                                   I_AOU_TX_AXI_S_ARREADY,    
+    output                                  O_AOU_SLV_INFO_AR_HOLD_FLAG,
 
     input  [AXI_ID_WD-1:0]                  I_AOU_RX_AXI_S_RID,
     input                                   I_AOU_RX_AXI_S_RLAST,
@@ -210,10 +211,13 @@ module AOU_CORE_RP #(
     input   [AXI_LEN_WD-1:0]                I_AXI_SPLIT_TR_MAX_AWBURSTLEN  , 
     input   [AXI_LEN_WD-1:0]                I_AXI_SPLIT_TR_MAX_ARBURSTLEN  , 
 
+    input                                   I_AXI_SLV_ID_MISMATCH_EN,
+
     output  [AXI_ID_WD-1:0]                 O_ERROR_INFO_SPLIT_BID_MISMATCH_INFO,
-    output  [AXI_ID_WD-1:0]                 O_ERROR_INFO_SPLIT_RID_MISMATCH_INFO,
     output                                  O_ERROR_INFO_SPLIT_BID_MISMATCH_ERR_SET,
-    output                                  O_ERROR_INFO_SPLIT_RID_MISMATCH_ERR_SET,
+
+    output  reg [AXI_ID_WD-1:0]             O_ERROR_INFO_RID_MISMATCH_INFO,
+    output  reg                             O_ERROR_INFO_RID_MISMATCH_ERR_SET,
    
     output                                  O_EARLY_BRESP_DONE,
     output                                  O_EARLY_BRESP_ERR_SET,
@@ -280,7 +284,6 @@ module AOU_CORE_RP #(
     wire                                    w_aou_rx_axi_mm_awready_512     ;
     wire                                    w_aou_rx_axi_mm_awready_1024    ;
 
-    wire [1:0]                              w_aou_rx_axi_m_wdlength         ; 
     wire [1023:0]                           w_aou_rx_axi_mm_wdata           ;
     wire [127:0]                            w_aou_rx_axi_mm_wstrb           ;
     wire                                    w_aou_rx_axi_mm_wlast           ;
@@ -340,6 +343,15 @@ module AOU_CORE_RP #(
     logic                       w_early_bresp_ctrl_bvalid_blocked;
     logic                       w_aou_rx_axi_s_rvalid_blocked;
 
+    logic                       w_early_bresp_ctrl_awvalid;
+    logic                       w_early_bresp_ctrl_awready;
+
+    logic                       w_early_bresp_ctrl_wvalid;
+    logic                       w_early_bresp_ctrl_wready;
+
+    logic                       w_aou_slv_info_aw_hold_flag;
+    logic                       w_aou_slv_info_w_hold_flag;
+    logic                       w_aou_slv_info_ar_hold_flag;
 //---------------------------------------------------------------------------- 
     logic [AXI_ID_WD-1:0]       w_err_info_arid;
     logic [AXI_ADDR_WD-1:0]     w_err_info_araddr;
@@ -396,20 +408,7 @@ module AOU_CORE_RP #(
     logic [AXIM_RCH_PAYLOAD_WD-1:0]     w_aou_tx_axi_m_rch_sdata;
     logic [AXIM_RCH_PAYLOAD_WD-1:0]     w_aou_tx_axi_m_rch_mdata;
 
-//----------------------------------------------------------------------------    
-    localparam AXIM_WCH_PAYLOAD_WD = AXI_DATA_WD + AXI_STRB_WD + 1; // LAST
-    
-    logic [AXI_DATA_WD-1:0]             w_aou_rx_axim_wdata_rs;
-    logic [AXI_STRB_WD-1:0]             w_aou_rx_axim_wstrb_rs;
-    logic                               w_aou_rx_axim_wlast_rs;
-    
-    logic [AXIM_WCH_PAYLOAD_WD-1:0]     w_aou_rx_axim_wch_sdata;
-    logic [AXIM_WCH_PAYLOAD_WD-1:0]     w_aou_rx_axim_wch_mdata;
-    
-    logic                               w_aou_rx_axim_wch_svalid;
-    logic                               w_aou_rx_axim_wch_sready;
-
-//----------------------------------------------------------------------------    
+//----------------------------------------------------------------------------      
    
     logic [AXI_ID_WD-1:0]          w_axi_bresp_err_id;
     logic [AXI_ADDR_WD-1:0]        w_axi_bresp_err_addr;
@@ -421,6 +420,17 @@ module AOU_CORE_RP #(
     logic [1:0]                    w_axi_rresp_err_bresp;
     logic                          w_axi_rresp_err;
     
+    logic  [AXI_ID_WD-1:0]         w_error_info_split_rid_mismatch_info;
+    logic                          w_error_info_split_rid_mismatch_err_set;
+
+    logic  [AXI_ID_WD-1:0]         w_error_info_aggre_rid_mismatch_info;
+    logic                          w_error_info_aggre_rid_mismatch_err_set;
+
+    logic  [AXI_ID_WD-1:0]         w_error_info_down512_rid_mismatch_info;
+    logic                          w_error_info_down512_rid_mismatch_err_set;
+
+    logic  [AXI_ID_WD-1:0]         w_error_info_down1024_rid_mismatch_info;
+    logic                          w_error_info_down1024_rid_mismatch_err_set; 
 //----------------------------------------------------------------------------    
 
     assign w_aou_rx_axi_mm_arvalid_256  = (I_AOU_RX_AXI_MM_ARVALID & (I_AOU_RX_AXI_MM_ARSIZE < 3'b110)); 
@@ -470,30 +480,6 @@ module AOU_CORE_RP #(
 
 //---------------------------------------------------------------------------- 
    
-    assign w_aou_rx_axim_wch_sdata = {w_aou_rx_axim_wdata_rs,
-                                      w_aou_rx_axim_wstrb_rs,
-                                      w_aou_rx_axim_wlast_rs};
-    
-    assign {O_AOU_RX_AXI_M_WDATA,
-            O_AOU_RX_AXI_M_WSTRB,
-            O_AOU_RX_AXI_M_WLAST} = w_aou_rx_axim_wch_mdata;
-    
-    AOU_REV_RS #(
-        .DATA_WIDTH         (AXIM_WCH_PAYLOAD_WD)
-    ) u_aou_axim_rx_wch_rev_rs
-    (
-        .I_CLK              ( I_CLK                    ),
-        .I_RESETN           ( I_RESETN                 ),
-    
-        .I_SVALID           ( w_aou_rx_axim_wch_svalid ),
-        .O_SREADY           ( w_aou_rx_axim_wch_sready ),
-        .I_SDATA            ( w_aou_rx_axim_wch_sdata  ),
-    
-        .O_MVALID           ( O_AOU_RX_AXI_M_WVALID    ),
-        .I_MREADY           ( I_AOU_RX_AXI_M_WREADY    ),
-        .O_MDATA            ( w_aou_rx_axim_wch_mdata  )
-    ); 
-    
     AOU_AXIMUX_1XN_SS #(
         .AOU_AXIMUX_1XN_ARCH_RS_EN  ( 0             ),
         .AOU_AXIMUX_1XN_RCH_RS_EN   ( 1             ),
@@ -586,11 +572,11 @@ module AOU_CORE_RP #(
         .O_M_AWVALID                ( {w_err_info_awvalid, O_AOU_RX_AXI_M_AWVALID}  ),
         .I_M_AWREADY                ( {w_err_info_awready, I_AOU_RX_AXI_M_AWREADY}  ),
     
-        .O_M_WDATA                  ( {w_err_info_wdata, w_aou_rx_axim_wdata_rs}    ),
-        .O_M_WSTRB                  ( {w_err_info_wstrb, w_aou_rx_axim_wstrb_rs}    ),
-        .O_M_WLAST                  ( {w_err_info_wlast, w_aou_rx_axim_wlast_rs}    ),
-        .O_M_WVALID                 ( {w_err_info_wvalid, w_aou_rx_axim_wch_svalid} ),
-        .I_M_WREADY                 ( {w_err_info_wready, w_aou_rx_axim_wch_sready} ),
+        .O_M_WDATA                  ( {w_err_info_wdata, O_AOU_RX_AXI_M_WDATA}    ),
+        .O_M_WSTRB                  ( {w_err_info_wstrb, O_AOU_RX_AXI_M_WSTRB}    ),
+        .O_M_WLAST                  ( {w_err_info_wlast, O_AOU_RX_AXI_M_WLAST}    ),
+        .O_M_WVALID                 ( {w_err_info_wvalid, O_AOU_RX_AXI_M_WVALID} ),
+        .I_M_WREADY                 ( {w_err_info_wready, I_AOU_RX_AXI_M_WREADY} ),
     
         .I_M_BID                    ( {w_err_info_bid   , I_AOU_TX_AXI_M_BID   }    ),
         .I_M_BRESP                  ( {w_err_info_bresp , I_AOU_TX_AXI_M_BRESP }    ),
@@ -678,35 +664,46 @@ module AOU_CORE_RP #(
         .I_RESETN                   ( I_RESETN                      ),
     
         .I_AWID                     ( O_EARLY_BRESP_CTRL_AWID       ),
-        .I_AWVALID                  ( O_EARLY_BRESP_CTRL_AWVALID    ),
-        .I_AWREADY                  ( I_EARLY_BRESP_CTRL_AWREADY    ),
+        .I_AWVALID                  ( O_EARLY_BRESP_CTRL_AWVALID  && I_AXI_SLV_ID_MISMATCH_EN  ),
+        .I_AWREADY                  ( w_early_bresp_ctrl_awready  && I_AXI_SLV_ID_MISMATCH_EN  ),
+    
+        .I_WLAST                    ( O_EARLY_BRESP_CTRL_WLAST      ),
+        .I_WVALID                   ( O_EARLY_BRESP_CTRL_WVALID   && I_AXI_SLV_ID_MISMATCH_EN  ),
+        .I_WREADY                   ( w_early_bresp_ctrl_wready   && I_AXI_SLV_ID_MISMATCH_EN  ),
     
         .I_BID                      ( I_EARLY_BRESP_CTRL_BID        ),
-        .I_BVALID                   ( I_EARLY_BRESP_CTRL_BVALID     ),
-        .I_BREADY                   ( O_EARLY_BRESP_CTRL_BREADY     ),
+        .I_BVALID                   ( I_EARLY_BRESP_CTRL_BVALID   && I_AXI_SLV_ID_MISMATCH_EN  ),
+        .I_BREADY                   ( O_EARLY_BRESP_CTRL_BREADY   && I_AXI_SLV_ID_MISMATCH_EN  ),
     
         .I_ARID                     ( I_AOU_TX_AXI_S_ARID           ),
-        .I_ARVALID                  ( I_AOU_TX_AXI_S_ARVALID        ),
-        .I_ARREADY                  ( I_AOU_TX_AXI_S_ARREADY        ),
+        .I_ARVALID                  ( I_AOU_TX_AXI_S_ARVALID      && I_AXI_SLV_ID_MISMATCH_EN  ),
+        .I_ARREADY                  ( I_AOU_TX_AXI_S_ARREADY      && I_AXI_SLV_ID_MISMATCH_EN  ),
     
         .I_RID                      ( I_AOU_RX_AXI_S_RID            ),
         .I_RLAST                    ( I_AOU_RX_AXI_S_RLAST          ),
-        .I_RVALID                   ( I_AOU_RX_AXI_S_RVALID         ),
-        .I_RREADY                   ( I_AOU_RX_AXI_S_RREADY         ),
+        .I_RVALID                   ( I_AOU_RX_AXI_S_RVALID       && I_AXI_SLV_ID_MISMATCH_EN  ),
+        .I_RREADY                   ( I_AOU_RX_AXI_S_RREADY       && I_AXI_SLV_ID_MISMATCH_EN  ),
 
         .O_SLV_AXI_MISMATCH_RID     ( O_AXI_SLV_RID_MISMATCH_INFO   ),
         .O_SLV_AXI_MISMATCH_R_ERR   ( O_AXI_SLV_RID_MISMATCH_ERR_SET),
         .O_SLV_AXI_MISMATCH_BID     ( O_AXI_SLV_BID_MISMATCH_INFO   ),
         .O_SLV_AXI_MISMATCH_B_ERR   ( O_AXI_SLV_BID_MISMATCH_ERR_SET),
         .O_SLV_AXI_R_BLOCK          ( w_slv_axi_r_block             ),
-        .O_SLV_AXI_B_BLOCK          ( w_slv_axi_b_block             )   
+        .O_SLV_AXI_B_BLOCK          ( w_slv_axi_b_block             ),
+
+        .O_AW_HOLD_FLAG             ( w_aou_slv_info_aw_hold_flag   ),
+        .O_W_HOLD_FLAG              ( w_aou_slv_info_w_hold_flag    ),
+        .O_AR_HOLD_FLAG             ( O_AOU_SLV_INFO_AR_HOLD_FLAG   )
     );
 
     assign w_early_bresp_ctrl_bvalid_blocked    = I_EARLY_BRESP_CTRL_BVALID && (!w_slv_axi_b_block);
     assign w_aou_rx_axi_s_rvalid_blocked        = I_AOU_RX_AXI_S_RVALID && (!w_slv_axi_r_block);
     
     assign O_AOU_RX_AXI_S_RVALID_BLOCKED = w_aou_rx_axi_s_rvalid_blocked;
-
+    assign w_early_bresp_ctrl_awready    = I_EARLY_BRESP_CTRL_AWREADY && ~w_aou_slv_info_aw_hold_flag;
+    assign w_early_bresp_ctrl_wready     = I_EARLY_BRESP_CTRL_WREADY && ~w_aou_slv_info_w_hold_flag;
+    assign O_EARLY_BRESP_CTRL_AWVALID    = w_early_bresp_ctrl_awvalid && ~w_aou_slv_info_aw_hold_flag;
+    assign O_EARLY_BRESP_CTRL_WVALID     = w_early_bresp_ctrl_wvalid && ~w_aou_slv_info_w_hold_flag;
 //----------------------------------------------------------------------------
 
     AOU_ISO_RS #(
@@ -770,14 +767,14 @@ module AOU_CORE_RP #(
         .O_AXI_M_AWCACHE            ( O_EARLY_BRESP_CTRL_AWCACHE    ),
         .O_AXI_M_AWPROT             ( O_EARLY_BRESP_CTRL_AWPROT     ),
         .O_AXI_M_AWQOS              ( O_EARLY_BRESP_CTRL_AWQOS      ),
-        .O_AXI_M_AWVALID            ( O_EARLY_BRESP_CTRL_AWVALID    ),
-        .I_AXI_M_AWREADY            ( I_EARLY_BRESP_CTRL_AWREADY    ),
+        .O_AXI_M_AWVALID            ( w_early_bresp_ctrl_awvalid    ),
+        .I_AXI_M_AWREADY            ( w_early_bresp_ctrl_awready    ),
                                             
         .O_AXI_M_WDATA              ( O_EARLY_BRESP_CTRL_WDATA      ),
         .O_AXI_M_WSTRB              ( O_EARLY_BRESP_CTRL_WSTRB      ),
         .O_AXI_M_WLAST              ( O_EARLY_BRESP_CTRL_WLAST      ),
-        .O_AXI_M_WVALID             ( O_EARLY_BRESP_CTRL_WVALID     ),
-        .I_AXI_M_WREADY             ( I_EARLY_BRESP_CTRL_WREADY     ),
+        .O_AXI_M_WVALID             ( w_early_bresp_ctrl_wvalid     ),
+        .I_AXI_M_WREADY             ( w_early_bresp_ctrl_wready     ),
                                
         .I_AXI_M_BID                ( w_early_bresp_ctrl_bid        ),
         .I_AXI_M_BRESP              ( w_early_bresp_ctrl_bresp      ),
@@ -960,17 +957,10 @@ module AOU_CORE_RP #(
         .I_M_BRESP                      ( w_aou_err_info_axi_bresp          ),
         .I_M_BVALID                     ( w_aou_err_info_axi_bvalid         ),
         .O_M_BREADY                     ( w_aou_err_info_axi_bready         ),
-    
-        .O_BID_MISMATCH                 ( O_ERROR_INFO_SPLIT_BID_MISMATCH_INFO   ),
-        .O_RID_MISMATCH                 ( O_ERROR_INFO_SPLIT_RID_MISMATCH_INFO   ),
-        .O_SPLIT_BID_MISMATCH_ERROR     ( O_ERROR_INFO_SPLIT_BID_MISMATCH_ERR_SET),
-        .O_SPLIT_RID_MISMATCH_ERROR     ( O_ERROR_INFO_SPLIT_RID_MISMATCH_ERR_SET),
-    
+       
         .I_MAX_AWBURSTLEN               ( I_AXI_SPLIT_TR_MAX_AWBURSTLEN     ),
         .I_MAX_ARBURSTLEN               ( I_AXI_SPLIT_TR_MAX_ARBURSTLEN     ),
     
-        .I_AXI_SPLIT_TR_EN              ( 1'b0                              ),
-
         .I_AXI_AGGREGATOR_EN            ( I_AXI_AGGREGATOR_EN               ),
     
         .O_BRESP_ERR_ID                 ( w_axi_bresp_err_id                ),
@@ -981,10 +971,45 @@ module AOU_CORE_RP #(
         .O_RRESP_ERR_ID                 ( w_axi_rresp_err_id                ),
         .O_RRESP_ERR_ADDR               ( w_axi_rresp_err_addr              ),
         .O_RRESP_ERR_RRESP              ( w_axi_rresp_err_bresp             ),
-        .O_RRESP_ERR                    ( w_axi_rresp_err                   )
+        .O_RRESP_ERR                    ( w_axi_rresp_err                   ),
+
+        .O_SPLIT_MISMATCH_BID           (O_ERROR_INFO_SPLIT_BID_MISMATCH_INFO       ),
+        .O_SPLIT_MISMATCH_RID           (w_error_info_split_rid_mismatch_info       ), 
+        .O_SPLIT_BID_MISMATCH_ERROR     (O_ERROR_INFO_SPLIT_BID_MISMATCH_ERR_SET    ),
+        .O_SPLIT_RID_MISMATCH_ERROR     (w_error_info_split_rid_mismatch_err_set    ),
+                                       
+        .O_AGGRE_MISMATCH_RID           (w_error_info_aggre_rid_mismatch_info       ), 
+        .O_AGGRE_RID_MISMATCH_ERROR     (w_error_info_aggre_rid_mismatch_err_set    ),
+                                       
+        .O_DOWN1024_MISMATCH_RID        (w_error_info_down1024_rid_mismatch_info    ), 
+        .O_DOWN1024_RID_MISMATCH_ERROR  (w_error_info_down1024_rid_mismatch_err_set ),
+                                       
+        .O_DOWN512_MISMATCH_RID         (w_error_info_down512_rid_mismatch_info     ), 
+        .O_DOWN512_RID_MISMATCH_ERROR   (w_error_info_down512_rid_mismatch_err_set  )
+
     );
 
+always_comb begin
+    O_ERROR_INFO_RID_MISMATCH_ERR_SET = 1'b0;
+    O_ERROR_INFO_RID_MISMATCH_INFO    = {AXI_ID_WD{1'b0}};
 
+    if (w_error_info_split_rid_mismatch_err_set) begin
+        O_ERROR_INFO_RID_MISMATCH_ERR_SET = 1'b1;
+        O_ERROR_INFO_RID_MISMATCH_INFO    = w_error_info_split_rid_mismatch_info;
+    end
+    else if (w_error_info_aggre_rid_mismatch_err_set) begin
+        O_ERROR_INFO_RID_MISMATCH_ERR_SET = 1'b1;
+        O_ERROR_INFO_RID_MISMATCH_INFO    = w_error_info_aggre_rid_mismatch_info;
+    end
+    else if (w_error_info_down512_rid_mismatch_err_set) begin
+        O_ERROR_INFO_RID_MISMATCH_ERR_SET = 1'b1;
+        O_ERROR_INFO_RID_MISMATCH_INFO    = w_error_info_down512_rid_mismatch_info;
+    end
+    else if (w_error_info_down1024_rid_mismatch_err_set) begin
+        O_ERROR_INFO_RID_MISMATCH_ERR_SET = 1'b1;
+        O_ERROR_INFO_RID_MISMATCH_INFO    = w_error_info_down1024_rid_mismatch_info;
+    end
+end
 //-------------------------------------------------------------
     logic   w_aou_rx_fifo_pending;
     

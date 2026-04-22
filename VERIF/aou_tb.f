@@ -2,6 +2,10 @@
 // AOU_CORE_TOP AXI VIP Testbench -- File List
 // All paths relative to the VERIF/ directory
 // =============================================================================
++define+TWO_PHY
++define+FDI_32B
++define+FDI_64B
+//+define+FDI_128B
 
 // Include paths
 +incdir+axi_vip/include

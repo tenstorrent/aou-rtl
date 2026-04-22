@@ -144,6 +144,8 @@ module AOU_AXI_SPLIT_TR #(
     output      [ 1 :0]                 O_RRESP_ERR_RRESP,
     output                              O_RRESP_ERR,
 
+    output      [ID_WD-3: 0]            O_SPLIT_MISMATCH_RID,
+    output      [ID_WD-3: 0]            O_SPLIT_MISMATCH_BID,    
     output wire                         O_DEST_TABLE_RID_ERR,
     output wire                         O_DEST_TABLE_BID_ERR,
 
@@ -384,7 +386,7 @@ end
 endgenerate
 
 //--------------------------------------------------------------
-localparam AXI_M_BCH_PAYLOAD_WD  = ID_WD - 2 + 2 + 1 ;
+localparam AXI_M_BCH_PAYLOAD_WD  = ID_WD - 2 + 2 ;
 wire [AXI_M_BCH_PAYLOAD_WD - 1:0] w_aou_axi_split_tr_m_bch_rs_sdata;
 wire [AXI_M_BCH_PAYLOAD_WD - 1:0] w_aou_axi_split_tr_m_bch_rs_mdata;
 
@@ -735,6 +737,7 @@ AOU_SPLIT_RD_PENDING_INFO #(
     .O_DEST_TABLE_ID_ERR        ( O_DEST_TABLE_RID_ERR  )
 
 );
+assign O_SPLIT_MISMATCH_RID = I_M_RID_RS;
 
 assign O_RRESP_ERR_ADDR = O_RRESP_ERR ? w_rresp_err_araddr : 'b0;
 assign O_RRESP_ERR_ID = O_RRESP_ERR ? O_S_RID_RS[ID_WD-1:2] : 'b0;
@@ -851,8 +854,12 @@ assign w_m_awch_next_valid  = w_wch_fwd_rs_mvalid & (r_awch_fwd_rs_mdata_awlen >
 
 assign w_m_awch_en = w_m_awch_start_valid | w_m_awch_next_valid;
 assign O_M_AWVALID_RS = w_m_awch_en & I_M_WREADY_RS;
-assign w_m_awch_ready = O_M_WVALID_RS & I_M_WREADY_RS & O_M_WLAST_RS & (r_awch_fwd_rs_mdata_awlen <= 'd1);
-
+assign w_m_awch_ready = O_M_WVALID_RS & I_M_WREADY_RS & O_M_WLAST_RS & 
+(
+(w_awch_fwd_rs_mdata_awlen == 'd0) |
+((w_awch_fwd_rs_mdata_awlen >= 'd1) & (r_awch_fwd_rs_mdata_awlen == 'd1))
+)
+;
 always @(posedge I_CLK or negedge I_RESETN) begin
     if(~I_RESETN) begin
         r_awch_fwd_rs_mdata_awlen    <= 'd0;
@@ -932,6 +939,7 @@ AOU_SPLIT_WR_PENDING_INFO #(
     .O_DEST_TABLE_ID_ERR        ( O_DEST_TABLE_BID_ERR  )
 
 );
+assign O_SPLIT_MISMATCH_BID = I_M_BID_RS;
 
 assign O_BRESP_ERR_ADDR     = O_BRESP_ERR ? w_bresp_err_awaddr : 'b0;
 assign O_BRESP_ERR_ID       = O_BRESP_ERR ? I_M_BID_RS : '0;

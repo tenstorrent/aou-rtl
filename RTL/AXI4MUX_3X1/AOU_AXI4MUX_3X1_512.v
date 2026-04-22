@@ -212,8 +212,10 @@ module AOU_AXI4MUX_3X1_512 #(
     input       [ ID_WD+1: 0]           I_M_BID,
     input       [ 1: 0]                 I_M_BRESP,
     input                               I_M_BVALID,
-    output wire                         O_M_BREADY
+    output wire                         O_M_BREADY,
 
+    output      [ ID_WD-1: 0]           O_DOWN1024_MISMATCH_RID,
+    output                              O_DOWN1024_RID_MISMATCH_ERROR
 );
 
 localparam W_WD = DATA_WD + STRB_WD + 1; // WLAST
@@ -499,7 +501,10 @@ AOU_AXI_DOWN #(
     .I_M_BID       ( dn_s_bid_2      ),
     .I_M_BRESP     ( dn_s_bresp_2    ),
     .I_M_BVALID    ( dn_s_bvalid_2   ),
-    .O_M_BREADY    ( dn_s_bready_2   )
+    .O_M_BREADY    ( dn_s_bready_2   ),
+
+    .O_DOWN_MISMATCH_RID    (O_DOWN1024_MISMATCH_RID),
+    .O_DEST_TABLE_RID_ERR   (O_DOWN1024_RID_MISMATCH_ERROR)
     
 );
 

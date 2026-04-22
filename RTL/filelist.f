@@ -22,8 +22,11 @@
 //  Author     : Soyoung Min, Jaeyun Lee, Hojun Lee, Kwanho Kim
 //
 // *****************************************************************************
++define+TWO_PHY
++define+FDI_32B
++define+FDI_64B
+//+define+FDI_128B
 
-+define+NO_PIPELINED
 ${AOU_CORE_HOME}/RTL/packet_def_pkg.sv
 ${AOU_CORE_HOME}/RTL/AOU_RX_CORE.sv
 ${AOU_CORE_HOME}/RTL/AOU_ACTIVATION_CTRL.sv

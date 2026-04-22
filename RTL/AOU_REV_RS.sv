@@ -41,32 +41,32 @@ module AOU_REV_RS #(
     output [DATA_WIDTH -1:0] O_MDATA
 );
 
-  logic [DATA_WIDTH -1:0]     r_payload;     
-  logic                       w_payload_buf_en;       
-  logic                       r_payload_buf_full_en;  
-  logic                       r_payload_buf_full;     
+  logic [DATA_WIDTH -1:0]     r_hold_data;     
+  logic                       w_store_data;       
+  logic                       w_update_buf_full;  
+  logic                       r_hold_valid;     
 
-  assign w_payload_buf_en = (I_SVALID & ~r_payload_buf_full & ~I_MREADY);
+  assign w_store_data = (I_SVALID && ~r_hold_valid && ~I_MREADY);
 
   always_ff @(posedge I_CLK or negedge I_RESETN) begin
     if (~I_RESETN)
-      r_payload <= 'd0;
-    else if (w_payload_buf_en)
-      r_payload <= I_SDATA;
+      r_hold_data <= 'd0;
+    else if (w_store_data)
+      r_hold_data <= I_SDATA;
   end
   
-  assign r_payload_buf_full_en = (w_payload_buf_en | I_MREADY);
+  assign w_update_buf_full = w_store_data || I_MREADY;
   
   always_ff @(posedge I_CLK or negedge I_RESETN) begin
     if (~I_RESETN)
-      r_payload_buf_full <= 1'b0;
-    else if (r_payload_buf_full_en)
-      r_payload_buf_full <= w_payload_buf_en;
+      r_hold_valid <= 1'b0;
+    else if (w_update_buf_full)
+      r_hold_valid <= w_store_data;
   end
   
-  assign O_SREADY = ~r_payload_buf_full;
-  assign O_MVALID = (I_SVALID | r_payload_buf_full);
+  assign O_SREADY = ~r_hold_valid;
+  assign O_MVALID = I_SVALID || r_hold_valid;
 
-  assign O_MDATA = r_payload_buf_full ? r_payload : I_SDATA;
+  assign O_MDATA = r_hold_valid ? r_hold_data : I_SDATA;
 
 endmodule 

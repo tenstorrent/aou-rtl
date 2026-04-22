@@ -31,8 +31,8 @@ module AOU_SLV_AXI_INFO #(
 
     parameter  RD_MO_CNT                = 64,
     parameter  WR_MO_CNT                = 64,
-    localparam RD_MO_CNT_WD             = $clog2(RD_MO_CNT),
-    localparam WR_MO_CNT_WD             = $clog2(WR_MO_CNT)
+    localparam RD_MO_CNT_WD             = $clog2(RD_MO_CNT+1),
+    localparam WR_MO_CNT_WD             = $clog2(WR_MO_CNT+1)
 
 )
 (
@@ -42,6 +42,10 @@ module AOU_SLV_AXI_INFO #(
     input [AXI_ID_WD-1:0]                       I_AWID                     ,
     input                                       I_AWVALID                  ,
     input                                       I_AWREADY                  ,      
+
+    input                                       I_WLAST                    ,
+    input                                       I_WVALID                   ,
+    input                                       I_WREADY                   ,
 
     input [AXI_ID_WD-1:0]                       I_BID                      ,
     input                                       I_BVALID                   ,
@@ -63,7 +67,12 @@ module AOU_SLV_AXI_INFO #(
     output                                      O_SLV_AXI_MISMATCH_B_ERR   ,
 
     output                                      O_SLV_AXI_R_BLOCK          ,
-    output                                      O_SLV_AXI_B_BLOCK          
+    output                                      O_SLV_AXI_B_BLOCK          ,
+
+    output                                      O_AW_HOLD_FLAG             ,
+    output                                      O_W_HOLD_FLAG              ,
+    output                                      O_AR_HOLD_FLAG   
+
 );
 localparam table_payload_width = 1 + AXI_ID_WD;
 
@@ -90,6 +99,42 @@ logic [WR_MO_CNT_WD-1:0]   r_wid_table_wr_ptr;
 logic [WR_MO_CNT_WD-1:0]   w_nxt_wid_table_wr_ptr;
 
 logic [WR_MO_CNT-1:0]      w_wid_table_match_flag; //find valid & ID match idx
+
+// Tranaction count
+logic [WR_MO_CNT_WD-1:0]   r_awcnt;
+logic [WR_MO_CNT_WD-1:0]   r_wcnt;
+
+logic [RD_MO_CNT_WD-1:0]   r_arcnt;
+
+always_ff @ (posedge I_CLK or negedge I_RESETN) begin
+    if(!I_RESETN) begin
+        r_awcnt <= '0;
+    end else if ((I_AWVALID && I_AWREADY) & ~(I_BVALID && I_BREADY)) begin
+        r_awcnt <= r_awcnt + {{(WR_MO_CNT_WD-1){1'b0}}, 1'b1};
+    end else if (~(I_AWVALID && I_AWREADY) & (I_BVALID && I_BREADY)) begin
+        r_awcnt <= r_awcnt - {{(WR_MO_CNT_WD-1){1'b0}}, 1'b1};
+    end
+end
+
+always_ff @ (posedge I_CLK or negedge I_RESETN) begin
+    if(!I_RESETN) begin
+        r_wcnt <= '0;
+    end else if ((I_WLAST && I_WVALID && I_WREADY) & ~(I_BVALID && I_BREADY)) begin
+        r_wcnt <= r_wcnt + {{(WR_MO_CNT_WD-1){1'b0}}, 1'b1};
+    end else if (~(I_WLAST && I_WVALID && I_WREADY) & (I_BVALID && I_BREADY)) begin
+        r_wcnt <= r_wcnt - {{(WR_MO_CNT_WD-1){1'b0}}, 1'b1};
+    end
+end
+
+always_ff @ (posedge I_CLK or negedge I_RESETN) begin
+    if(!I_RESETN) begin
+        r_arcnt <= '0;
+    end else if ((I_ARVALID && I_ARREADY) & ~(I_RVALID && I_RREADY && I_RLAST)) begin
+        r_arcnt <= r_arcnt + {{(RD_MO_CNT_WD-1){1'b0}}, 1'b1};
+    end else if (~(I_ARVALID && I_ARREADY) & (I_RVALID && I_RREADY && I_RLAST)) begin
+        r_arcnt <= r_arcnt - {{(RD_MO_CNT_WD-1){1'b0}}, 1'b1};
+    end
+end
 
 //=====================================================================================
 //=================== AR Table ========================================================
@@ -152,7 +197,7 @@ always_ff @ (posedge I_CLK or negedge I_RESETN) begin
             r_slv_axi_mismatch_r_err <= 1'b1;
             r_slv_axi_mismatch_r_id <= I_RID;
         end
-    end else if (r_slv_axi_mismatch_r_err) begin
+    end else begin
         r_slv_axi_mismatch_r_err <= 1'b0;
         r_slv_axi_mismatch_r_id <= 'b0;
     end
@@ -228,7 +273,7 @@ always_ff @ (posedge I_CLK or negedge I_RESETN) begin
             r_slv_axi_mismatch_w_err <= 1'b1;
             r_slv_axi_mismatch_b_id <= I_BID;
         end
-    end else if (r_slv_axi_mismatch_w_err) begin
+    end else begin
         r_slv_axi_mismatch_w_err <= 1'b0;
         r_slv_axi_mismatch_b_id <= 'b0;
     end
@@ -244,12 +289,15 @@ always_comb begin
     end
 end
 
-//If there is no MO limitation at the top level of the AoU Bridge, those ports are not used.
-assign O_SLV_AXI_MISMATCH_R_ERR = 1'b0;//r_slv_axi_mismatch_r_err
-assign O_SLV_AXI_MISMATCH_RID   = 'b0; //r_slv_axi_mismatch_r_id
-assign O_SLV_AXI_MISMATCH_B_ERR = 1'b0;//r_slv_axi_mismatch_w_err
-assign O_SLV_AXI_MISMATCH_BID   = 'b0; //r_slv_axi_mismatch_b_id
-assign O_SLV_AXI_R_BLOCK        = 1'b0;//w_slv_axi_mismatch_r_err 
-assign O_SLV_AXI_B_BLOCK        = 1'b0;//w_slv_axi_mismatch_w_err
+assign O_SLV_AXI_MISMATCH_R_ERR = r_slv_axi_mismatch_r_err ; 
+assign O_SLV_AXI_MISMATCH_RID   = r_slv_axi_mismatch_r_id  ; 
+assign O_SLV_AXI_MISMATCH_B_ERR = r_slv_axi_mismatch_w_err ; 
+assign O_SLV_AXI_MISMATCH_BID   = r_slv_axi_mismatch_b_id  ; 
+assign O_SLV_AXI_R_BLOCK        = w_slv_axi_mismatch_r_err ; 
+assign O_SLV_AXI_B_BLOCK        = w_slv_axi_mismatch_w_err ; 
+
+assign O_AW_HOLD_FLAG           = (r_awcnt == WR_MO_CNT);
+assign O_W_HOLD_FLAG            = (r_awcnt == WR_MO_CNT);
+assign O_AR_HOLD_FLAG           = (r_arcnt == RD_MO_CNT);
 
 endmodule

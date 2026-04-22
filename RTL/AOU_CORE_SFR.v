@@ -59,7 +59,6 @@ module AOU_CORE_SFR #(
     output                  O_AOU_CON0_TX_LP_MODE,
     output                  O_AOU_CON0_AOU_SW_RESET,
     output                  O_AOU_CON0_CREDIT_MANAGE,
-    output                  O_AOU_CON0_AXI_SPLIT_TR_EN,
     output                  O_AOU_CON0_DEACTIVATE_FORCE,
     input                   I_AOU_INIT_INT_DEACTIVATE_PROPERTY,    
     input                   I_AOU_INIT_MST_TR_COMPLETE,
@@ -101,9 +100,9 @@ module AOU_CORE_SFR #(
     output      [7:0]       O_AXI_SPLIT_TR_RP0_MAX_AWBURSTLEN,
     output      [7:0]       O_AXI_SPLIT_TR_RP0_MAX_ARBURSTLEN,
     input       [9:0]       I_ERROR_INFO_RP0_SPLIT_BID_MISMATCH_INFO,
-    input       [9:0]       I_ERROR_INFO_RP0_SPLIT_RID_MISMATCH_INFO,
+    input       [9:0]       I_ERROR_INFO_RP0_RID_MISMATCH_INFO,
     input                   I_ERROR_INFO_RP0_SPLIT_BID_MISMATCH_ERR_SET,
-    input                   I_ERROR_INFO_RP0_SPLIT_RID_MISMATCH_ERR_SET,
+    input                   I_ERROR_INFO_RP0_RID_MISMATCH_ERR_SET,
     input                   I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_DONE,
     input                   I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_ERR_SET,
     input       [1:0]       I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_ERR_TYPE_INFO,
@@ -118,9 +117,9 @@ module AOU_CORE_SFR #(
     output      [7:0]       O_AXI_SPLIT_TR_RP1_MAX_AWBURSTLEN,
     output      [7:0]       O_AXI_SPLIT_TR_RP1_MAX_ARBURSTLEN,
     input       [9:0]       I_ERROR_INFO_RP1_SPLIT_BID_MISMATCH_INFO,
-    input       [9:0]       I_ERROR_INFO_RP1_SPLIT_RID_MISMATCH_INFO,
+    input       [9:0]       I_ERROR_INFO_RP1_RID_MISMATCH_INFO,
     input                   I_ERROR_INFO_RP1_SPLIT_BID_MISMATCH_ERR_SET,
-    input                   I_ERROR_INFO_RP1_SPLIT_RID_MISMATCH_ERR_SET,
+    input                   I_ERROR_INFO_RP1_RID_MISMATCH_ERR_SET,
     input                   I_WRITE_EARLY_RESPONSE_RP1_WRITE_RESP_DONE,
     input                   I_WRITE_EARLY_RESPONSE_RP1_WRITE_RESP_ERR_SET,
     input       [1:0]       I_WRITE_EARLY_RESPONSE_RP1_WRITE_RESP_ERR_TYPE_INFO,
@@ -135,9 +134,9 @@ module AOU_CORE_SFR #(
     output      [7:0]       O_AXI_SPLIT_TR_RP2_MAX_AWBURSTLEN,
     output      [7:0]       O_AXI_SPLIT_TR_RP2_MAX_ARBURSTLEN,
     input       [9:0]       I_ERROR_INFO_RP2_SPLIT_BID_MISMATCH_INFO,
-    input       [9:0]       I_ERROR_INFO_RP2_SPLIT_RID_MISMATCH_INFO,
+    input       [9:0]       I_ERROR_INFO_RP2_RID_MISMATCH_INFO,
     input                   I_ERROR_INFO_RP2_SPLIT_BID_MISMATCH_ERR_SET,
-    input                   I_ERROR_INFO_RP2_SPLIT_RID_MISMATCH_ERR_SET,
+    input                   I_ERROR_INFO_RP2_RID_MISMATCH_ERR_SET,
     input                   I_WRITE_EARLY_RESPONSE_RP2_WRITE_RESP_DONE,
     input                   I_WRITE_EARLY_RESPONSE_RP2_WRITE_RESP_ERR_SET,
     input       [1:0]       I_WRITE_EARLY_RESPONSE_RP2_WRITE_RESP_ERR_TYPE_INFO,
@@ -152,9 +151,9 @@ module AOU_CORE_SFR #(
     output      [7:0]       O_AXI_SPLIT_TR_RP3_MAX_AWBURSTLEN,
     output      [7:0]       O_AXI_SPLIT_TR_RP3_MAX_ARBURSTLEN,
     input       [9:0]       I_ERROR_INFO_RP3_SPLIT_BID_MISMATCH_INFO,
-    input       [9:0]       I_ERROR_INFO_RP3_SPLIT_RID_MISMATCH_INFO,
+    input       [9:0]       I_ERROR_INFO_RP3_RID_MISMATCH_INFO,
     input                   I_ERROR_INFO_RP3_SPLIT_BID_MISMATCH_ERR_SET,
-    input                   I_ERROR_INFO_RP3_SPLIT_RID_MISMATCH_ERR_SET,
+    input                   I_ERROR_INFO_RP3_RID_MISMATCH_ERR_SET,
     input                   I_WRITE_EARLY_RESPONSE_RP3_WRITE_RESP_DONE,
     input                   I_WRITE_EARLY_RESPONSE_RP3_WRITE_RESP_ERR_SET,
     input       [1:0]       I_WRITE_EARLY_RESPONSE_RP3_WRITE_RESP_ERR_TYPE_INFO,
@@ -166,10 +165,13 @@ module AOU_CORE_SFR #(
     input       [9:0]       I_AXI_SLV_ID_MISMATCH_ERR_RP3_AXI_SLV_RID_MISMATCH_INFO,
     input                   I_AXI_SLV_ID_MISMATCH_ERR_RP3_AXI_SLV_BID_MISMATCH_ERR_SET,
     input                   I_AXI_SLV_ID_MISMATCH_ERR_RP3_AXI_SLV_RID_MISMATCH_ERR_SET,
-
+    output                  O_AXI_SLV_ID_MISMATCH_RP0_EN,            
+    output                  O_AXI_SLV_ID_MISMATCH_RP1_EN, 
+    output                  O_AXI_SLV_ID_MISMATCH_RP2_EN, 
+    output                  O_AXI_SLV_ID_MISMATCH_RP3_EN, 
     //Manual input, output
 
-    output                  O_SPLIT_RID_MISMATCH_ERROR,
+    output                  O_RID_MISMATCH_ERROR,
     output                  O_SPLIT_BID_MISMATCH_ERROR,
     output                  O_ACT_ACK_ERR,
     output                  O_DEACT_ACK_ERR,
@@ -221,16 +223,16 @@ localparam SFR_AXI_SLV_ID_MISMATCH_ERR_RP3_ADDR = 16'h007C;
 
 //Error set
 reg [9:0]           r_error_info_rp0_split_mismatch_bid;
-reg [9:0]           r_error_info_rp0_split_mismatch_rid;
+reg [9:0]           r_error_info_rp0_mismatch_rid;
 
 reg [9:0]           r_error_info_rp1_split_mismatch_bid;
-reg [9:0]           r_error_info_rp1_split_mismatch_rid;
+reg [9:0]           r_error_info_rp1_mismatch_rid;
 
 reg [9:0]           r_error_info_rp2_split_mismatch_bid;
-reg [9:0]           r_error_info_rp2_split_mismatch_rid;
+reg [9:0]           r_error_info_rp2_mismatch_rid;
 
 reg [9:0]           r_error_info_rp3_split_mismatch_bid;
-reg [9:0]           r_error_info_rp3_split_mismatch_rid;
+reg [9:0]           r_error_info_rp3_mismatch_rid;
 
 reg [3:0]           r_lp_linkreset_invalid_actmsg_info;
 
@@ -245,6 +247,11 @@ reg [9:0]           r_axi_slv_id_mismatch_err_rp2_rid;
 
 reg [9:0]           r_axi_slv_id_mismatch_err_rp3_bid;
 reg [9:0]           r_axi_slv_id_mismatch_err_rp3_rid;
+
+reg                 r_axi_slv_id_mismatch_rp0_en;
+reg                 r_axi_slv_id_mismatch_rp1_en;
+reg                 r_axi_slv_id_mismatch_rp2_en;
+reg                 r_axi_slv_id_mismatch_rp3_en;
 
 reg [9:0]           r_write_early_response_rp0_write_resp_err_id_info;
 reg [1:0]           r_write_early_response_rp0_write_resp_err_type_info;
@@ -270,7 +277,6 @@ reg [7:0]           r_aou_con0_tx_lp_mode_threshold;
 reg                 r_aou_con0_tx_lp_mode;
 reg                 r_aou_con0_aou_sw_reset;
 reg                 r_aou_con0_credit_manage;
-reg                 r_aou_con0_axi_split_tr_en;
 reg                 r_aou_con0_deactivate_force;
 reg                 r_aou_init_int_activate_start;
 reg                 r_aou_init_int_deactivate_start;
@@ -306,7 +312,7 @@ reg [15:0]          r_prior_timer_timer_threshold;
 reg [7:0]           r_axi_split_tr_rp0_max_awburstlen;
 reg [7:0]           r_axi_split_tr_rp0_max_arburstlen;
 reg                 r_error_info_rp0_split_bid_mismatch_err;
-reg                 r_error_info_rp0_split_rid_mismatch_err;
+reg                 r_error_info_rp0_rid_mismatch_err;
 reg                 r_write_early_response_rp0_write_resp_err;
 reg                 r_write_early_response_rp0_early_bresp_en;
 reg [31:0]          r_axi_error_info0_rp0_debug_upper_addr;
@@ -316,7 +322,7 @@ reg                 r_axi_slv_id_mismatch_err_rp0_axi_slv_rid_mismatch_err;
 reg [7:0]           r_axi_split_tr_rp1_max_awburstlen;
 reg [7:0]           r_axi_split_tr_rp1_max_arburstlen;
 reg                 r_error_info_rp1_split_bid_mismatch_err;
-reg                 r_error_info_rp1_split_rid_mismatch_err;
+reg                 r_error_info_rp1_rid_mismatch_err;
 reg                 r_write_early_response_rp1_write_resp_err;
 reg                 r_write_early_response_rp1_early_bresp_en;
 reg [31:0]          r_axi_error_info0_rp1_debug_upper_addr;
@@ -326,7 +332,7 @@ reg                 r_axi_slv_id_mismatch_err_rp1_axi_slv_rid_mismatch_err;
 reg [7:0]           r_axi_split_tr_rp2_max_awburstlen;
 reg [7:0]           r_axi_split_tr_rp2_max_arburstlen;
 reg                 r_error_info_rp2_split_bid_mismatch_err;
-reg                 r_error_info_rp2_split_rid_mismatch_err;
+reg                 r_error_info_rp2_rid_mismatch_err;
 reg                 r_write_early_response_rp2_write_resp_err;
 reg                 r_write_early_response_rp2_early_bresp_en;
 reg [31:0]          r_axi_error_info0_rp2_debug_upper_addr;
@@ -336,7 +342,7 @@ reg                 r_axi_slv_id_mismatch_err_rp2_axi_slv_rid_mismatch_err;
 reg [7:0]           r_axi_split_tr_rp3_max_awburstlen;
 reg [7:0]           r_axi_split_tr_rp3_max_arburstlen;
 reg                 r_error_info_rp3_split_bid_mismatch_err;
-reg                 r_error_info_rp3_split_rid_mismatch_err;
+reg                 r_error_info_rp3_rid_mismatch_err;
 reg                 r_write_early_response_rp3_write_resp_err;
 reg                 r_write_early_response_rp3_early_bresp_en;
 reg [31:0]          r_axi_error_info0_rp3_debug_upper_addr;
@@ -434,7 +440,7 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_aou_con0_credit_manage <= 1'h0;
+        r_aou_con0_credit_manage <= 1'h1;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AOU_CON0_ADDR)) begin
         r_aou_con0_credit_manage <= I_PWDATA[3];
     end
@@ -442,15 +448,7 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_aou_con0_axi_split_tr_en <= 1'h0;
-    end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AOU_CON0_ADDR)) begin
-        r_aou_con0_axi_split_tr_en <= I_PWDATA[2];
-    end
-end
-
-always @(posedge I_PCLK or negedge I_PRESETN) begin
-    if (!I_PRESETN) begin
-        r_aou_con0_deactivate_force <= 1'h0;
+       r_aou_con0_deactivate_force <= 1'h0;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AOU_CON0_ADDR)) begin
         r_aou_con0_deactivate_force <= I_PWDATA[0];
     end else if (r_aou_con0_deactivate_force & I_AOU_INIT_ACTIVATE_STATE_DISABLED) begin
@@ -760,11 +758,11 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_error_info_rp0_split_mismatch_rid <= 10'b0;
-    end else if ((~r_error_info_rp0_split_rid_mismatch_err) && I_ERROR_INFO_RP0_SPLIT_RID_MISMATCH_ERR_SET) begin
-        r_error_info_rp0_split_mismatch_rid <= I_ERROR_INFO_RP0_SPLIT_RID_MISMATCH_INFO;
-    end else if (~r_error_info_rp0_split_rid_mismatch_err) begin
-        r_error_info_rp0_split_mismatch_rid <= 10'b0;
+        r_error_info_rp0_mismatch_rid <= 10'b0;
+    end else if ((~r_error_info_rp0_rid_mismatch_err) && I_ERROR_INFO_RP0_RID_MISMATCH_ERR_SET) begin
+        r_error_info_rp0_mismatch_rid <= I_ERROR_INFO_RP0_RID_MISMATCH_INFO;
+    end else if (~r_error_info_rp0_rid_mismatch_err) begin
+        r_error_info_rp0_mismatch_rid <= 10'b0;
     end
 end
 
@@ -780,11 +778,11 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_error_info_rp0_split_rid_mismatch_err <= 1'h0;
-    end else if (I_ERROR_INFO_RP0_SPLIT_RID_MISMATCH_ERR_SET) begin
-        r_error_info_rp0_split_rid_mismatch_err <= 1'b1;
+        r_error_info_rp0_rid_mismatch_err <= 1'h0;
+    end else if (I_ERROR_INFO_RP0_RID_MISMATCH_ERR_SET) begin
+        r_error_info_rp0_rid_mismatch_err <= 1'b1;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_ERROR_INFO_RP0_ADDR) & I_PWDATA[0]) begin
-        r_error_info_rp0_split_rid_mismatch_err <= 1'b0;
+        r_error_info_rp0_rid_mismatch_err <= 1'b0;
     end
 end
 
@@ -832,6 +830,14 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         r_axi_error_info1_rp0_debug_lower_addr <= 32'h0;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AXI_ERROR_INFO1_RP0_ADDR)) begin
         r_axi_error_info1_rp0_debug_lower_addr <= I_PWDATA[31:0];
+    end
+end
+
+always @(posedge I_PCLK or negedge I_PRESETN) begin
+    if (!I_PRESETN) begin
+        r_axi_slv_id_mismatch_rp0_en <= 1'h0;
+    end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AXI_SLV_ID_MISMATCH_ERR_RP0_ADDR)) begin
+        r_axi_slv_id_mismatch_rp0_en <= I_PWDATA[22];
     end
 end
 
@@ -903,11 +909,11 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_error_info_rp1_split_mismatch_rid <= 10'b0;
-    end else if ((~r_error_info_rp1_split_rid_mismatch_err) && I_ERROR_INFO_RP1_SPLIT_RID_MISMATCH_ERR_SET) begin
-        r_error_info_rp1_split_mismatch_rid <= I_ERROR_INFO_RP1_SPLIT_RID_MISMATCH_INFO;
-    end else if (~r_error_info_rp1_split_rid_mismatch_err) begin
-        r_error_info_rp1_split_mismatch_rid <= 10'b0;
+        r_error_info_rp1_mismatch_rid <= 10'b0;
+    end else if ((~r_error_info_rp1_rid_mismatch_err) && I_ERROR_INFO_RP1_RID_MISMATCH_ERR_SET) begin
+        r_error_info_rp1_mismatch_rid <= I_ERROR_INFO_RP1_RID_MISMATCH_INFO;
+    end else if (~r_error_info_rp1_rid_mismatch_err) begin
+        r_error_info_rp1_mismatch_rid <= 10'b0;
     end
 end
 
@@ -923,11 +929,11 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_error_info_rp1_split_rid_mismatch_err <= 1'h0;
-    end else if (I_ERROR_INFO_RP1_SPLIT_RID_MISMATCH_ERR_SET) begin
-        r_error_info_rp1_split_rid_mismatch_err <= 1'b1;
+        r_error_info_rp1_rid_mismatch_err <= 1'h0;
+    end else if (I_ERROR_INFO_RP1_RID_MISMATCH_ERR_SET) begin
+        r_error_info_rp1_rid_mismatch_err <= 1'b1;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_ERROR_INFO_RP1_ADDR) & I_PWDATA[0]) begin
-        r_error_info_rp1_split_rid_mismatch_err <= 1'b0;
+        r_error_info_rp1_rid_mismatch_err <= 1'b0;
     end
 end
 
@@ -975,6 +981,14 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         r_axi_error_info1_rp1_debug_lower_addr <= 32'h0;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AXI_ERROR_INFO1_RP1_ADDR)) begin
         r_axi_error_info1_rp1_debug_lower_addr <= I_PWDATA[31:0];
+    end
+end
+
+always @(posedge I_PCLK or negedge I_PRESETN) begin
+    if (!I_PRESETN) begin
+        r_axi_slv_id_mismatch_rp1_en <= 1'h0;
+    end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AXI_SLV_ID_MISMATCH_ERR_RP1_ADDR)) begin
+        r_axi_slv_id_mismatch_rp1_en <= I_PWDATA[22];
     end
 end
 
@@ -1046,11 +1060,11 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_error_info_rp2_split_mismatch_rid <= 10'b0;
-    end else if ((~r_error_info_rp2_split_rid_mismatch_err) && I_ERROR_INFO_RP2_SPLIT_RID_MISMATCH_ERR_SET) begin
-        r_error_info_rp2_split_mismatch_rid <= I_ERROR_INFO_RP2_SPLIT_RID_MISMATCH_INFO;
-    end else if (~r_error_info_rp2_split_rid_mismatch_err) begin
-        r_error_info_rp2_split_mismatch_rid <= 10'b0;
+        r_error_info_rp2_mismatch_rid <= 10'b0;
+    end else if ((~r_error_info_rp2_rid_mismatch_err) && I_ERROR_INFO_RP2_RID_MISMATCH_ERR_SET) begin
+        r_error_info_rp2_mismatch_rid <= I_ERROR_INFO_RP2_RID_MISMATCH_INFO;
+    end else if (~r_error_info_rp2_rid_mismatch_err) begin
+        r_error_info_rp2_mismatch_rid <= 10'b0;
     end
 end
 
@@ -1066,11 +1080,11 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_error_info_rp2_split_rid_mismatch_err <= 1'h0;
-    end else if (I_ERROR_INFO_RP2_SPLIT_RID_MISMATCH_ERR_SET) begin
-        r_error_info_rp2_split_rid_mismatch_err <= 1'b1;
+        r_error_info_rp2_rid_mismatch_err <= 1'h0;
+    end else if (I_ERROR_INFO_RP2_RID_MISMATCH_ERR_SET) begin
+        r_error_info_rp2_rid_mismatch_err <= 1'b1;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_ERROR_INFO_RP2_ADDR) & I_PWDATA[0]) begin
-        r_error_info_rp2_split_rid_mismatch_err <= 1'b0;
+        r_error_info_rp2_rid_mismatch_err <= 1'b0;
     end
 end
 
@@ -1118,6 +1132,14 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         r_axi_error_info1_rp2_debug_lower_addr <= 32'h0;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AXI_ERROR_INFO1_RP2_ADDR)) begin
         r_axi_error_info1_rp2_debug_lower_addr <= I_PWDATA[31:0];
+    end
+end
+
+always @(posedge I_PCLK or negedge I_PRESETN) begin
+    if (!I_PRESETN) begin
+        r_axi_slv_id_mismatch_rp2_en <= 1'h0;
+    end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AXI_SLV_ID_MISMATCH_ERR_RP2_ADDR)) begin
+        r_axi_slv_id_mismatch_rp2_en <= I_PWDATA[22];
     end
 end
 
@@ -1189,11 +1211,11 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_error_info_rp3_split_mismatch_rid <= 10'b0;
-    end else if ((~r_error_info_rp3_split_rid_mismatch_err) && I_ERROR_INFO_RP3_SPLIT_RID_MISMATCH_ERR_SET) begin
-        r_error_info_rp3_split_mismatch_rid <= I_ERROR_INFO_RP3_SPLIT_RID_MISMATCH_INFO;
-    end else if (~r_error_info_rp3_split_rid_mismatch_err) begin
-        r_error_info_rp3_split_mismatch_rid <= 10'b0;
+        r_error_info_rp3_mismatch_rid <= 10'b0;
+    end else if ((~r_error_info_rp3_rid_mismatch_err) && I_ERROR_INFO_RP3_RID_MISMATCH_ERR_SET) begin
+        r_error_info_rp3_mismatch_rid <= I_ERROR_INFO_RP3_RID_MISMATCH_INFO;
+    end else if (~r_error_info_rp3_rid_mismatch_err) begin
+        r_error_info_rp3_mismatch_rid <= 10'b0;
     end
 end
 
@@ -1209,11 +1231,11 @@ end
 
 always @(posedge I_PCLK or negedge I_PRESETN) begin
     if (!I_PRESETN) begin
-        r_error_info_rp3_split_rid_mismatch_err <= 1'h0;
-    end else if (I_ERROR_INFO_RP3_SPLIT_RID_MISMATCH_ERR_SET) begin
-        r_error_info_rp3_split_rid_mismatch_err <= 1'b1;
+        r_error_info_rp3_rid_mismatch_err <= 1'h0;
+    end else if (I_ERROR_INFO_RP3_RID_MISMATCH_ERR_SET) begin
+        r_error_info_rp3_rid_mismatch_err <= 1'b1;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_ERROR_INFO_RP3_ADDR) & I_PWDATA[0]) begin
-        r_error_info_rp3_split_rid_mismatch_err <= 1'b0;
+        r_error_info_rp3_rid_mismatch_err <= 1'b0;
     end
 end
 
@@ -1261,6 +1283,14 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         r_axi_error_info1_rp3_debug_lower_addr <= 32'h0;
     end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AXI_ERROR_INFO1_RP3_ADDR)) begin
         r_axi_error_info1_rp3_debug_lower_addr <= I_PWDATA[31:0];
+    end
+end
+
+always @(posedge I_PCLK or negedge I_PRESETN) begin
+    if (!I_PRESETN) begin
+        r_axi_slv_id_mismatch_rp3_en <= 1'h0;
+    end else if (I_PSEL & ~I_PENABLE & I_PWRITE & (I_PADDR[15:0] == SFR_AXI_SLV_ID_MISMATCH_ERR_RP3_ADDR)) begin
+        r_axi_slv_id_mismatch_rp3_en <= I_PWDATA[22];
     end
 end
 
@@ -1318,7 +1348,7 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         SFR_IP_VERSION_ADDR : 
             r_rdata <= {I_IP_VERSION_MAJOR_VERSION, I_IP_VERSION_MINOR_VERSION};
         SFR_AOU_CON0_ADDR : 
-            r_rdata <= { 4'd0, r_aou_con0_rp3_error_info_access_en, r_aou_con0_rp2_error_info_access_en, r_aou_con0_rp1_error_info_access_en, r_aou_con0_rp0_error_info_access_en, r_aou_con0_rp3_axi_aggregator_en, r_aou_con0_rp2_axi_aggregator_en, r_aou_con0_rp1_axi_aggregator_en, r_aou_con0_rp0_axi_aggregator_en, r_aou_con0_tx_lp_mode_threshold, r_aou_con0_tx_lp_mode,  6'd0, r_aou_con0_aou_sw_reset, r_aou_con0_credit_manage, r_aou_con0_axi_split_tr_en, 1'b0,  1'd0};
+            r_rdata <= { 4'd0, r_aou_con0_rp3_error_info_access_en, r_aou_con0_rp2_error_info_access_en, r_aou_con0_rp1_error_info_access_en, r_aou_con0_rp0_error_info_access_en, r_aou_con0_rp3_axi_aggregator_en, r_aou_con0_rp2_axi_aggregator_en, r_aou_con0_rp1_axi_aggregator_en, r_aou_con0_rp0_axi_aggregator_en, r_aou_con0_tx_lp_mode_threshold, r_aou_con0_tx_lp_mode,  6'd0, r_aou_con0_aou_sw_reset, r_aou_con0_credit_manage, 1'b0, 1'b0,  1'd0};
         SFR_AOU_INIT_ADDR : 
             r_rdata <= { 20'd0, I_AOU_INIT_INT_DEACTIVATE_PROPERTY, I_AOU_INIT_MST_TR_COMPLETE, I_AOU_INIT_SLV_TR_COMPLETE, r_aou_init_int_activate_start, r_aou_init_int_deactivate_start, r_aou_init_deactivate_time_out_value, I_AOU_INIT_ACTIVATE_STATE_DISABLED, I_AOU_INIT_ACTIVATE_STATE_ENABLED, r_aou_init_deactivate_start, r_aou_init_activate_start};
         SFR_AOU_INTERRUPT_MASK_ADDR : 
@@ -1334,7 +1364,7 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         SFR_AXI_SPLIT_TR_RP0_ADDR : 
             r_rdata <= { 16'd0, r_axi_split_tr_rp0_max_awburstlen, r_axi_split_tr_rp0_max_arburstlen};
         SFR_ERROR_INFO_RP0_ADDR : 
-            r_rdata <= { 10'd0, r_error_info_rp0_split_mismatch_bid, r_error_info_rp0_split_mismatch_rid, r_error_info_rp0_split_bid_mismatch_err, r_error_info_rp0_split_rid_mismatch_err};
+            r_rdata <= { 10'd0, r_error_info_rp0_split_mismatch_bid, r_error_info_rp0_mismatch_rid, r_error_info_rp0_split_bid_mismatch_err, r_error_info_rp0_rid_mismatch_err};
         SFR_WRITE_EARLY_RESPONSE_RP0_ADDR : 
             r_rdata <= { 17'd0, I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_DONE, r_write_early_response_rp0_write_resp_err, r_write_early_response_rp0_write_resp_err_type_info, r_write_early_response_rp0_write_resp_err_id_info, r_write_early_response_rp0_early_bresp_en};
         SFR_AXI_ERROR_INFO0_RP0_ADDR : 
@@ -1342,11 +1372,11 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         SFR_AXI_ERROR_INFO1_RP0_ADDR : 
             r_rdata <= {r_axi_error_info1_rp0_debug_lower_addr};
         SFR_AXI_SLV_ID_MISMATCH_ERR_RP0_ADDR :
-            r_rdata <= { 10'd0, r_axi_slv_id_mismatch_err_rp0_bid, r_axi_slv_id_mismatch_err_rp0_rid, r_axi_slv_id_mismatch_err_rp0_axi_slv_bid_mismatch_err, r_axi_slv_id_mismatch_err_rp0_axi_slv_rid_mismatch_err}; 
+            r_rdata <= { 9'd0, r_axi_slv_id_mismatch_rp0_en, r_axi_slv_id_mismatch_err_rp0_bid, r_axi_slv_id_mismatch_err_rp0_rid, r_axi_slv_id_mismatch_err_rp0_axi_slv_bid_mismatch_err, r_axi_slv_id_mismatch_err_rp0_axi_slv_rid_mismatch_err}; 
         SFR_AXI_SPLIT_TR_RP1_ADDR : 
             r_rdata <= { 16'd0, r_axi_split_tr_rp1_max_awburstlen, r_axi_split_tr_rp1_max_arburstlen};
         SFR_ERROR_INFO_RP1_ADDR : 
-            r_rdata <= { 10'd0, r_error_info_rp1_split_mismatch_bid, r_error_info_rp1_split_mismatch_rid, r_error_info_rp1_split_bid_mismatch_err, r_error_info_rp1_split_rid_mismatch_err};
+            r_rdata <= { 10'd0, r_error_info_rp1_split_mismatch_bid, r_error_info_rp1_mismatch_rid, r_error_info_rp1_split_bid_mismatch_err, r_error_info_rp1_rid_mismatch_err};
         SFR_WRITE_EARLY_RESPONSE_RP1_ADDR : 
             r_rdata <= { 17'd0, I_WRITE_EARLY_RESPONSE_RP1_WRITE_RESP_DONE, r_write_early_response_rp1_write_resp_err, r_write_early_response_rp1_write_resp_err_type_info, r_write_early_response_rp1_write_resp_err_id_info, r_write_early_response_rp1_early_bresp_en};
         SFR_AXI_ERROR_INFO0_RP1_ADDR : 
@@ -1354,11 +1384,11 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         SFR_AXI_ERROR_INFO1_RP1_ADDR : 
             r_rdata <= {r_axi_error_info1_rp1_debug_lower_addr};
         SFR_AXI_SLV_ID_MISMATCH_ERR_RP1_ADDR : 
-            r_rdata <= { 10'd0, r_axi_slv_id_mismatch_err_rp1_bid, r_axi_slv_id_mismatch_err_rp1_rid, r_axi_slv_id_mismatch_err_rp1_axi_slv_bid_mismatch_err, r_axi_slv_id_mismatch_err_rp1_axi_slv_rid_mismatch_err};
+            r_rdata <= { 9'd0, r_axi_slv_id_mismatch_rp1_en, r_axi_slv_id_mismatch_err_rp1_bid, r_axi_slv_id_mismatch_err_rp1_rid, r_axi_slv_id_mismatch_err_rp1_axi_slv_bid_mismatch_err, r_axi_slv_id_mismatch_err_rp1_axi_slv_rid_mismatch_err};
         SFR_AXI_SPLIT_TR_RP2_ADDR : 
             r_rdata <= { 16'd0, r_axi_split_tr_rp2_max_awburstlen, r_axi_split_tr_rp2_max_arburstlen};
         SFR_ERROR_INFO_RP2_ADDR : 
-            r_rdata <= { 10'd0, r_error_info_rp2_split_mismatch_bid, r_error_info_rp2_split_mismatch_rid, r_error_info_rp2_split_bid_mismatch_err, r_error_info_rp2_split_rid_mismatch_err};
+            r_rdata <= { 10'd0, r_error_info_rp2_split_mismatch_bid, r_error_info_rp2_mismatch_rid, r_error_info_rp2_split_bid_mismatch_err, r_error_info_rp2_rid_mismatch_err};
         SFR_WRITE_EARLY_RESPONSE_RP2_ADDR : 
             r_rdata <= { 17'd0, I_WRITE_EARLY_RESPONSE_RP2_WRITE_RESP_DONE, r_write_early_response_rp2_write_resp_err, r_write_early_response_rp2_write_resp_err_type_info, r_write_early_response_rp2_write_resp_err_id_info, r_write_early_response_rp2_early_bresp_en};
         SFR_AXI_ERROR_INFO0_RP2_ADDR : 
@@ -1366,11 +1396,11 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         SFR_AXI_ERROR_INFO1_RP2_ADDR : 
             r_rdata <= {r_axi_error_info1_rp2_debug_lower_addr};
         SFR_AXI_SLV_ID_MISMATCH_ERR_RP2_ADDR :
-            r_rdata <= { 10'd0, r_axi_slv_id_mismatch_err_rp2_bid, r_axi_slv_id_mismatch_err_rp2_rid, r_axi_slv_id_mismatch_err_rp2_axi_slv_bid_mismatch_err, r_axi_slv_id_mismatch_err_rp2_axi_slv_rid_mismatch_err};
+            r_rdata <= { 9'd0, r_axi_slv_id_mismatch_rp2_en, r_axi_slv_id_mismatch_err_rp2_bid, r_axi_slv_id_mismatch_err_rp2_rid, r_axi_slv_id_mismatch_err_rp2_axi_slv_bid_mismatch_err, r_axi_slv_id_mismatch_err_rp2_axi_slv_rid_mismatch_err};
         SFR_AXI_SPLIT_TR_RP3_ADDR : 
             r_rdata <= { 16'd0, r_axi_split_tr_rp3_max_awburstlen, r_axi_split_tr_rp3_max_arburstlen};
         SFR_ERROR_INFO_RP3_ADDR : 
-            r_rdata <= { 10'd0, r_error_info_rp3_split_mismatch_bid, r_error_info_rp3_split_mismatch_rid, r_error_info_rp3_split_bid_mismatch_err, r_error_info_rp3_split_rid_mismatch_err};
+            r_rdata <= { 10'd0, r_error_info_rp3_split_mismatch_bid, r_error_info_rp3_mismatch_rid, r_error_info_rp3_split_bid_mismatch_err, r_error_info_rp3_rid_mismatch_err};
         SFR_WRITE_EARLY_RESPONSE_RP3_ADDR : 
             r_rdata <= { 17'd0, I_WRITE_EARLY_RESPONSE_RP3_WRITE_RESP_DONE, r_write_early_response_rp3_write_resp_err, r_write_early_response_rp3_write_resp_err_type_info, r_write_early_response_rp3_write_resp_err_id_info, r_write_early_response_rp3_early_bresp_en};
         SFR_AXI_ERROR_INFO0_RP3_ADDR : 
@@ -1378,7 +1408,7 @@ always @(posedge I_PCLK or negedge I_PRESETN) begin
         SFR_AXI_ERROR_INFO1_RP3_ADDR : 
             r_rdata <= {r_axi_error_info1_rp3_debug_lower_addr};
         SFR_AXI_SLV_ID_MISMATCH_ERR_RP3_ADDR : 
-            r_rdata <= { 10'd0, r_axi_slv_id_mismatch_err_rp3_bid, r_axi_slv_id_mismatch_err_rp3_rid, r_axi_slv_id_mismatch_err_rp3_axi_slv_bid_mismatch_err, r_axi_slv_id_mismatch_err_rp3_axi_slv_rid_mismatch_err};
+            r_rdata <= { 9'd0, r_axi_slv_id_mismatch_rp3_en, r_axi_slv_id_mismatch_err_rp3_bid, r_axi_slv_id_mismatch_err_rp3_rid, r_axi_slv_id_mismatch_err_rp3_axi_slv_bid_mismatch_err, r_axi_slv_id_mismatch_err_rp3_axi_slv_rid_mismatch_err};
         default:
             r_rdata <= 32'd0;
         endcase
@@ -1397,7 +1427,6 @@ assign O_AOU_CON0_TX_LP_MODE_THRESHOLD = r_aou_con0_tx_lp_mode_threshold;
 assign O_AOU_CON0_TX_LP_MODE = r_aou_con0_tx_lp_mode;
 assign O_AOU_CON0_AOU_SW_RESET = r_aou_con0_aou_sw_reset;
 assign O_AOU_CON0_CREDIT_MANAGE = r_aou_con0_credit_manage;
-assign O_AOU_CON0_AXI_SPLIT_TR_EN = r_aou_con0_axi_split_tr_en;
 assign O_AOU_CON0_DEACTIVATE_FORCE = r_aou_con0_deactivate_force;
 assign O_AOU_INIT_DEACTIVATE_TIME_OUT_VALUE = r_aou_init_deactivate_time_out_value;
 assign O_AOU_INIT_DEACTIVATE_START = r_aou_init_deactivate_start;
@@ -1444,9 +1473,13 @@ assign O_AXI_SPLIT_TR_RP3_MAX_ARBURSTLEN = r_axi_split_tr_rp3_max_arburstlen;
 assign O_WRITE_EARLY_RESPONSE_RP3_EARLY_BRESP_EN = r_write_early_response_rp3_early_bresp_en;
 assign O_AXI_ERROR_INFO0_RP3_DEBUG_UPPER_ADDR = r_axi_error_info0_rp3_debug_upper_addr;
 assign O_AXI_ERROR_INFO1_RP3_DEBUG_LOWER_ADDR = r_axi_error_info1_rp3_debug_lower_addr;
+assign O_AXI_SLV_ID_MISMATCH_RP0_EN = r_axi_slv_id_mismatch_rp0_en; 
+assign O_AXI_SLV_ID_MISMATCH_RP1_EN = r_axi_slv_id_mismatch_rp0_en;
+assign O_AXI_SLV_ID_MISMATCH_RP2_EN = r_axi_slv_id_mismatch_rp0_en;
+assign O_AXI_SLV_ID_MISMATCH_RP3_EN = r_axi_slv_id_mismatch_rp0_en;
 
 assign O_SPLIT_BID_MISMATCH_ERROR = r_error_info_rp0_split_bid_mismatch_err | r_error_info_rp1_split_bid_mismatch_err | r_error_info_rp2_split_bid_mismatch_err | r_error_info_rp3_split_bid_mismatch_err;
-assign O_SPLIT_RID_MISMATCH_ERROR = r_error_info_rp0_split_rid_mismatch_err | r_error_info_rp1_split_rid_mismatch_err | r_error_info_rp2_split_rid_mismatch_err | r_error_info_rp3_split_rid_mismatch_err;
+assign O_RID_MISMATCH_ERROR = r_error_info_rp0_rid_mismatch_err | r_error_info_rp1_rid_mismatch_err | r_error_info_rp2_rid_mismatch_err | r_error_info_rp3_rid_mismatch_err;
 assign O_ACT_ACK_ERR        = r_lp_linkreset_act_ack_err;
 assign O_DEACT_ACK_ERR      = r_lp_linkreset_deact_ack_err;
 assign O_INVALID_ACTMSG_ERR = r_lp_linkreset_invalid_actmsg_err;

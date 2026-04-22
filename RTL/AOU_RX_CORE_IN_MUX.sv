@@ -25,45 +25,47 @@
 
 `timescale 1ns/1ps
 
-module AOU_RX_CORE_IN_MUX
+module AOU_RX_CORE_IN_MUX #(
+    parameter       FDI_IF_WD = 512
+)
 ( 
     input                                   I_CLK,
     input                                   I_RESETN,
 
     input                                   I_PHY_TYPE,
 
-    input                                   I_FDI_PL_64B_VALID,
-    input    [64*8 - 1: 0]                  I_FDI_PL_64B_DATA,
-    input                                   I_FDI_PL_64B_FLIT_CANCEL,
+    input                                   I_FDI_PL_1_VALID,
+    input    [FDI_IF_WD - 1: 0]             I_FDI_PL_1_DATA,
+    input                                   I_FDI_PL_1_FLIT_CANCEL,
 
-    input                                   I_FDI_PL_32B_VALID,
-    input    [32*8 - 1: 0]                  I_FDI_PL_32B_DATA,
-    input                                   I_FDI_PL_32B_FLIT_CANCEL,
+    input                                   I_FDI_PL_0_VALID,
+    input    [FDI_IF_WD/2 - 1: 0]           I_FDI_PL_0_DATA,
+    input                                   I_FDI_PL_0_FLIT_CANCEL,
 
     output                                  O_FDI_PL_VALID,
-    output   [64*8 - 1: 0]                  O_FDI_PL_DATA,
+    output   [FDI_IF_WD - 1: 0]             O_FDI_PL_DATA,
     output                                  O_FDI_PL_FLIT_CANCEL
 
 );
 
-logic    [32*8 - 1: 0]                  r_fdi_pl_32b_data ;
+logic    [FDI_IF_WD/2 - 1: 0]           r_fdi_pl_0_data ;
 logic                                   r_phase;
 
-assign O_FDI_PL_VALID       = I_PHY_TYPE ? I_FDI_PL_64B_VALID       : (r_phase & I_FDI_PL_32B_VALID)       ;
-assign O_FDI_PL_DATA        = I_PHY_TYPE ? I_FDI_PL_64B_DATA        : {I_FDI_PL_32B_DATA, r_fdi_pl_32b_data} ; 
-assign O_FDI_PL_FLIT_CANCEL = I_PHY_TYPE ? I_FDI_PL_64B_FLIT_CANCEL : I_FDI_PL_32B_FLIT_CANCEL;
+assign O_FDI_PL_VALID       = I_PHY_TYPE ? I_FDI_PL_1_VALID       : (r_phase & I_FDI_PL_0_VALID)       ;
+assign O_FDI_PL_DATA        = I_PHY_TYPE ? I_FDI_PL_1_DATA        : {I_FDI_PL_0_DATA, r_fdi_pl_0_data} ; 
+assign O_FDI_PL_FLIT_CANCEL = I_PHY_TYPE ? I_FDI_PL_1_FLIT_CANCEL : I_FDI_PL_0_FLIT_CANCEL;
  
 always_ff @(posedge I_CLK or negedge I_RESETN) begin
     if (!I_RESETN) begin
-        r_fdi_pl_32b_data  <= 'd0;
+        r_fdi_pl_0_data  <= 'd0;
 
         r_phase <= 1'b0;
     end else begin
         if(~I_PHY_TYPE) begin
-            if(I_FDI_PL_32B_VALID)
+            if(I_FDI_PL_0_VALID)
                 r_phase <= ~r_phase;
-            if(I_FDI_PL_32B_VALID & ~r_phase) begin
-                r_fdi_pl_32b_data <= I_FDI_PL_32B_DATA;
+            if(I_FDI_PL_0_VALID & ~r_phase) begin
+                r_fdi_pl_0_data <= I_FDI_PL_0_DATA;
             end
         end
 

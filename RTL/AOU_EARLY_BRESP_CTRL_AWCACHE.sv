@@ -101,7 +101,6 @@ module AOU_EARLY_BRESP_CTRL_AWCACHE
 );
 
 logic  [MO_CNT_WD-1:0]          r_aw_cnt;
-logic  [MO_CNT_WD-1:0]          r_w_cnt;
 
 logic                           w_w_last_hs;
 logic                           w_aw_hs;
@@ -122,6 +121,8 @@ logic   [AXI_ID_WD-1:0]         w_early_rsp_id;
 logic                           w_bypass;
 logic   [AXI_ID_WD-1:0]         w_table_awid;
 logic                           w_table_bufferable_flag;
+
+logic                           r_earlyresponse_non_stop;
 
 always_ff @ (posedge I_CLK or negedge I_RESETN) begin
     if(~I_RESETN) begin
@@ -149,11 +150,11 @@ end
 
 always_ff @ (posedge I_CLK or negedge I_RESETN) begin
     if(~I_RESETN) begin
-        r_w_cnt <= '0;
-    end else if (~w_b_hs & w_w_last_hs) begin
-        r_w_cnt <= r_w_cnt + 1;
-    end else if (w_b_hs & ~w_w_last_hs) begin
-        r_w_cnt <= r_w_cnt - 1;
+        r_earlyresponse_non_stop <= 1'b1;
+    end else if (~w_earlyrsp_valid && I_AXI_M_BVALID && ~O_AXI_M_BREADY) begin
+        r_earlyresponse_non_stop <= 1'b0;
+    end else if (w_b_hs) begin
+        r_earlyresponse_non_stop <= 1'b1;        
     end
 end
 
@@ -192,11 +193,11 @@ AOU_EARLY_TABLE #(
 
     .I_AXI_AwId                      ( w_table_awid                               ), 
     .I_AXI_Bufferable                ( w_table_bufferable_flag                    ),
-    .I_AXI_AwValid                   ( w_w_last_hs                                ),
+    .I_AXI_AwValid                   ( r_early_bresp_en && w_w_last_hs            ),
     .I_AXI_AwReady                   ( w_early_table_available_flag               ),
 
     .I_AXI_M_BId                     ( I_AXI_M_BID                                ),
-    .I_AXI_M_BValid                  ( I_EARLY_BRESP_EN & I_AXI_M_BVALID          ),
+    .I_AXI_M_BValid                  ( r_early_bresp_en && I_AXI_M_BVALID         ),
     .I_AXI_M_BReady                  ( O_AXI_M_BREADY                             ),
     .O_AW_Slot_Available_Flag        ( w_early_table_available_flag               ),
 
@@ -204,6 +205,8 @@ AOU_EARLY_TABLE #(
     .O_EarlyResponse_Consume         ( w_earlyrsp_consume                         ),
     .O_EarlyResponse_Valid           ( w_earlyrsp_valid                           ),
     .O_EarlyResponse_Id              ( w_early_rsp_id                             ), 
+
+    .I_EarlyResponse_NonStop         ( r_earlyresponse_non_stop                   ),
 
     .O_DEST_TABLE_ID_ERR             (                                            )
 );
@@ -225,8 +228,8 @@ assign  O_AXI_M_AWVALID   = r_early_bresp_en ? w_aw_cnt_fifo_sready & (r_aw_cnt 
 assign  O_AXI_M_WDATA     = I_AXI_S_WDATA   ;
 assign  O_AXI_M_WSTRB     = I_AXI_S_WSTRB   ;
 assign  O_AXI_M_WLAST     = I_AXI_S_WLAST   ;
-assign  O_AXI_S_WREADY    = r_early_bresp_en ? (r_w_cnt != WR_MO_CNT) & I_AXI_M_WREADY : I_AXI_M_WREADY ;
-assign  O_AXI_M_WVALID    = r_early_bresp_en ? (r_w_cnt != WR_MO_CNT) & I_AXI_S_WVALID : I_AXI_S_WVALID ;
+assign  O_AXI_S_WREADY    = r_early_bresp_en ? I_AXI_M_WREADY & (w_aw_cnt_fifo_mvalid || (I_AXI_S_AWVALID && O_AXI_S_AWREADY)) : I_AXI_M_WREADY ;
+assign  O_AXI_M_WVALID    = r_early_bresp_en ? I_AXI_S_WVALID & (w_aw_cnt_fifo_mvalid || (I_AXI_S_AWVALID && O_AXI_S_AWREADY)) : I_AXI_S_WVALID ;
 
 //  B CH ==================================================
 assign  O_AXI_S_BID       = r_early_bresp_en ? w_earlyrsp_valid ? w_early_rsp_id  : w_earlyrsp_consume ? 'd0   : I_AXI_M_BID   : I_AXI_M_BID;  

@@ -114,7 +114,10 @@ module AOU_AGGREGATOR #(
     input [1:0]                     I_M_RRESP,
     input                           I_M_RLAST,
     input                           I_M_RVALID,
-    output reg                      O_M_RREADY 
+    output reg                      O_M_RREADY,
+
+    output                          O_DEST_TABLE_RID_ERR,
+    output[ID_WD-1:0]               O_AGGRE_MISMATCH_RID
 );
 
 //write transaction reg, wire
@@ -310,7 +313,7 @@ end else begin
             'd6:     w_agg_awlen = (I_S_AWADDR[6:6] + I_S_AWLEN) >> 1;
             'd5:     w_agg_awlen = (I_S_AWADDR[6:5] + I_S_AWLEN) >> 2;
             'd4:     w_agg_awlen = (I_S_AWADDR[6:4] + I_S_AWLEN) >> 3;
-            'd2:     w_agg_awlen = (I_S_AWADDR[6:3] + I_S_AWLEN) >> 4;
+            'd3:     w_agg_awlen = (I_S_AWADDR[6:3] + I_S_AWLEN) >> 4;
             'd2:     w_agg_awlen = (I_S_AWADDR[6:2] + I_S_AWLEN) >> 5;
             'd1:     w_agg_awlen = (I_S_AWADDR[6:1] + I_S_AWLEN) >> 6;
             default: w_agg_awlen = (I_S_AWADDR[6:0] + I_S_AWLEN) >> 7;
@@ -320,7 +323,7 @@ end else begin
             'd6:     w_agg_cur_awaddr = ~r_s_wbusy_tt ? {I_S_AWADDR[6:6], 6'd0} : {r_s_awaddr[6:6], 6'd0};
             'd5:     w_agg_cur_awaddr = ~r_s_wbusy_tt ? {I_S_AWADDR[6:5], 5'd0} : {r_s_awaddr[6:5], 5'd0};
             'd4:     w_agg_cur_awaddr = ~r_s_wbusy_tt ? {I_S_AWADDR[6:4], 4'd0} : {r_s_awaddr[6:4], 4'd0};
-            'd2:     w_agg_cur_awaddr = ~r_s_wbusy_tt ? {I_S_AWADDR[6:3], 3'd0} : {r_s_awaddr[6:3], 3'd0};
+            'd3:     w_agg_cur_awaddr = ~r_s_wbusy_tt ? {I_S_AWADDR[6:3], 3'd0} : {r_s_awaddr[6:3], 3'd0};
             'd2:     w_agg_cur_awaddr = ~r_s_wbusy_tt ? {I_S_AWADDR[6:2], 2'd0} : {r_s_awaddr[6:2], 2'd0};
             'd1:     w_agg_cur_awaddr = ~r_s_wbusy_tt ? {I_S_AWADDR[6:1], 1'd0} : {r_s_awaddr[6:1], 1'd0};
             default: w_agg_cur_awaddr = ~r_s_wbusy_tt ? {I_S_AWADDR[6:0]} : {r_s_awaddr[6:0]};
@@ -330,7 +333,7 @@ end else begin
             'd6:     w_agg_wr_en = &w_agg_cur_awaddr[6:6] | I_S_WLAST;
             'd5:     w_agg_wr_en = &w_agg_cur_awaddr[6:5] | I_S_WLAST;
             'd4:     w_agg_wr_en = &w_agg_cur_awaddr[6:4] | I_S_WLAST;
-            'd2:     w_agg_wr_en = &w_agg_cur_awaddr[6:3] | I_S_WLAST;
+            'd3:     w_agg_wr_en = &w_agg_cur_awaddr[6:3] | I_S_WLAST;
             'd2:     w_agg_wr_en = &w_agg_cur_awaddr[6:2] | I_S_WLAST;
             'd1:     w_agg_wr_en = &w_agg_cur_awaddr[6:1] | I_S_WLAST;
             default: w_agg_wr_en = &w_agg_cur_awaddr[6:0] | I_S_WLAST;
@@ -481,7 +484,7 @@ end else begin
             'd6:     w_agg_arlen = (I_S_ARADDR[6:6] + I_S_ARLEN) >> 1;
             'd5:     w_agg_arlen = (I_S_ARADDR[6:5] + I_S_ARLEN) >> 2;
             'd4:     w_agg_arlen = (I_S_ARADDR[6:4] + I_S_ARLEN) >> 3;
-            'd2:     w_agg_arlen = (I_S_ARADDR[6:3] + I_S_ARLEN) >> 4;
+            'd3:     w_agg_arlen = (I_S_ARADDR[6:3] + I_S_ARLEN) >> 4;
             'd2:     w_agg_arlen = (I_S_ARADDR[6:2] + I_S_ARLEN) >> 5;
             'd1:     w_agg_arlen = (I_S_ARADDR[6:1] + I_S_ARLEN) >> 6;
             default: w_agg_arlen = (I_S_ARADDR[6:0] + I_S_ARLEN) >> 7;
@@ -581,10 +584,10 @@ AOU_AGGREGATOR_INFO #(
     .O_ReorderBuf_MValid      (             ),
     .O_ReorderBuf_MData       ( {w_rob_rid, w_rob_araddr, w_rob_arsize, w_rob_org_arlen, w_rob_org_arsize, w_rob_cur_burst_len, w_rob_s_rlast_send}),
     
-    .O_DEST_TABLE_ID_ERR      (             )
+    .O_DEST_TABLE_ID_ERR      ( O_DEST_TABLE_RID_ERR      )
 
 );
-
+assign O_AGGRE_MISMATCH_RID = I_M_RID;
 //=====================================================================================
 // transport to slave logic
 //=====================================================================================

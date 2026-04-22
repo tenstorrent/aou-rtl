@@ -388,11 +388,11 @@ logic      [RP_CNT-1:0]           w_aou_tx_ar_credit_valid;
 logic      [RP_CNT-1:0]           w_aou_tx_r_credit_valid;
 
 // QoS Parameter
-logic      [RP_CNT-1:0][1:0]      w_aou_aw_port_qos;
+logic      [3:0][1:0]             w_aou_aw_port_qos;
 logic      [RP_CNT-1:0][1:0]      w_aou_aw_axi_qos;
 logic      [RP_CNT-1:0][1:0]      w_aou_aw_fifo_qos;
 logic      [RP_CNT-1:0][1:0]      w_aou_aw_rp_qos;
-logic      [RP_CNT-1:0][1:0]      w_aou_ar_port_qos;
+logic      [3:0][1:0]             w_aou_ar_port_qos;
 logic      [RP_CNT-1:0][1:0]      w_aou_ar_axi_qos;
 logic      [RP_CNT-1:0][1:0]      w_aou_ar_fifo_qos;
 logic      [RP_CNT-1:0][1:0]      w_aou_ar_rp_qos;
@@ -1105,10 +1105,10 @@ end
 always_comb begin
     for (int unsigned i = 0 ; i < RP_CNT ; i ++) begin
         w_aou_tx_aw_credit_valid[i] = (I_AOU_TX_WREQCRED[i]  >= AW_G);
-        w_aou_tx_w_credit_valid[i]  = (I_AOU_TX_WDATACRED[i]  >= w_wdata_granule_size[i]);
+        w_aou_tx_w_credit_valid[i]  = (I_AOU_TX_WDATACRED[i]  >= {6'b0, w_wdata_granule_size[i]});
         w_aou_tx_b_credit_valid[i]  = (I_AOU_TX_WRESPCRED[i] >= B_G);
         w_aou_tx_ar_credit_valid[i] = (I_AOU_TX_RREQCRED[i] >= AR_G);
-        w_aou_tx_r_credit_valid[i]  = (I_AOU_TX_RDATACRED[i] >= w_rdata_granule_size[i]);
+        w_aou_tx_r_credit_valid[i]  = (I_AOU_TX_RDATACRED[i] >= {6'b0, w_rdata_granule_size[i]});
     end
 end
 

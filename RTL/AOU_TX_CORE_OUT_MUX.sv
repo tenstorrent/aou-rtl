@@ -25,7 +25,9 @@
 
 `timescale 1ns/1ps
 
-module AOU_TX_CORE_OUT_MUX
+module AOU_TX_CORE_OUT_MUX #(
+    FDI_IF_WD = 512
+)   
 ( 
     input                                   I_CLK,
     input                                   I_RESETN,
@@ -33,39 +35,39 @@ module AOU_TX_CORE_OUT_MUX
     input                                   I_PHY_TYPE,
 
     output logic                            O_FDI_PL_TRDY,
-    input  logic [511:0]                    I_FDI_LP_DATA,
+    input  logic [FDI_IF_WD-1:0]            I_FDI_LP_DATA,
     input  logic                            I_FDI_LP_VALID,
 
-    input  logic                            I_FDI_PL_32B_TRDY,
-    output logic [255:0]                    O_FDI_LP_32B_DATA,
-    output logic                            O_FDI_LP_32B_VALID,
+    input  logic                            I_FDI_PL_0_TRDY,
+    output logic [FDI_IF_WD/2-1:0]          O_FDI_LP_0_DATA,
+    output logic                            O_FDI_LP_0_VALID,
 
-    input  logic                            I_FDI_PL_64B_TRDY,
-    output logic [511:0]                    O_FDI_LP_64B_DATA,
-    output logic                            O_FDI_LP_64B_VALID
+    input  logic                            I_FDI_PL_1_TRDY,
+    output logic [FDI_IF_WD-1:0]            O_FDI_LP_1_DATA,
+    output logic                            O_FDI_LP_1_VALID
 );
 
 logic                                   r_phase;
 
-assign O_FDI_LP_64B_VALID = I_PHY_TYPE & I_FDI_LP_VALID;
-assign O_FDI_LP_64B_DATA = I_PHY_TYPE ? I_FDI_LP_DATA : 'd0;
+assign O_FDI_LP_1_VALID = I_PHY_TYPE & I_FDI_LP_VALID;
+assign O_FDI_LP_1_DATA = I_PHY_TYPE ? I_FDI_LP_DATA : 'd0;
 
-assign O_FDI_LP_32B_VALID = ~I_PHY_TYPE & I_FDI_LP_VALID;
-assign O_FDI_LP_32B_DATA = I_PHY_TYPE ? 'd0 :
-                           ~r_phase   ? I_FDI_LP_DATA[255:0]  :
-                                        I_FDI_LP_DATA[511:256];
+assign O_FDI_LP_0_VALID = ~I_PHY_TYPE & I_FDI_LP_VALID;
+assign O_FDI_LP_0_DATA = I_PHY_TYPE ? 'd0 :
+                           ~r_phase   ? I_FDI_LP_DATA[FDI_IF_WD/2-1:0]  :
+                                        I_FDI_LP_DATA[FDI_IF_WD-1:FDI_IF_WD/2];
 
-assign O_FDI_PL_TRDY = I_PHY_TYPE ? I_FDI_PL_64B_TRDY :
-                       (I_FDI_PL_32B_TRDY & r_phase);
+assign O_FDI_PL_TRDY = I_PHY_TYPE ? I_FDI_PL_1_TRDY :
+                       (I_FDI_PL_0_TRDY & r_phase);
 
 always_ff @(posedge I_CLK or negedge I_RESETN) begin
     if (!I_RESETN) begin
         r_phase <= 1'b0;
     end else begin
         if(~I_PHY_TYPE) begin
-            if(~r_phase & I_FDI_LP_VALID & I_FDI_PL_32B_TRDY)
+            if(~r_phase & I_FDI_LP_VALID & I_FDI_PL_0_TRDY)
                 r_phase <= 1'b1;
-            else if (r_phase & I_FDI_PL_32B_TRDY)
+            else if (r_phase & I_FDI_PL_0_TRDY)
                 r_phase <= 1'b0;
         end
 

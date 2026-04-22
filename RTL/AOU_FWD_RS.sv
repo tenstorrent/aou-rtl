@@ -38,34 +38,35 @@ module AOU_FWD_RS #(
     
     output                          O_MVALID ,
     input                           I_MREADY ,
-    output reg [DATA_WIDTH - 1:0]   O_MDATA  
+    output [DATA_WIDTH - 1:0]       O_MDATA  
 );
 
-logic                 w_payload_en;
-logic                 w_valid_dst_en;
-logic                 r_int_valid_m;
+logic                 w_store_data;
+logic [DATA_WIDTH-1:0]r_mdata;
+logic                 w_update_valid;
+logic                 r_buf_valid;
 
-assign O_MVALID = r_int_valid_m;
-
-assign O_SREADY = I_MREADY | ~r_int_valid_m;
+assign O_SREADY = I_MREADY || ~r_buf_valid;
 
 always_ff @(posedge I_CLK or negedge I_RESETN) begin
   if(~I_RESETN)
-    O_MDATA <= 'd0;
-  else if (w_payload_en)
-    O_MDATA <= I_SDATA;
+    r_mdata <= 'd0;
+  else if (w_store_data)
+    r_mdata <= I_SDATA;
 end
 
-assign w_payload_en = ((I_SVALID & ~r_int_valid_m) | (I_SVALID & r_int_valid_m & I_MREADY));
+assign w_store_data = ((I_SVALID && ~r_buf_valid) | (I_SVALID && r_buf_valid && I_MREADY));
 
-assign w_valid_dst_en = (I_SVALID | I_MREADY);
+assign w_update_valid = I_SVALID || I_MREADY;
 
 always_ff @(posedge I_CLK or negedge I_RESETN) begin
   if (~I_RESETN)
-    r_int_valid_m <= 1'b0;
-  else if (w_valid_dst_en)
-    r_int_valid_m <= I_SVALID;
+    r_buf_valid <= 1'b0;
+  else if (w_update_valid)
+    r_buf_valid <= I_SVALID;
 end
 
+assign O_MVALID = r_buf_valid;
+assign O_MDATA  = r_mdata;
 endmodule
 

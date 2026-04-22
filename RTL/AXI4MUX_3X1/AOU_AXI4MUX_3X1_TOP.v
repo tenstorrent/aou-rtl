@@ -202,7 +202,6 @@ module AOU_AXI4MUX_3X1_TOP #(
     input       [LEN_WD -1: 0]          I_MAX_AWBURSTLEN,
     input       [LEN_WD -1: 0]          I_MAX_ARBURSTLEN,
 
-    input                               I_AXI_SPLIT_TR_EN,
     input                               I_AXI_AGGREGATOR_EN,
 
     output      [ ID_WD-1:0]            O_BRESP_ERR_ID,
@@ -215,11 +214,19 @@ module AOU_AXI4MUX_3X1_TOP #(
     output      [ 1 :0]                 O_RRESP_ERR_RRESP,
     output                              O_RRESP_ERR,
 
-    output      [ ID_WD-1: 0]           O_BID_MISMATCH,
-    output      [ ID_WD-1: 0]           O_RID_MISMATCH, 
+    output      [ ID_WD-1: 0]           O_SPLIT_MISMATCH_BID,
+    output      [ ID_WD-1: 0]           O_SPLIT_MISMATCH_RID, 
     output                              O_SPLIT_BID_MISMATCH_ERROR,
-    output                              O_SPLIT_RID_MISMATCH_ERROR
+    output                              O_SPLIT_RID_MISMATCH_ERROR,
 
+    output      [ ID_WD-1: 0]           O_AGGRE_MISMATCH_RID, 
+    output                              O_AGGRE_RID_MISMATCH_ERROR,
+
+    output      [ ID_WD-1: 0]           O_DOWN1024_MISMATCH_RID, 
+    output                              O_DOWN1024_RID_MISMATCH_ERROR,
+
+    output      [ ID_WD-1: 0]           O_DOWN512_MISMATCH_RID, 
+    output                              O_DOWN512_RID_MISMATCH_ERROR
 
 );
 
@@ -642,8 +649,15 @@ if(DATA_WD == 512) begin
         .I_M_BID          ( I_SPLIT_BID_RS   ),
         .I_M_BRESP        ( I_SPLIT_BRESP_RS ),
         .I_M_BVALID       ( I_SPLIT_BVALID_RS),
-        .O_M_BREADY       ( O_SPLIT_BREADY_RS)
+        .O_M_BREADY       ( O_SPLIT_BREADY_RS),
+
+        .O_DOWN1024_MISMATCH_RID        (O_DOWN1024_MISMATCH_RID        ),
+        .O_DOWN1024_RID_MISMATCH_ERROR  (O_DOWN1024_RID_MISMATCH_ERROR  )
+       
     );
+
+    assign O_DOWN512_MISMATCH_RID       = '0;
+    assign O_DOWN512_RID_MISMATCH_ERROR = 1'b0;
 
 end else if (DATA_WD == 1024) begin
 
@@ -827,6 +841,11 @@ end else if (DATA_WD == 1024) begin
 
     );
 
+    assign O_DOWN512_MISMATCH_RID        = '0;
+    assign O_DOWN512_RID_MISMATCH_ERROR  = 1'b0;
+    assign O_DOWN1024_MISMATCH_RID       = '0;
+    assign O_DOWN1024_RID_MISMATCH_ERROR = 1'b0;
+
 end else if (DATA_WD == 256) begin
 
     AOU_AXI4MUX_3X1_256 #(
@@ -983,7 +1002,6 @@ end else if (DATA_WD == 256) begin
         .I_M_RDATA        ( I_SPLIT_RDATA    ),
         .I_M_RRESP        ( I_SPLIT_RRESP    ),
         .I_M_RLAST        ( I_SPLIT_RLAST    ),
-        //.I_M_ADDR_CNT     ( I_SPLIT_ADDR_CNT ),
         .I_M_RVALID       ( I_SPLIT_RVALID   ),
         .O_M_RREADY       ( O_SPLIT_RREADY   ),
 
@@ -1008,7 +1026,13 @@ end else if (DATA_WD == 256) begin
         .I_M_BID          ( I_SPLIT_BID_RS   ),
         .I_M_BRESP        ( I_SPLIT_BRESP_RS ),
         .I_M_BVALID       ( I_SPLIT_BVALID_RS),
-        .O_M_BREADY       ( O_SPLIT_BREADY_RS)
+        .O_M_BREADY       ( O_SPLIT_BREADY_RS),
+
+        .O_DOWN1024_MISMATCH_RID        (O_DOWN1024_MISMATCH_RID        ),
+        .O_DOWN1024_RID_MISMATCH_ERROR  (O_DOWN1024_RID_MISMATCH_ERROR  ),
+        
+        .O_DOWN512_MISMATCH_RID         (O_DOWN512_MISMATCH_RID         ),
+        .O_DOWN512_RID_MISMATCH_ERROR   (O_DOWN512_RID_MISMATCH_ERROR   )
 
     );
 
@@ -1146,6 +1170,8 @@ AOU_AXI_SPLIT_TR #(
     .O_RRESP_ERR_RRESP  ( O_RRESP_ERR_RRESP ),
     .O_RRESP_ERR        ( O_RRESP_ERR       ),
 
+    .O_SPLIT_MISMATCH_RID ( O_SPLIT_MISMATCH_RID       ),  
+    .O_SPLIT_MISMATCH_BID ( O_SPLIT_MISMATCH_BID       ),
     .O_DEST_TABLE_RID_ERR ( O_SPLIT_RID_MISMATCH_ERROR ),
     .O_DEST_TABLE_BID_ERR ( O_SPLIT_BID_MISMATCH_ERROR ),
 
@@ -1242,7 +1268,10 @@ AOU_AGGREGATOR # (
     .I_M_RRESP          (I_M_RRESP              ),
     .I_M_RLAST          (I_M_RLAST              ),
     .I_M_RVALID         (w_aggregator_m_rvalid  ),
-    .O_M_RREADY         (w_aggregator_m_rready  )
+    .O_M_RREADY             (w_aggregator_m_rready  ),
+
+    .O_AGGRE_MISMATCH_RID   (O_AGGRE_MISMATCH_RID  ),
+    .O_DEST_TABLE_RID_ERR   (O_AGGRE_RID_MISMATCH_ERROR)
 );
 //================================================================
 assign O_M_AWID     = I_AXI_AGGREGATOR_EN ? w_aggregator_awid      : o_m_awid    ;
@@ -1290,7 +1319,5 @@ assign O_M_RREADY   = I_AXI_AGGREGATOR_EN ? w_aggregator_m_rready : o_m_rready;
 assign w_aggregator_m_rvalid  = I_AXI_AGGREGATOR_EN ? I_M_RVALID : 1'b0;
 assign w_aggregator_s_rready  = o_m_rready && I_AXI_AGGREGATOR_EN;
 //========================================================================================
-assign O_RID_MISMATCH = I_M_RID;
-assign O_BID_MISMATCH = I_M_BID;
 
 endmodule

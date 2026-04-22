@@ -27,8 +27,8 @@
 
 module AOU_AGGREGATOR_INFO #(
     parameter  AXI_DATA_WD       = 512,
-    parameter  AXI_ID_WD         = 4'd4,
-    parameter  AXI_LEN_WD        = 4'd4,
+    parameter  AXI_ID_WD         = 4,
+    parameter  AXI_LEN_WD        = 4,
     parameter  RD_MO_CNT         = 10'd128,
 
     localparam AXI_ADDR_WD       = $clog2(AXI_DATA_WD/8),
@@ -38,26 +38,26 @@ module AOU_AGGREGATOR_INFO #(
 (
     input  logic                                I_CLK,
     input  logic                                I_RESETN,
-                                                
-    input  logic  [AXI_ID_WD-1:0]               I_AXI_ArId, 
+
+    input  logic  [AXI_ID_WD-1:0]               I_AXI_ArId,
     input  logic  [AXI_LEN_WD-1:0]              I_AXI_ArLen,
 
     input  logic  [AXI_ADDR_WD-1:0]             I_AXI_ArAddr_align,
     input  logic  [2:0]                         I_AXI_ArSize,
     input  logic  [AXI_LEN_WD-1:0]              I_ORIGINAL_ArLen,
-    input  logic  [2:0]                         I_ORIGINAL_ArSize,  
+    input  logic  [2:0]                         I_ORIGINAL_ArSize,
 
     input  logic                                I_AXI_ArValid,
     input  logic                                I_AXI_ArReady,
-                                                
+
     input  logic  [AXI_ID_WD-1:0]               I_AXI_RId,
     input  logic                                I_AXI_RLast,
     input  logic                                I_AXI_RValid,
     input  logic                                I_AXI_RReady,
     output logic                                O_AR_Slot_Available_Flag,
-                                                
+
     output logic                                O_ReorderBuf_MValid,
-    output logic  [AXI_ID_WD + AXI_ADDR_WD + 3 + AXI_LEN_WD + 3 + AXI_LEN_WD + 1 -1:0]         O_ReorderBuf_MData, 
+    output logic  [AXI_ID_WD + AXI_ADDR_WD + 3 + AXI_LEN_WD + 3 + AXI_LEN_WD + 1 -1:0]         O_ReorderBuf_MData,
 
     output logic                                O_DEST_TABLE_ID_ERR
 );
@@ -86,7 +86,7 @@ typedef struct  packed {
     logic [RD_MO_IDX_WD-1:0]        rid_numbering;
 } st_artable;
 
-st_artable [RD_MO_CNT-1:0] artable;    
+st_artable [RD_MO_CNT-1:0] artable;
 
 logic [RD_MO_CNT-1:0]              w_artable_r_onehot;
 logic [RD_MO_CNT-1:0]              w_artable_clean_onehot;
@@ -111,7 +111,7 @@ always_comb begin
     w_arcnt_next = r_arcnt;
     if (I_AXI_ArValid & I_AXI_ArReady) begin
         w_arcnt_next = w_arcnt_next + 'd1;
-    end 
+    end
 
     if (I_AXI_RLast & I_AXI_RValid & I_AXI_RReady & ~(|artable[w_artable_rptr_cur].burst_len)) begin
         w_arcnt_next = w_arcnt_next - 'd1;
@@ -190,7 +190,7 @@ assign O_DEST_TABLE_ID_ERR = I_AXI_RValid & I_AXI_RReady & ~(|w_artable_r_onehot
 //------------------------------------------------------------------
 //Pre processing
 //------------------------------------------------------------------
-reg  [AXI_ADDR_WD + 7 : 0] w_pre_arlen_bytes   ; 
+reg  [AXI_ADDR_WD + 7 : 0] w_pre_arlen_bytes   ;
 
 wire [AXI_ADDR_WD + 7 : 0] w_pre_begin_addr_off;
 wire [AXI_ADDR_WD + 7 : 0] w_pre_end_addr_off  ;
@@ -204,73 +204,73 @@ generate
 if(AXI_DATA_WD == 1024) begin
     always @(*) begin
         case (I_ORIGINAL_ArSize)
-            3'd0:    w_pre_arlen_bytes =  (I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1); 
-            3'd1:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 1'd0}; 
-            3'd2:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 2'd0}; 
-            3'd3:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 3'd0}; 
-            3'd4:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 4'd0}; 
-            3'd5:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 5'd0}; 
-            3'd6:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 6'd0}; 
-            default: w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 7'd0}; 
+            3'd0:    w_pre_arlen_bytes =  (I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1);
+            3'd1:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 1'd0};
+            3'd2:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 2'd0};
+            3'd3:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 3'd0};
+            3'd4:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 4'd0};
+            3'd5:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 5'd0};
+            3'd6:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 6'd0};
+            default: w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 7'd0};
         endcase
-    
+
         case (I_ORIGINAL_ArSize)
-            3'd0:    w_pre_arlen_p_1 = w_pre_end_begin_addr_diff[AXI_ADDR_WD:0]; 
-            3'd1:    w_pre_arlen_p_1 = {1'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:1]}; 
-            3'd2:    w_pre_arlen_p_1 = {2'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:2]}; 
-            3'd3:    w_pre_arlen_p_1 = {3'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:3]}; 
-            3'd4:    w_pre_arlen_p_1 = {4'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:4]}; 
-            3'd5:    w_pre_arlen_p_1 = {5'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:5]}; 
-            3'd6:    w_pre_arlen_p_1 = {6'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:6]}; 
-            default: w_pre_arlen_p_1 = {7'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:7]}; 
+            3'd0:    w_pre_arlen_p_1 = w_pre_end_begin_addr_diff[AXI_ADDR_WD:0];
+            3'd1:    w_pre_arlen_p_1 = {1'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:1]};
+            3'd2:    w_pre_arlen_p_1 = {2'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:2]};
+            3'd3:    w_pre_arlen_p_1 = {3'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:3]};
+            3'd4:    w_pre_arlen_p_1 = {4'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:4]};
+            3'd5:    w_pre_arlen_p_1 = {5'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:5]};
+            3'd6:    w_pre_arlen_p_1 = {6'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:6]};
+            default: w_pre_arlen_p_1 = {7'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:7]};
         endcase
-    
+
     end
 
 end else if (AXI_DATA_WD == 512) begin
     always @(*) begin
         case (I_ORIGINAL_ArSize)
-            3'd0:    w_pre_arlen_bytes =  (I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1); 
-            3'd1:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 1'd0}; 
-            3'd2:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 2'd0}; 
-            3'd3:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 3'd0}; 
-            3'd4:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 4'd0}; 
-            3'd5:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 5'd0}; 
-            default: w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 6'd0}; 
+            3'd0:    w_pre_arlen_bytes =  (I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1);
+            3'd1:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 1'd0};
+            3'd2:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 2'd0};
+            3'd3:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 3'd0};
+            3'd4:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 4'd0};
+            3'd5:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 5'd0};
+            default: w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 6'd0};
         endcase
-    
+
         case (I_ORIGINAL_ArSize)
-            3'd0:    w_pre_arlen_p_1 = w_pre_end_begin_addr_diff[AXI_ADDR_WD:0]; 
-            3'd1:    w_pre_arlen_p_1 = {1'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:1]}; 
-            3'd2:    w_pre_arlen_p_1 = {2'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:2]}; 
-            3'd3:    w_pre_arlen_p_1 = {3'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:3]}; 
-            3'd4:    w_pre_arlen_p_1 = {4'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:4]}; 
-            3'd5:    w_pre_arlen_p_1 = {5'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:5]}; 
-            default: w_pre_arlen_p_1 = {6'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:6]}; 
+            3'd0:    w_pre_arlen_p_1 = w_pre_end_begin_addr_diff[AXI_ADDR_WD:0];
+            3'd1:    w_pre_arlen_p_1 = {1'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:1]};
+            3'd2:    w_pre_arlen_p_1 = {2'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:2]};
+            3'd3:    w_pre_arlen_p_1 = {3'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:3]};
+            3'd4:    w_pre_arlen_p_1 = {4'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:4]};
+            3'd5:    w_pre_arlen_p_1 = {5'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:5]};
+            default: w_pre_arlen_p_1 = {6'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:6]};
         endcase
-    
+
     end
 
 end else if (AXI_DATA_WD == 256) begin
     always @(*) begin
         case (I_ORIGINAL_ArSize)
-            3'd0:    w_pre_arlen_bytes =  (I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1); 
-            3'd1:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 1'd0}; 
-            3'd2:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 2'd0}; 
-            3'd3:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 3'd0}; 
-            3'd4:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 4'd0}; 
-            default: w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 5'd0}; 
+            3'd0:    w_pre_arlen_bytes =  (I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1);
+            3'd1:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 1'd0};
+            3'd2:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 2'd0};
+            3'd3:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 3'd0};
+            3'd4:    w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 4'd0};
+            default: w_pre_arlen_bytes = {(I_ORIGINAL_ArLen[AXI_LEN_WD-1:0] + 1), 5'd0};
         endcase
-    
+
         case (I_ORIGINAL_ArSize)
-            3'd0:    w_pre_arlen_p_1 = w_pre_end_begin_addr_diff[AXI_ADDR_WD:0]; 
-            3'd1:    w_pre_arlen_p_1 = {1'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:1]}; 
-            3'd2:    w_pre_arlen_p_1 = {2'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:2]}; 
-            3'd3:    w_pre_arlen_p_1 = {3'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:3]}; 
-            3'd4:    w_pre_arlen_p_1 = {4'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:4]}; 
-            default: w_pre_arlen_p_1 = {5'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:5]}; 
+            3'd0:    w_pre_arlen_p_1 = w_pre_end_begin_addr_diff[AXI_ADDR_WD:0];
+            3'd1:    w_pre_arlen_p_1 = {1'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:1]};
+            3'd2:    w_pre_arlen_p_1 = {2'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:2]};
+            3'd3:    w_pre_arlen_p_1 = {3'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:3]};
+            3'd4:    w_pre_arlen_p_1 = {4'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:4]};
+            default: w_pre_arlen_p_1 = {5'b0, w_pre_end_begin_addr_diff[AXI_ADDR_WD:5]};
         endcase
-    
+
     end
 
 end
@@ -290,7 +290,7 @@ assign w_pre_cur_burst_len  = w_pre_arlen_p_1 - 1;
 //------------------------------------------------------------------
 //Main processing
 //------------------------------------------------------------------
-reg  [AXI_ADDR_WD + 7 : 0] w_arlen_bytes   ; 
+reg  [AXI_ADDR_WD + 7 : 0] w_arlen_bytes   ;
 
 wire [AXI_ADDR_WD + 7 : 0] w_begin_addr_off;
 wire [AXI_ADDR_WD + 7 : 0] w_end_addr_off  ;
@@ -304,73 +304,73 @@ generate
 if(AXI_DATA_WD == 1024) begin
     always @(*) begin
         case (artable[w_artable_rptr_cur].original_size)
-            3'd0:    w_arlen_bytes =  (artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1); 
-            3'd1:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 1'd0}; 
-            3'd2:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 2'd0}; 
-            3'd3:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 3'd0}; 
-            3'd4:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 4'd0}; 
-            3'd5:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 5'd0}; 
-            3'd6:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 6'd0}; 
-            default: w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 7'd0}; 
+            3'd0:    w_arlen_bytes =  (artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1);
+            3'd1:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 1'd0};
+            3'd2:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 2'd0};
+            3'd3:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 3'd0};
+            3'd4:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 4'd0};
+            3'd5:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 5'd0};
+            3'd6:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 6'd0};
+            default: w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 7'd0};
         endcase
-    
+
         case (artable[w_artable_rptr_cur].original_size)
-            3'd0:    w_arlen_p_1 = w_end_begin_addr_diff[AXI_ADDR_WD:0]; 
-            3'd1:    w_arlen_p_1 = {1'b0, w_end_begin_addr_diff[AXI_ADDR_WD:1]}; 
-            3'd2:    w_arlen_p_1 = {2'b0, w_end_begin_addr_diff[AXI_ADDR_WD:2]}; 
-            3'd3:    w_arlen_p_1 = {3'b0, w_end_begin_addr_diff[AXI_ADDR_WD:3]}; 
-            3'd4:    w_arlen_p_1 = {4'b0, w_end_begin_addr_diff[AXI_ADDR_WD:4]}; 
-            3'd5:    w_arlen_p_1 = {5'b0, w_end_begin_addr_diff[AXI_ADDR_WD:5]}; 
-            3'd6:    w_arlen_p_1 = {6'b0, w_end_begin_addr_diff[AXI_ADDR_WD:6]}; 
-            default: w_arlen_p_1 = {7'b0, w_end_begin_addr_diff[AXI_ADDR_WD:7]}; 
+            3'd0:    w_arlen_p_1 = w_end_begin_addr_diff[AXI_ADDR_WD:0];
+            3'd1:    w_arlen_p_1 = {1'b0, w_end_begin_addr_diff[AXI_ADDR_WD:1]};
+            3'd2:    w_arlen_p_1 = {2'b0, w_end_begin_addr_diff[AXI_ADDR_WD:2]};
+            3'd3:    w_arlen_p_1 = {3'b0, w_end_begin_addr_diff[AXI_ADDR_WD:3]};
+            3'd4:    w_arlen_p_1 = {4'b0, w_end_begin_addr_diff[AXI_ADDR_WD:4]};
+            3'd5:    w_arlen_p_1 = {5'b0, w_end_begin_addr_diff[AXI_ADDR_WD:5]};
+            3'd6:    w_arlen_p_1 = {6'b0, w_end_begin_addr_diff[AXI_ADDR_WD:6]};
+            default: w_arlen_p_1 = {7'b0, w_end_begin_addr_diff[AXI_ADDR_WD:7]};
         endcase
-    
+
     end
 
 end else if (AXI_DATA_WD == 512) begin
     always @(*) begin
         case (artable[w_artable_rptr_cur].original_size)
-            3'd0:    w_arlen_bytes =  (artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1); 
-            3'd1:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 1'd0}; 
-            3'd2:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 2'd0}; 
-            3'd3:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 3'd0}; 
-            3'd4:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 4'd0}; 
-            3'd5:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 5'd0}; 
-            default: w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 6'd0}; 
+            3'd0:    w_arlen_bytes =  (artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1);
+            3'd1:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 1'd0};
+            3'd2:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 2'd0};
+            3'd3:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 3'd0};
+            3'd4:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 4'd0};
+            3'd5:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 5'd0};
+            default: w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 6'd0};
         endcase
-    
+
         case (artable[w_artable_rptr_cur].original_size)
-            3'd0:    w_arlen_p_1 = w_end_begin_addr_diff[AXI_ADDR_WD:0]; 
-            3'd1:    w_arlen_p_1 = {1'b0, w_end_begin_addr_diff[AXI_ADDR_WD:1]}; 
-            3'd2:    w_arlen_p_1 = {2'b0, w_end_begin_addr_diff[AXI_ADDR_WD:2]}; 
-            3'd3:    w_arlen_p_1 = {3'b0, w_end_begin_addr_diff[AXI_ADDR_WD:3]}; 
-            3'd4:    w_arlen_p_1 = {4'b0, w_end_begin_addr_diff[AXI_ADDR_WD:4]}; 
-            3'd5:    w_arlen_p_1 = {5'b0, w_end_begin_addr_diff[AXI_ADDR_WD:5]}; 
-            default: w_arlen_p_1 = {6'b0, w_end_begin_addr_diff[AXI_ADDR_WD:6]}; 
+            3'd0:    w_arlen_p_1 = w_end_begin_addr_diff[AXI_ADDR_WD:0];
+            3'd1:    w_arlen_p_1 = {1'b0, w_end_begin_addr_diff[AXI_ADDR_WD:1]};
+            3'd2:    w_arlen_p_1 = {2'b0, w_end_begin_addr_diff[AXI_ADDR_WD:2]};
+            3'd3:    w_arlen_p_1 = {3'b0, w_end_begin_addr_diff[AXI_ADDR_WD:3]};
+            3'd4:    w_arlen_p_1 = {4'b0, w_end_begin_addr_diff[AXI_ADDR_WD:4]};
+            3'd5:    w_arlen_p_1 = {5'b0, w_end_begin_addr_diff[AXI_ADDR_WD:5]};
+            default: w_arlen_p_1 = {6'b0, w_end_begin_addr_diff[AXI_ADDR_WD:6]};
         endcase
-    
+
     end
 
 end else if (AXI_DATA_WD == 256) begin
     always @(*) begin
         case (artable[w_artable_rptr_cur].original_size)
-            3'd0:    w_arlen_bytes =  (artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1); 
-            3'd1:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 1'd0}; 
-            3'd2:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 2'd0}; 
-            3'd3:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 3'd0}; 
-            3'd4:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 4'd0}; 
-            default: w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 5'd0}; 
+            3'd0:    w_arlen_bytes =  (artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1);
+            3'd1:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 1'd0};
+            3'd2:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 2'd0};
+            3'd3:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 3'd0};
+            3'd4:    w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 4'd0};
+            default: w_arlen_bytes = {(artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0] + 1), 5'd0};
         endcase
-    
+
         case (artable[w_artable_rptr_cur].original_size)
-            3'd0:    w_arlen_p_1 = w_end_begin_addr_diff[AXI_ADDR_WD:0]; 
-            3'd1:    w_arlen_p_1 = {1'b0, w_end_begin_addr_diff[AXI_ADDR_WD:1]}; 
-            3'd2:    w_arlen_p_1 = {2'b0, w_end_begin_addr_diff[AXI_ADDR_WD:2]}; 
-            3'd3:    w_arlen_p_1 = {3'b0, w_end_begin_addr_diff[AXI_ADDR_WD:3]}; 
-            3'd4:    w_arlen_p_1 = {4'b0, w_end_begin_addr_diff[AXI_ADDR_WD:4]}; 
-            default: w_arlen_p_1 = {5'b0, w_end_begin_addr_diff[AXI_ADDR_WD:5]}; 
+            3'd0:    w_arlen_p_1 = w_end_begin_addr_diff[AXI_ADDR_WD:0];
+            3'd1:    w_arlen_p_1 = {1'b0, w_end_begin_addr_diff[AXI_ADDR_WD:1]};
+            3'd2:    w_arlen_p_1 = {2'b0, w_end_begin_addr_diff[AXI_ADDR_WD:2]};
+            3'd3:    w_arlen_p_1 = {3'b0, w_end_begin_addr_diff[AXI_ADDR_WD:3]};
+            3'd4:    w_arlen_p_1 = {4'b0, w_end_begin_addr_diff[AXI_ADDR_WD:4]};
+            default: w_arlen_p_1 = {5'b0, w_end_begin_addr_diff[AXI_ADDR_WD:5]};
         endcase
-    
+
     end
 
 end
@@ -378,8 +378,8 @@ endgenerate
 
 assign w_next_s_rlast_send = (artable[w_artable_rptr_cur].burst_len == {{(AXI_LEN_WD-1){1'b0}}, 1'b1});
 assign w_begin_addr_off = 'd0;
-assign w_end_addr_off   = (artable[w_artable_rptr_cur].burst_len == {{(AXI_LEN_WD-1){1'b0}}, 1'b1}) ? 
-                            (artable[w_artable_rptr_cur].araddr[AXI_ADDR_WD-1:0] + w_arlen_bytes) : 
+assign w_end_addr_off   = (artable[w_artable_rptr_cur].burst_len == {{(AXI_LEN_WD-1){1'b0}}, 1'b1}) ?
+                            (artable[w_artable_rptr_cur].araddr[AXI_ADDR_WD-1:0] + w_arlen_bytes) :
                             {1'b1,{AXI_ADDR_WD{1'b0}}};
 
 assign w_next_burst_len  = w_arlen_p_1 - 1;
@@ -406,10 +406,10 @@ always_comb begin
     end
 end
 //------------------------------------------------------------------
-assign O_ReorderBuf_MData  = {artable[w_artable_rptr_cur].id[AXI_ID_WD-1:0], 
-                              artable[w_artable_rptr_cur].araddr[AXI_ADDR_WD-1:0], 
-                              artable[w_artable_rptr_cur].arsize[2:0], 
-                              artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0], 
+assign O_ReorderBuf_MData  = {artable[w_artable_rptr_cur].id[AXI_ID_WD-1:0],
+                              artable[w_artable_rptr_cur].araddr[AXI_ADDR_WD-1:0],
+                              artable[w_artable_rptr_cur].arsize[2:0],
+                              artable[w_artable_rptr_cur].original_len[AXI_LEN_WD-1:0],
                               artable[w_artable_rptr_cur].original_size[2:0],
                               artable[w_artable_rptr_cur].r_burst_len,
                               artable[w_artable_rptr_cur].r_s_rlast_send};
@@ -422,7 +422,7 @@ aou_aggregator_table_id_err_assertion:
     assert
         property (
             @(posedge I_CLK) disable iff (!I_RESETN)
-            !O_DEST_TABLE_ID_ERR 
+            !O_DEST_TABLE_ID_ERR
         )
         else begin
             $error("\n[%t] AOU_AGGREGATOR_INFO: O_DEST_TABLE_ID_ERR asserted!", $time);

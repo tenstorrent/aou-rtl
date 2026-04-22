@@ -216,7 +216,9 @@ import packet_def_pkg::*;
 
     input                                       I_STATUS_DISABLE,
     
-    input       [3:0][1:0]                      I_RP_DEST_RP
+    input       [3:0][1:0]                      I_RP_DEST_RP,
+    
+    input                                       I_CREDIT_BLOCK
 
 );
 
@@ -381,7 +383,9 @@ AOU_TX_CRD_CTRL #(
     .I_TX_RSP_CREDITED_MESSAGE_EN   (I_TX_RSP_CREDITED_MESSAGE_EN   ),
     .I_STATUS_DISABLE           (I_STATUS_DISABLE           ),
 
-    .I_RP_DEST_RP               (I_RP_DEST_RP               )
+    .I_RP_DEST_RP               (I_RP_DEST_RP               ),
+
+    .I_CREDIT_BLOCK             (I_CREDIT_BLOCK             )
 );
 endmodule                                     
                                               

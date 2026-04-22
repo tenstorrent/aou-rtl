@@ -30,8 +30,9 @@ module AOU_DATA_R_FIFO_NS1M
     parameter   AXI_PEER_DIE_MAX_DATA_WD = 1024,
     localparam  DATA_FIFO_WD    = 256,      
     parameter   FIFO_DEPTH      = 64,          // depth
-    parameter   ICH_CNT         = 4,          // input channel count
-    localparam  REQ_CNT         = 6,
+    parameter   ICH_CNT         = 8, // input channel count
+    parameter   DEC_MULTI       = 2,
+    localparam  REQ_CNT         = (DEC_MULTI == 1) ? 6 : (DEC_MULTI == 2) ? 7 : 11,
     localparam  REQ_CNT_WD      = $clog2(REQ_CNT+1),
     parameter   ALWAYS_READY    = 0,
     parameter   EXT_FIFO_WD     = 13, //for R: RID + RRESP + RLAST //for W: 0
@@ -92,50 +93,52 @@ module AOU_DATA_R_FIFO_NS1M
         nxt_ext_data    = 'd0;
         nxt_w_ext_ptr   = 'd0;
         w_ext_req_cnt = 'd0;
-        if(I_SVALID[0]) begin
+        for(int dec_multi = 0; dec_multi < DEC_MULTI; dec_multi = dec_multi + 1) begin
+            if(I_SVALID[dec_multi*4+0]) begin
             for(idx_write_req = 0; idx_write_req < 4; idx_write_req = idx_write_req + 1) begin 
-                nxt_data[0][idx_write_req] = I_SDATA[0][(DATA_FIFO_WD*idx_write_req) +: DATA_FIFO_WD];
-                nxt_w_data_ptr[0][idx_write_req] = (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
-                w_data_req_valid[0][idx_write_req] = 1;
+                    nxt_data[dec_multi*4+0][idx_write_req] = I_SDATA[dec_multi*4+0][(DATA_FIFO_WD*idx_write_req) +: DATA_FIFO_WD];
+                    nxt_w_data_ptr[dec_multi*4+0][idx_write_req] = (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
+                    w_data_req_valid[dec_multi*4+0][idx_write_req] = 1;
                 w_data_req_cnt = w_data_req_cnt + 1;
             end
-            nxt_ext_data[0] = {I_EXT_SDATA[0],2'b10};
-            nxt_w_ext_ptr[0] = (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt);
+                nxt_ext_data[dec_multi*4+0] = {I_EXT_SDATA[dec_multi*4+0],2'b10};
+                nxt_w_ext_ptr[dec_multi*4+0] = (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt);
             w_ext_req_cnt = w_ext_req_cnt + 1;
-        end else if(I_SVALID[1]) begin
+            end else if(I_SVALID[dec_multi*4+1]) begin
             for(idx_write_req = 0; idx_write_req < 2; idx_write_req = idx_write_req + 1) begin
-                nxt_data[1][idx_write_req] = I_SDATA[1][(DATA_FIFO_WD*idx_write_req) +: DATA_FIFO_WD];
-                nxt_w_data_ptr[1][idx_write_req] = (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
-                w_data_req_valid[1][idx_write_req] = 1;
+                    nxt_data[dec_multi*4+1][idx_write_req] = I_SDATA[dec_multi*4+1][(DATA_FIFO_WD*idx_write_req) +: DATA_FIFO_WD];
+                    nxt_w_data_ptr[dec_multi*4+1][idx_write_req] = (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
+                    w_data_req_valid[dec_multi*4+1][idx_write_req] = 1;
                 w_data_req_cnt = w_data_req_cnt + 1;
             end
-            nxt_ext_data[1] = {I_EXT_SDATA[1],2'b01};
-            nxt_w_ext_ptr[1] = (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt);
+                nxt_ext_data[dec_multi*4+1] = {I_EXT_SDATA[dec_multi*4+1],2'b01};
+                nxt_w_ext_ptr[dec_multi*4+1] = (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt);
             w_ext_req_cnt = w_ext_req_cnt + 1;
         end
-            if(I_SVALID[2]) begin
+            if(I_SVALID[dec_multi*4+2]) begin
                 for(idx_write_req = 0; idx_write_req < 1; idx_write_req = idx_write_req + 1) begin
-                nxt_data[2][idx_write_req] = I_SDATA[2][(DATA_FIFO_WD*idx_write_req) +: DATA_FIFO_WD];
-                nxt_w_data_ptr[2][idx_write_req] = (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
-                w_data_req_valid[2][idx_write_req] = 1;
+                    nxt_data[dec_multi*4+2][idx_write_req] = I_SDATA[dec_multi*4+2][(DATA_FIFO_WD*idx_write_req) +: DATA_FIFO_WD];
+                    nxt_w_data_ptr[dec_multi*4+2][idx_write_req] = (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
+                    w_data_req_valid[dec_multi*4+2][idx_write_req] = 1;
                     w_data_req_cnt = w_data_req_cnt + 1;
                 end
-            nxt_ext_data[2] = {I_EXT_SDATA[2],2'b00};
-            nxt_w_ext_ptr[2] = (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt); 
+                nxt_ext_data[dec_multi*4+2] = {I_EXT_SDATA[dec_multi*4+2],2'b00};
+                nxt_w_ext_ptr[dec_multi*4+2] = (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt); 
                 w_ext_req_cnt = w_ext_req_cnt + 1;
             end
-            if(I_SVALID[3]) begin
+            if(I_SVALID[dec_multi*4+3]) begin
                 for(idx_write_req = 0; idx_write_req < 1; idx_write_req = idx_write_req + 1) begin
-                nxt_data[3][idx_write_req] = I_SDATA[3][(DATA_FIFO_WD*idx_write_req) +: DATA_FIFO_WD];
-                nxt_w_data_ptr[3][idx_write_req] = (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
-                w_data_req_valid[3][idx_write_req] = 1;
+                    nxt_data[dec_multi*4+3][idx_write_req] = I_SDATA[dec_multi*4+3][(DATA_FIFO_WD*idx_write_req) +: DATA_FIFO_WD];
+                    nxt_w_data_ptr[dec_multi*4+3][idx_write_req] = (w_data_ptr + w_data_req_cnt >= FIFO_DEPTH) ? (w_data_ptr + w_data_req_cnt - FIFO_DEPTH) : (w_data_ptr + w_data_req_cnt);
+                    w_data_req_valid[dec_multi*4+3][idx_write_req] = 1;
                     w_data_req_cnt = w_data_req_cnt + 1;                   
                 end
-            nxt_ext_data[3] = {I_EXT_SDATA[3],2'b00};
-            nxt_w_ext_ptr[3] = (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt); 
+                nxt_ext_data[dec_multi*4+3] = {I_EXT_SDATA[dec_multi*4+3],2'b00};
+                nxt_w_ext_ptr[dec_multi*4+3] = (w_ext_ptr + w_ext_req_cnt >= FIFO_DEPTH) ? (w_ext_ptr + w_ext_req_cnt - FIFO_DEPTH) : (w_ext_ptr + w_ext_req_cnt); 
                 w_ext_req_cnt = w_ext_req_cnt + 1;
             end
         end
+    end
 
     //for write 
     integer i, j;

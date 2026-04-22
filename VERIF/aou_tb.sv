@@ -815,29 +815,29 @@ module aou_tb;
         // PHY
         .I_PHY_TYPE                   (1'b1),
 
-        // FDI 32B (unused)
-        .I_FDI_PL_32B_VALID           (1'b0),
-        .I_FDI_PL_32B_DATA            (256'b0),
-        .I_FDI_PL_32B_FLIT_CANCEL     (1'b0),
-        .I_FDI_PL_32B_TRDY            (1'b0),
-        .I_FDI_PL_32B_STALLREQ        (1'b0),
-        .I_FDI_PL_32B_STATE_STS       (4'h0),
-        .O_FDI_LP_32B_DATA            (dut1_lp_32b_data),
-        .O_FDI_LP_32B_VALID           (dut1_lp_32b_valid),
-        .O_FDI_LP_32B_IRDY            (dut1_lp_32b_irdy),
-        .O_FDI_LP_32B_STALLACK        (dut1_lp_32b_stallack),
+        // FDI 0 (it could be 32B / 64B) (unused)
+        .I_FDI_PL_0_VALID           (1'b0),
+        .I_FDI_PL_0_DATA            (256'b0),
+        .I_FDI_PL_0_FLIT_CANCEL     (1'b0),
+        .I_FDI_PL_0_TRDY            (1'b0),
+        .I_FDI_PL_0_STALLREQ        (1'b0),
+        .I_FDI_PL_0_STATE_STS       (4'h0),
+        .O_FDI_LP_0_DATA            (dut1_lp_32b_data),
+        .O_FDI_LP_0_VALID           (dut1_lp_32b_valid),
+        .O_FDI_LP_0_IRDY            (dut1_lp_32b_irdy),
+        .O_FDI_LP_0_STALLACK        (dut1_lp_32b_stallack),
 
-        // FDI 64B -- TX outputs cross to u_dut2 RX, RX inputs from u_dut2 TX
-        .I_FDI_PL_64B_VALID           (dut2_lp_64b_valid),
-        .I_FDI_PL_64B_DATA            (dut2_lp_64b_data),
-        .I_FDI_PL_64B_FLIT_CANCEL     (1'b0),
-        .I_FDI_PL_64B_TRDY            (1'b1),
-        .I_FDI_PL_64B_STALLREQ        (1'b0),
-        .I_FDI_PL_64B_STATE_STS       (4'h1),
-        .O_FDI_LP_64B_DATA            (dut1_lp_64b_data),
-        .O_FDI_LP_64B_VALID           (dut1_lp_64b_valid),
-        .O_FDI_LP_64B_IRDY            (dut1_lp_64b_irdy),
-        .O_FDI_LP_64B_STALLACK        (dut1_lp_64b_stallack),
+        // FDI 1 (if could be 64B / 128B) -- RX from u_dut1 TX, TX outputs cross back to u_dut1 RX
+        .I_FDI_PL_1_VALID           (dut2_lp_64b_valid),
+        .I_FDI_PL_1_DATA            (dut2_lp_64b_data),
+        .I_FDI_PL_1_FLIT_CANCEL     (1'b0),
+        .I_FDI_PL_1_TRDY            (1'b1),
+        .I_FDI_PL_1_STALLREQ        (1'b0),
+        .I_FDI_PL_1_STATE_STS       (4'h1),
+        .O_FDI_LP_1_DATA            (dut1_lp_64b_data),
+        .O_FDI_LP_1_VALID           (dut1_lp_64b_valid),
+        .O_FDI_LP_1_IRDY            (dut1_lp_64b_irdy),
+        .O_FDI_LP_1_STALLACK        (dut1_lp_64b_stallack),
 
         // Error / status
         .INT_REQ_LINKRESET            (d1_int_req_linkreset),
@@ -967,29 +967,29 @@ module aou_tb;
         // PHY
         .I_PHY_TYPE                   (1'b1),
 
-        // FDI 32B (unused)
-        .I_FDI_PL_32B_VALID           (1'b0),
-        .I_FDI_PL_32B_DATA            (256'b0),
-        .I_FDI_PL_32B_FLIT_CANCEL     (1'b0),
-        .I_FDI_PL_32B_TRDY            (1'b0),
-        .I_FDI_PL_32B_STALLREQ        (1'b0),
-        .I_FDI_PL_32B_STATE_STS       (4'h0),
-        .O_FDI_LP_32B_DATA            (dut2_lp_32b_data),
-        .O_FDI_LP_32B_VALID           (dut2_lp_32b_valid),
-        .O_FDI_LP_32B_IRDY            (dut2_lp_32b_irdy),
-        .O_FDI_LP_32B_STALLACK        (dut2_lp_32b_stallack),
+        // FDI 0 (it could be 32B / 64B) (unused)
+        .I_FDI_PL_0_VALID           (1'b0),
+        .I_FDI_PL_0_DATA            (256'b0),
+        .I_FDI_PL_0_FLIT_CANCEL     (1'b0),
+        .I_FDI_PL_0_TRDY            (1'b0),
+        .I_FDI_PL_0_STALLREQ        (1'b0),
+        .I_FDI_PL_0_STATE_STS       (4'h0),
+        .O_FDI_LP_0_DATA            (dut2_lp_32b_data),
+        .O_FDI_LP_0_VALID           (dut2_lp_32b_valid),
+        .O_FDI_LP_0_IRDY            (dut2_lp_32b_irdy),
+        .O_FDI_LP_0_STALLACK        (dut2_lp_32b_stallack),
 
-        // FDI 64B -- RX from u_dut1 TX, TX outputs cross back to u_dut1 RX
-        .I_FDI_PL_64B_VALID           (dut1_lp_64b_valid),
-        .I_FDI_PL_64B_DATA            (dut1_lp_64b_data),
-        .I_FDI_PL_64B_FLIT_CANCEL     (1'b0),
-        .I_FDI_PL_64B_TRDY            (1'b1),
-        .I_FDI_PL_64B_STALLREQ        (1'b0),
-        .I_FDI_PL_64B_STATE_STS       (4'h1),
-        .O_FDI_LP_64B_DATA            (dut2_lp_64b_data),
-        .O_FDI_LP_64B_VALID           (dut2_lp_64b_valid),
-        .O_FDI_LP_64B_IRDY            (dut2_lp_64b_irdy),
-        .O_FDI_LP_64B_STALLACK        (dut2_lp_64b_stallack),
+        // FDI 1 (if could be 64B / 128B) -- RX from u_dut1 TX, TX outputs cross back to u_dut1 RX
+        .I_FDI_PL_1_VALID           (dut1_lp_64b_valid),
+        .I_FDI_PL_1_DATA            (dut1_lp_64b_data),
+        .I_FDI_PL_1_FLIT_CANCEL     (1'b0),
+        .I_FDI_PL_1_TRDY            (1'b1),
+        .I_FDI_PL_1_STALLREQ        (1'b0),
+        .I_FDI_PL_1_STATE_STS       (4'h1),
+        .O_FDI_LP_1_DATA            (dut2_lp_64b_data),
+        .O_FDI_LP_1_VALID           (dut2_lp_64b_valid),
+        .O_FDI_LP_1_IRDY            (dut2_lp_64b_irdy),
+        .O_FDI_LP_1_STALLACK        (dut2_lp_64b_stallack),
 
         // Error / status
         .INT_REQ_LINKRESET            (d2_int_req_linkreset),

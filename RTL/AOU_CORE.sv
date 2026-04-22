@@ -28,8 +28,6 @@
 import packet_def_pkg::*;
 
 module AOU_CORE #(
-    parameter   RP_COUNT                    = 1, 
-    parameter   DEC_MULTI                   = 1,
     parameter   RP0_RX_AW_FIFO_DEPTH        = 40,
     parameter   RP0_RX_AR_FIFO_DEPTH        = 40,
     parameter   RP0_RX_W_FIFO_DEPTH         = 80,
@@ -95,6 +93,12 @@ module AOU_CORE #(
     parameter   M_RD_MO_CNT                 = 32,
     parameter   M_WR_MO_CNT                 = 32,
 
+    parameter   FDI_IF_WD0                  = 256,
+    parameter   FDI_IF_WD1                  = 512,
+    parameter   RP_COUNT                    = 1,
+    parameter   DEC_MULTI                   = 2,
+    parameter   PHY_TYPE                    = 1,
+
     localparam  RP0_AXI_STRB_WD             = RP0_AXI_DATA_WD / 8,
     localparam  RP1_AXI_STRB_WD             = RP1_AXI_DATA_WD / 8,
     localparam  RP2_AXI_STRB_WD             = RP2_AXI_DATA_WD / 8,
@@ -109,16 +113,14 @@ module AOU_CORE #(
 
     localparam  AXI_MAX_STRB_WD             = AXI_PEER_DIE_MAX_DATA_WD / 8,
 
-    localparam  AW_AR_FIFO_WIDTH            = AXI_ID_WD + AXI_ADDR_WD + AXI_LEN_WD + 3 + 1 + 4 + 3 + 4,
-    localparam  B_FIFO_WIDTH                = AXI_ID_WD + 2,
-    localparam  R_FIFO_EXT_DATA_WIDTH       = AXI_ID_WD + 2 + 1,
-
     localparam  MAX_MISC_COUNT              = 2,
-    localparam  MAX_WR_REQ_COUNT            = 4,
-    localparam  MAX_WR_DATA_COUNT           = 2,
+    localparam  MAX_REQ_COUNT               = 4,
     localparam  MAX_WR_RESP_COUNT           = 12,
-    localparam  MAX_RD_REQ_COUNT            = 4,
-    localparam  MAX_RD_DATA_COUNT           = 2,
+    localparam  DATA_DEC_CNT                = 4,
+
+    parameter   AW_AR_FIFO_WIDTH            = AXI_ID_WD + AXI_ADDR_WD + AXI_LEN_WD + 3 + 1 + 4 + 3 + 4,
+    parameter   B_FIFO_WIDTH                = AXI_ID_WD + 2,
+    parameter   R_FIFO_EXT_DATA_WIDTH       = AXI_ID_WD + 2 + 1,
 
     localparam int unsigned RP_AXI_DATA_WD[4]  = '{
         RP0_AXI_DATA_WD,
@@ -273,56 +275,59 @@ module AOU_CORE #(
     input   [RP_COUNT-1:0]                                  I_AOU_RX_AXI_MM_ARVALID,     
     output  [RP_COUNT-1:0]                                  O_AOU_RX_AXI_MM_ARREADY,
 
+    //Interface for AOU_RX_CORE FDI
+    input                                                   I_FDI_PL_0_VALID,
+    input   [FDI_IF_WD0-1: 0]                               I_FDI_PL_0_DATA,            
+    input                                                   I_FDI_PL_0_FLIT_CANCEL,
+
+`ifdef TWO_PHY
     input                                                   I_PHY_TYPE,
 
-    //Interface for AOU_RX_CORE FDI
-    input                                                   I_FDI_PL_32B_VALID,
-    input   [32*8 - 1: 0]                                   I_FDI_PL_32B_DATA,            //32B Flit
-    input                                                   I_FDI_PL_32B_FLIT_CANCEL,
-
-    input                                                   I_FDI_PL_64B_VALID,
-    input   [64*8 - 1: 0]                                   I_FDI_PL_64B_DATA,            //64B Flit
-    input                                                   I_FDI_PL_64B_FLIT_CANCEL,
+    input                                                   I_FDI_PL_1_VALID,
+    input   [FDI_IF_WD1-1: 0]                               I_FDI_PL_1_DATA,            
+    input                                                   I_FDI_PL_1_FLIT_CANCEL,
+`endif
 
     //Interface for AOU_TX_CORE FDI
-    input                                                   I_FDI_PL_32B_TRDY,
-    input                                                   I_FDI_PL_32B_STALLREQ,
-    input   [3:0]                                           I_FDI_PL_32B_STATE_STS,
-    output  [255:0]                                         O_FDI_LP_32B_DATA,
-    output                                                  O_FDI_LP_32B_VALID,
-    output                                                  O_FDI_LP_32B_IRDY,
-    output                                                  O_FDI_LP_32B_STALLACK,
+    input                                                   I_FDI_PL_0_TRDY,
+    input                                                   I_FDI_PL_0_STALLREQ,
+    input   [3:0]                                           I_FDI_PL_0_STATE_STS,
+    output  [FDI_IF_WD0-1:0]                                O_FDI_LP_0_DATA,
+    output                                                  O_FDI_LP_0_VALID,
+    output                                                  O_FDI_LP_0_IRDY,
+    output                                                  O_FDI_LP_0_STALLACK,
 
-    input                                                   I_FDI_PL_64B_TRDY,
-    input                                                   I_FDI_PL_64B_STALLREQ,
-    input   [3:0]                                           I_FDI_PL_64B_STATE_STS,
-    output  [511:0]                                         O_FDI_LP_64B_DATA,
-    output                                                  O_FDI_LP_64B_VALID,
-    output                                                  O_FDI_LP_64B_IRDY,
-    output                                                  O_FDI_LP_64B_STALLACK,
+`ifdef TWO_PHY
+    input                                                   I_FDI_PL_1_TRDY,
+    input                                                   I_FDI_PL_1_STALLREQ,
+    input   [3:0]                                           I_FDI_PL_1_STATE_STS,
+    output  [FDI_IF_WD1-1:0]                                O_FDI_LP_1_DATA,
+    output                                                  O_FDI_LP_1_VALID,
+    output                                                  O_FDI_LP_1_IRDY,
+    output                                                  O_FDI_LP_1_STALLACK,
+`endif
 
     //From RX_CORE
-    output  [RP_COUNT-1:0][MAX_RD_REQ_COUNT -1:0][AW_AR_FIFO_WIDTH-1:0]     O_RD_REQ_FIFO_SDATA,
-    output  [RP_COUNT-1:0][MAX_RD_REQ_COUNT -1:0]                           O_RD_REQ_FIFO_SVALID,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][MAX_REQ_COUNT -1:0][AW_AR_FIFO_WIDTH-1:0]         O_RD_REQ_FIFO_SDATA,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][MAX_REQ_COUNT -1:0]                               O_RD_REQ_FIFO_SVALID,
 
-    output  [RP_COUNT-1:0][MAX_WR_REQ_COUNT -1:0][AW_AR_FIFO_WIDTH-1:0]     O_WR_REQ_FIFO_SDATA,
-    output  [RP_COUNT-1:0][MAX_WR_REQ_COUNT -1:0]                           O_WR_REQ_FIFO_SVALID,
-    
-    output  [RP_COUNT-1:0][3:0][AXI_PEER_DIE_MAX_DATA_WD-1:0]               O_WR_DATA_FIFO_SDATA,
-    output  [RP_COUNT-1:0][3:0][AXI_MAX_STRB_WD -1:0]                       O_WR_DATA_FIFO_SDATA_STRB,
-    output  [RP_COUNT-1:0][3:0]                                             O_WR_DATA_FIFO_SDATA_WDATAF,
-    output  [RP_COUNT-1:0][3:0]                                             O_WR_DATA_FIFO_SVALID,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][MAX_REQ_COUNT -1:0][AW_AR_FIFO_WIDTH-1:0]         O_WR_REQ_FIFO_SDATA,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][MAX_REQ_COUNT -1:0]                               O_WR_REQ_FIFO_SVALID,
 
-    output  [RP_COUNT-1:0][MAX_WR_RESP_COUNT -1:0][B_FIFO_WIDTH-1:0]        O_WR_RESP_FIFO_SDATA,
-    output  [RP_COUNT-1:0][MAX_WR_RESP_COUNT -1:0]                          O_WR_RESP_FIFO_SVALID,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][DATA_DEC_CNT-1:0][AXI_PEER_DIE_MAX_DATA_WD-1:0]   O_WR_DATA_FIFO_SDATA,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][DATA_DEC_CNT-1:0]                                 O_WR_DATA_FIFO_SDATA_WDATAF,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][DATA_DEC_CNT-1:0][AXI_MAX_STRB_WD -1:0]           O_WR_DATA_FIFO_SDATA_STRB,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][DATA_DEC_CNT-1:0]                                 O_WR_DATA_FIFO_SVALID,
 
-    output  [RP_COUNT-1:0][3:0][AXI_PEER_DIE_MAX_DATA_WD-1:0]               O_RD_DATA_FIFO_SDATA,
-    output  [RP_COUNT-1:0][3:0][R_FIFO_EXT_DATA_WIDTH -1:0]                 O_RD_DATA_FIFO_EXT_SDATA,
-    output  [RP_COUNT-1:0][3:0]                                             O_RD_DATA_FIFO_SVALID,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][MAX_WR_RESP_COUNT -1:0][B_FIFO_WIDTH-1:0]         O_WR_RESP_FIFO_SDATA,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][MAX_WR_RESP_COUNT -1:0]                           O_WR_RESP_FIFO_SVALID,
 
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][DATA_DEC_CNT-1:0][AXI_PEER_DIE_MAX_DATA_WD-1:0]   O_RD_DATA_FIFO_SDATA,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][DATA_DEC_CNT-1:0][R_FIFO_EXT_DATA_WIDTH -1:0]     O_RD_DATA_FIFO_EXT_SDATA,
+    output  [RP_COUNT-1:0][DEC_MULTI-1:0][DATA_DEC_CNT-1:0]                                 O_RD_DATA_FIFO_SVALID,
 
     //Interface for Error Handler
-    output                                                O_ERR_INFO_SPLIT_RID_MISMATCH_ERR, 
+    output                                                O_ERR_INFO_RID_MISMATCH_ERR, 
     output                                                O_ERR_INFO_SPLIT_BID_MISMATCH_ERR,
 
     output                                                O_AXI_SLV_RID_MISMATCH_ERROR,
@@ -432,6 +437,10 @@ module AOU_CORE #(
     localparam  CNT_RP_TX_B_MAX_CREDIT_MAX  = max4(CNT_RP0_TX_B_MAX_CREDIT,  CNT_RP1_TX_B_MAX_CREDIT,  CNT_RP2_TX_B_MAX_CREDIT,  CNT_RP3_TX_B_MAX_CREDIT);  
 
 //----------------------------------------------------------------------------
+    logic    [RP_COUNT-1:0]                               w_aou_slv_info_ar_hold_flag     ;
+    logic    [RP_COUNT-1:0]                               w_aou_tx_axi_s_arvalid          ;
+    logic    [RP_COUNT-1:0]                               w_aou_tx_axi_s_arready          ;
+
     logic    [RP_COUNT-1:0][AXI_ID_WD-1:0]                w_early_bresp_ctrl_awid         ;
     logic    [RP_COUNT-1:0][AXI_ADDR_WD-1:0]              w_early_bresp_ctrl_awaddr       ;
     logic    [RP_COUNT-1:0][AXI_LEN_WD-1:0]               w_early_bresp_ctrl_awlen        ;
@@ -467,6 +476,8 @@ module AOU_CORE #(
     logic    [1:0]                                        w_prior_rp_axi_arb_mode         ; 
     logic    [15:0]                                       w_prior_timer_timer_resolution  ; 
     logic    [15:0]                                       w_prior_timer_timer_threshold   ; 
+
+    logic    [3:0]                                        w_axi_slv_id_mismatch_en        ;
 //----------------------------------------------------------------------------
     logic [DEC_MULTI-1:0][MAX_MISC_COUNT-1:0][1:0]  w_rxcore_crdtgrant_wrespcred3   ;
     logic [DEC_MULTI-1:0][MAX_MISC_COUNT-1:0][1:0]  w_rxcore_crdtgrant_wrespcred2   ;
@@ -592,7 +603,6 @@ module AOU_CORE #(
 
     wire                                    w_deactivate_property           ;
     logic                                   w_credit_manage                 ;
-    logic                                   w_axi_split_tr_en               ;
     logic [3:0][AXI_LEN_WD-1:0]             w_axi_split_tr_max_awburstlen   ;
     logic [3:0][AXI_LEN_WD-1:0]             w_axi_split_tr_max_arburstlen   ;
     logic [7:0]                             w_tx_lp_mode_threshold          ;
@@ -620,16 +630,18 @@ module AOU_CORE #(
     logic [3:0]                             w_axi_aggregator_en;
     
 //----------------------------------------------------------------------------    
-    logic [3:0][AXI_ID_WD-1:0]      w_err_info_split_bid_mismatch, w_err_info_split_rid_mismatch;
-    logic [3:0]                     w_err_split_bid_mismatch_set, w_err_split_rid_mismatch_set;
+    logic [3:0][AXI_ID_WD-1:0]      w_err_info_split_bid_mismatch, w_err_info_rid_mismatch;
+    logic [3:0]                     w_err_split_bid_mismatch_set, w_err_rid_mismatch_set;
     logic [3:0][AXI_ID_WD-1:0]      w_axi_slv_bid_mismatch_info, w_axi_slv_rid_mismatch_info;
     logic [3:0]                     w_axi_slv_bid_mismatch_err_set, w_axi_slv_rid_mismatch_err_set;
     
     logic [3:0]                     w_slv_tr_complete;
     logic [3:0]                     w_mst_tr_complete;
 
-    logic                           r_fdi_pl_32b_stallreq;
-    logic                           r_fdi_pl_64b_stallreq;
+    logic                           r_fdi_pl_0_stallreq;
+`ifdef TWO_PHY
+    logic                           r_fdi_pl_1_stallreq;
+`endif
 
     logic                           w_invalid_actmsg_mask    ;
     logic                           w_msgcredit_timeout_mask ;
@@ -639,7 +651,7 @@ module AOU_CORE #(
     logic                           w_mi0_id_mismatch_mask   ;
     logic                           w_si0_id_mismatch_mask   ;
 
-    logic                           w_err_info_split_rid_mismatch_err;
+    logic                           w_err_info_rid_mismatch_err;
     logic                           w_err_info_split_bid_mismatch_err;
     logic                           w_axi_slv_rid_mismatch_error;
     logic                           w_axi_slv_bid_mismatch_error;
@@ -662,13 +674,22 @@ module AOU_CORE #(
 //---------------------------------------------------------------------------- 
      always_ff @ (posedge I_CLK or negedge I_RESETN) begin
         if (~I_RESETN) begin
-            r_fdi_pl_32b_stallreq <= 1'b0;
-            r_fdi_pl_64b_stallreq <= 1'b0;
+            r_fdi_pl_0_stallreq <= 1'b0;
         end else begin
-            r_fdi_pl_32b_stallreq <= I_FDI_PL_32B_STALLREQ;
-            r_fdi_pl_64b_stallreq <= I_FDI_PL_64B_STALLREQ;
+            r_fdi_pl_0_stallreq <= I_FDI_PL_0_STALLREQ;
         end
     end
+
+`ifdef TWO_PHY
+    always_ff @ (posedge I_CLK or negedge I_RESETN) begin
+        if (~I_RESETN) begin
+            r_fdi_pl_1_stallreq <= 1'b0;
+        end else begin
+            r_fdi_pl_1_stallreq <= I_FDI_PL_1_STALLREQ;
+        end
+    end
+`endif
+
 
     AOU_CORE_SFR #(
         .APB_ADDR_WD    ( APB_ADDR_WD   )
@@ -691,7 +712,6 @@ module AOU_CORE #(
         .I_IP_VERSION_MINOR_VERSION                                     ( 16'b0                                 ),
 
         .O_AOU_CON0_CREDIT_MANAGE                                       ( w_credit_manage                       ),
-        .O_AOU_CON0_AXI_SPLIT_TR_EN                                     ( w_axi_split_tr_en                     ),
         .O_AOU_CON0_AOU_SW_RESET                                        ( O_SW_RESET                            ),
         .O_AOU_CON0_DEACTIVATE_FORCE                                    ( w_deactivate_force                    ),
         .I_AOU_INIT_INT_DEACTIVATE_PROPERTY                             ( w_deactivate_property                 ),
@@ -712,9 +732,9 @@ module AOU_CORE #(
         .O_AOU_INIT_ACTIVATE_START                                      ( w_activate_start                      ),
 
         .I_ERROR_INFO_RP0_SPLIT_BID_MISMATCH_INFO                       ( w_err_info_split_bid_mismatch[0]      ),
-        .I_ERROR_INFO_RP0_SPLIT_RID_MISMATCH_INFO                       ( w_err_info_split_rid_mismatch[0]      ),
+        .I_ERROR_INFO_RP0_RID_MISMATCH_INFO                             ( w_err_info_rid_mismatch[0]            ),
         .I_ERROR_INFO_RP0_SPLIT_BID_MISMATCH_ERR_SET                    ( w_err_split_bid_mismatch_set[0]       ),
-        .I_ERROR_INFO_RP0_SPLIT_RID_MISMATCH_ERR_SET                    ( w_err_split_rid_mismatch_set[0]       ),
+        .I_ERROR_INFO_RP0_RID_MISMATCH_ERR_SET                          ( w_err_rid_mismatch_set[0]             ),
 
         .I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_DONE                     ( w_early_bresp_done[0]                 ),
         .I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_ERR_SET                  ( w_bresp_err[0]                        ),
@@ -747,7 +767,7 @@ module AOU_CORE #(
         .O_AOU_INTERRUPT_MASK_INT_MI0_ID_MISMATCH_MASK                  ( w_mi0_id_mismatch_mask                ),
         .O_AOU_INTERRUPT_MASK_INT_SI0_ID_MISMATCH_MASK                  ( w_si0_id_mismatch_mask                ),
 
-        .O_SPLIT_RID_MISMATCH_ERROR                                     ( w_err_info_split_rid_mismatch_err     ),
+        .O_RID_MISMATCH_ERROR                                           ( w_err_info_rid_mismatch_err           ),
         .O_SPLIT_BID_MISMATCH_ERROR                                     ( w_err_info_split_bid_mismatch_err     ),
 
         .O_ACT_ACK_ERR                                                  ( w_act_ack_err                         ),
@@ -770,17 +790,17 @@ module AOU_CORE #(
         .O_AXI_SPLIT_TR_RP3_MAX_AWBURSTLEN                              ( w_axi_split_tr_max_awburstlen[3]      ),
         .O_AXI_SPLIT_TR_RP3_MAX_ARBURSTLEN                              ( w_axi_split_tr_max_arburstlen[3]      ),
         .I_ERROR_INFO_RP1_SPLIT_BID_MISMATCH_INFO                       ( w_err_info_split_bid_mismatch[1]      ),
-        .I_ERROR_INFO_RP1_SPLIT_RID_MISMATCH_INFO                       ( w_err_info_split_rid_mismatch[1]      ),
+        .I_ERROR_INFO_RP1_RID_MISMATCH_INFO                             ( w_err_info_rid_mismatch[1]            ),
         .I_ERROR_INFO_RP1_SPLIT_BID_MISMATCH_ERR_SET                    ( w_err_split_bid_mismatch_set[1]       ),
-        .I_ERROR_INFO_RP1_SPLIT_RID_MISMATCH_ERR_SET                    ( w_err_split_rid_mismatch_set[1]       ),
+        .I_ERROR_INFO_RP1_RID_MISMATCH_ERR_SET                          ( w_err_rid_mismatch_set[1]             ),
         .I_ERROR_INFO_RP2_SPLIT_BID_MISMATCH_INFO                       ( w_err_info_split_bid_mismatch[2]      ),
-        .I_ERROR_INFO_RP2_SPLIT_RID_MISMATCH_INFO                       ( w_err_info_split_rid_mismatch[2]      ),
+        .I_ERROR_INFO_RP2_RID_MISMATCH_INFO                             ( w_err_info_rid_mismatch[2]            ),
         .I_ERROR_INFO_RP2_SPLIT_BID_MISMATCH_ERR_SET                    ( w_err_split_bid_mismatch_set[2]       ),
-        .I_ERROR_INFO_RP2_SPLIT_RID_MISMATCH_ERR_SET                    ( w_err_split_rid_mismatch_set[2]       ),
+        .I_ERROR_INFO_RP2_RID_MISMATCH_ERR_SET                          ( w_err_rid_mismatch_set[2]             ),
         .I_ERROR_INFO_RP3_SPLIT_BID_MISMATCH_INFO                       ( w_err_info_split_bid_mismatch[3]      ),
-        .I_ERROR_INFO_RP3_SPLIT_RID_MISMATCH_INFO                       ( w_err_info_split_rid_mismatch[3]      ),
+        .I_ERROR_INFO_RP3_RID_MISMATCH_INFO                             ( w_err_info_rid_mismatch[3]            ),
         .I_ERROR_INFO_RP3_SPLIT_BID_MISMATCH_ERR_SET                    ( w_err_split_bid_mismatch_set[3]       ),
-        .I_ERROR_INFO_RP3_SPLIT_RID_MISMATCH_ERR_SET                    ( w_err_split_rid_mismatch_set[3]       ),
+        .I_ERROR_INFO_RP3_RID_MISMATCH_ERR_SET                          ( w_err_rid_mismatch_set[3]             ),
         .I_WRITE_EARLY_RESPONSE_RP1_WRITE_RESP_DONE                     ( w_early_bresp_done[1]                 ),
         .I_WRITE_EARLY_RESPONSE_RP1_WRITE_RESP_ERR_SET                  ( w_bresp_err[1]                        ),
         .I_WRITE_EARLY_RESPONSE_RP1_WRITE_RESP_ERR_TYPE_INFO            ( w_bresp_err_type[1]                   ),
@@ -832,11 +852,15 @@ module AOU_CORE #(
         .O_PRIOR_RP_AXI_RP0_PRIOR                                       ( w_prior_rp_axi_rp0_prior              ),    
         .O_PRIOR_RP_AXI_ARB_MODE                                        ( w_prior_rp_axi_arb_mode               ),    
         .O_PRIOR_TIMER_TIMER_RESOLUTION                                 ( w_prior_timer_timer_resolution        ),
-        .O_PRIOR_TIMER_TIMER_THRESHOLD                                  ( w_prior_timer_timer_threshold         )
+        .O_PRIOR_TIMER_TIMER_THRESHOLD                                  ( w_prior_timer_timer_threshold         ),
 
+        .O_AXI_SLV_ID_MISMATCH_RP0_EN                                   ( w_axi_slv_id_mismatch_en[0]           ), 
+        .O_AXI_SLV_ID_MISMATCH_RP1_EN                                   ( w_axi_slv_id_mismatch_en[1]           ), 
+        .O_AXI_SLV_ID_MISMATCH_RP2_EN                                   ( w_axi_slv_id_mismatch_en[2]           ), 
+        .O_AXI_SLV_ID_MISMATCH_RP3_EN                                   ( w_axi_slv_id_mismatch_en[3]           ) 
     );
 
-    assign O_ERR_INFO_SPLIT_RID_MISMATCH_ERR    = w_mi0_id_mismatch_mask ? 1'b0 : w_err_info_split_rid_mismatch_err;
+    assign O_ERR_INFO_RID_MISMATCH_ERR          = w_mi0_id_mismatch_mask ? 1'b0 : w_err_info_rid_mismatch_err;
     assign O_ERR_INFO_SPLIT_BID_MISMATCH_ERR    = w_mi0_id_mismatch_mask ? 1'b0 : w_err_info_split_bid_mismatch_err;
     assign O_AXI_SLV_RID_MISMATCH_ERROR         = w_si0_id_mismatch_mask ? 1'b0 : w_axi_slv_rid_mismatch_error;
     assign O_AXI_SLV_BID_MISMATCH_ERROR         = w_si0_id_mismatch_mask ? 1'b0 : w_axi_slv_bid_mismatch_error;
@@ -1008,7 +1032,9 @@ module AOU_CORE #(
     
         .I_STATUS_DISABLE               ( w_status_disabled             ),
 
-        .I_RP_DEST_RP                   ( w_rp_dest_rp                  )
+        .I_RP_DEST_RP                   ( w_rp_dest_rp                  ),
+
+        .I_CREDIT_BLOCK                 ( w_err_info_rid_mismatch_err | w_err_info_split_bid_mismatch_err | (|w_err_split_bid_mismatch_set) | (|w_err_rid_mismatch_set))
     );
 
 //----------------------------------------------------------------------------  
@@ -1074,18 +1100,21 @@ module AOU_CORE #(
     );
 
 //-------------------------------------------------------------
-    logic                                w_fdi_pl_32b_trdy;
-    logic [255:0]                        w_fdi_lp_32b_data;
-    logic                                w_fdi_lp_32b_valid;
+    logic                                w_fdi_pl_trdy_0;
+    logic [FDI_IF_WD0-1:0]               w_fdi_lp_data_0;
+    logic                                w_fdi_lp_valid_0;
 
-    logic                                w_fdi_pl_64b_trdy;
-    logic [511:0]                        w_fdi_lp_64b_data;
-    logic                                w_fdi_lp_64b_valid;
+`ifdef TWO_PHY
+    logic                                w_fdi_pl_trdy_1;
+    logic [FDI_IF_WD1-1:0]               w_fdi_lp_data_1;
+    logic                                w_fdi_lp_valid_1;
+`endif
     
     AOU_TX_CORE #(
         .RP_CNT                         ( RP_COUNT                      ),
     
-        .FDI_IF_WD                      ( 512                           ),
+        .FDI_IF_WD0                     ( FDI_IF_WD0                    ),
+        .FDI_IF_WD1                     ( FDI_IF_WD1                    ),
         .RP0_AXI_DATA_WD                ( RP0_AXI_DATA_WD               ),
         .RP1_AXI_DATA_WD                ( RP1_AXI_DATA_WD               ),
         .RP2_AXI_DATA_WD                ( RP2_AXI_DATA_WD               ),
@@ -1153,8 +1182,8 @@ module AOU_CORE #(
         .I_AOU_TX_AXI_ARCACHE           ( I_AOU_TX_AXI_S_ARCACHE        ),
         .I_AOU_TX_AXI_ARPROT            ( I_AOU_TX_AXI_S_ARPROT         ),
         .I_AOU_TX_AXI_ARQOS             ( I_AOU_TX_AXI_S_ARQOS          ),
-        .I_AOU_TX_AXI_ARVALID           ( I_AOU_TX_AXI_S_ARVALID        ),
-        .O_AOU_TX_AXI_ARREADY           ( O_AOU_TX_AXI_S_ARREADY        ),
+        .I_AOU_TX_AXI_ARVALID           ( w_aou_tx_axi_s_arvalid        ),
+        .O_AOU_TX_AXI_ARREADY           ( w_aou_tx_axi_s_arready        ),
     
         .I_AOU_TX_AXI_BID_256           ( w_aou_tx_axi_mm_bid_256       ),
         .I_AOU_TX_AXI_BRESP_256         ( w_aou_tx_axi_mm_bresp_256     ),
@@ -1237,15 +1266,17 @@ module AOU_CORE #(
         .I_AOU_TX_LP_MODE_THRESHOLD     ( w_tx_lp_mode_threshold        ),
         .I_AOU_TX_LP_MODE               ( w_tx_lp_mode                  ),
 
+        .I_FDI_PL_TRDY_0                ( w_fdi_pl_trdy_0               ),
+        .O_FDI_LP_DATA_0                ( w_fdi_lp_data_0               ),
+        .O_FDI_LP_VALID_0               ( w_fdi_lp_valid_0              ),
+ 
+`ifdef TWO_PHY
         .I_PHY_TYPE                     ( I_PHY_TYPE                    ),
     
-        .I_FDI_PL_32B_TRDY              ( w_fdi_pl_32b_trdy             ),
-        .O_FDI_LP_32B_DATA              ( w_fdi_lp_32b_data             ),
-        .O_FDI_LP_32B_VALID             ( w_fdi_lp_32b_valid            ),
- 
-        .I_FDI_PL_64B_TRDY              ( w_fdi_pl_64b_trdy             ),
-        .O_FDI_LP_64B_DATA              ( w_fdi_lp_64b_data             ),
-        .O_FDI_LP_64B_VALID             ( w_fdi_lp_64b_valid            ),
+        .I_FDI_PL_TRDY_1                ( w_fdi_pl_trdy_1               ),
+        .O_FDI_LP_DATA_1                ( w_fdi_lp_data_1               ),
+        .O_FDI_LP_VALID_1               ( w_fdi_lp_valid_1              ),
+`endif        
         
         .I_STATUS_DISABLED              ( w_status_disabled             ),
         .I_RP_DEST_RP                   ( w_rp_dest_rp                  ),
@@ -1263,61 +1294,138 @@ module AOU_CORE #(
     );
 
     AOU_TX_FDI_IF # (
-        .FDI_DATA_WD    ( 256   )    
-    ) u_aou_tx_256_fdi_if (
+        .FDI_DATA_WD    ( FDI_IF_WD0   )    
+    ) u_aou_tx_fdi_if0 (
         .I_CLK                          ( I_CLK                     ),
         .I_RESETN                       ( I_RESETN                  ),
     
-        .I_AOU_TX_FLIT_DATA_VALID       ( w_fdi_lp_32b_valid        ),
-        .I_AOU_TX_FLIT_DATA             ( w_fdi_lp_32b_data         ),
-        .O_AOU_TX_FLIT_READY            ( w_fdi_pl_32b_trdy         ),
+        .I_AOU_TX_FLIT_DATA_VALID       ( w_fdi_lp_valid_0            ),
+        .I_AOU_TX_FLIT_DATA             ( w_fdi_lp_data_0             ),
+        .O_AOU_TX_FLIT_READY            ( w_fdi_pl_trdy_0             ),
         
-        .I_FDI_PL_TRDY                  ( I_FDI_PL_32B_TRDY         ),
-        .I_FDI_PL_STALLREQ              ( r_fdi_pl_32b_stallreq     ),
-        .I_FDI_PL_STATE_STS             ( I_FDI_PL_32B_STATE_STS    ), 
-        .O_FDI_LP_DATA                  ( O_FDI_LP_32B_DATA         ), 
-        .O_FDI_LP_VALID                 ( O_FDI_LP_32B_VALID        ),
-        .O_FDI_LP_IRDY                  ( O_FDI_LP_32B_IRDY         ),     
-        .O_FDI_LP_STALLACK              ( O_FDI_LP_32B_STALLACK     ) 
+        .I_FDI_PL_TRDY                  ( I_FDI_PL_0_TRDY             ),
+        .I_FDI_PL_STALLREQ              ( r_fdi_pl_0_stallreq         ),
+        .I_FDI_PL_STATE_STS             ( I_FDI_PL_0_STATE_STS        ), 
+        .O_FDI_LP_DATA                  ( O_FDI_LP_0_DATA             ), 
+        .O_FDI_LP_VALID                 ( O_FDI_LP_0_VALID            ),
+        .O_FDI_LP_IRDY                  ( O_FDI_LP_0_IRDY             ),     
+        .O_FDI_LP_STALLACK              ( O_FDI_LP_0_STALLACK         ) 
     );
     
+`ifdef TWO_PHY
     AOU_TX_FDI_IF # (
-        .FDI_DATA_WD    ( 512   )    
-    ) u_aou_tx_512_fdi_if (
+        .FDI_DATA_WD    ( FDI_IF_WD1   )    
+    ) u_aou_tx_fdi_if1 (
         .I_CLK                          ( I_CLK                     ),
         .I_RESETN                       ( I_RESETN                  ),
         
-        .I_AOU_TX_FLIT_DATA_VALID       ( w_fdi_lp_64b_valid        ),
-        .I_AOU_TX_FLIT_DATA             ( w_fdi_lp_64b_data         ),
-        .O_AOU_TX_FLIT_READY            ( w_fdi_pl_64b_trdy         ),
+        .I_AOU_TX_FLIT_DATA_VALID       ( w_fdi_lp_valid_1            ),
+        .I_AOU_TX_FLIT_DATA             ( w_fdi_lp_data_1             ),
+        .O_AOU_TX_FLIT_READY            ( w_fdi_pl_trdy_1             ),
         
-        .I_FDI_PL_TRDY                  ( I_FDI_PL_64B_TRDY         ),
-        .I_FDI_PL_STALLREQ              ( r_fdi_pl_64b_stallreq     ),
-        .I_FDI_PL_STATE_STS             ( I_FDI_PL_64B_STATE_STS    ), 
-        .O_FDI_LP_DATA                  ( O_FDI_LP_64B_DATA         ), 
-        .O_FDI_LP_VALID                 ( O_FDI_LP_64B_VALID        ),
-        .O_FDI_LP_IRDY                  ( O_FDI_LP_64B_IRDY         ),     
-        .O_FDI_LP_STALLACK              ( O_FDI_LP_64B_STALLACK     ) 
+        .I_FDI_PL_TRDY                  ( I_FDI_PL_1_TRDY             ),
+        .I_FDI_PL_STALLREQ              ( r_fdi_pl_1_stallreq         ),
+        .I_FDI_PL_STATE_STS             ( I_FDI_PL_1_STATE_STS        ), 
+        .O_FDI_LP_DATA                  ( O_FDI_LP_1_DATA             ), 
+        .O_FDI_LP_VALID                 ( O_FDI_LP_1_VALID            ),
+        .O_FDI_LP_IRDY                  ( O_FDI_LP_1_IRDY             ),     
+        .O_FDI_LP_STALLACK              ( O_FDI_LP_1_STALLACK         ) 
     );
+
+
+`endif
 
 //------------------------------------------------------------- 
+
+`ifdef TWO_PHY
     logic                           w_fdi_pl_valid;
-    logic   [64*8 - 1: 0]           w_fdi_pl_data;
+    logic   [FDI_IF_WD1- 1: 0]      w_fdi_pl_data;
     logic                           w_fdi_pl_flit_cancel;
 
+    `ifdef FDI_128B
+        AOU_RX_CORE_IN_MUX #(
+            .FDI_IF_WD                  ( FDI_IF_WD1                )
+        ) u_aou_rx_core_in_mux_128b
+        (
+            .I_CLK                      ( I_CLK                     ),
+            .I_RESETN                   ( I_RESETN                  ),
+            .I_PHY_TYPE                 ( I_PHY_TYPE                ),
+            .I_FDI_PL_1_VALID           ( I_FDI_PL_1_VALID        ),
+            .I_FDI_PL_1_DATA            ( I_FDI_PL_1_DATA         ),
+            .I_FDI_PL_1_FLIT_CANCEL     ( I_FDI_PL_1_FLIT_CANCEL  ),
+        
+            .I_FDI_PL_0_VALID           ( I_FDI_PL_0_VALID        ),
+            .I_FDI_PL_0_DATA            ( I_FDI_PL_0_DATA         ),
+            .I_FDI_PL_0_FLIT_CANCEL     ( I_FDI_PL_0_FLIT_CANCEL  ),
+        
+            .O_FDI_PL_VALID             ( w_fdi_pl_valid            ),
+            .O_FDI_PL_DATA              ( w_fdi_pl_data             ),
+            .O_FDI_PL_FLIT_CANCEL       ( w_fdi_pl_flit_cancel      )
+        );
+    `else
+        AOU_RX_CORE_IN_MUX #(
+            .FDI_IF_WD                  ( FDI_IF_WD1                )
+        ) u_aou_rx_core_in_mux_64b
+        (
+            .I_CLK                      ( I_CLK                     ),
+            .I_RESETN                   ( I_RESETN                  ),
+            .I_PHY_TYPE                 ( I_PHY_TYPE                ),
+            .I_FDI_PL_1_VALID         ( I_FDI_PL_1_VALID        ),
+            .I_FDI_PL_1_DATA          ( I_FDI_PL_1_DATA         ),
+            .I_FDI_PL_1_FLIT_CANCEL   ( I_FDI_PL_1_FLIT_CANCEL  ),
+        
+            .I_FDI_PL_0_VALID         ( I_FDI_PL_0_VALID        ),
+            .I_FDI_PL_0_DATA          ( I_FDI_PL_0_DATA         ),
+            .I_FDI_PL_0_FLIT_CANCEL   ( I_FDI_PL_0_FLIT_CANCEL  ),
+        
+            .O_FDI_PL_VALID             ( w_fdi_pl_valid            ),
+            .O_FDI_PL_DATA              ( w_fdi_pl_data             ),
+            .O_FDI_PL_FLIT_CANCEL       ( w_fdi_pl_flit_cancel      )
+        );
+    `endif
+`elsif FDI_32B
+    logic                           w_fdi_pl_valid;
+    logic   [FDI_IF_WD1- 1: 0]      w_fdi_pl_data;
+    logic                           w_fdi_pl_flit_cancel;
+
+    AOU_RX_CORE_IN_MUX #(
+            .FDI_IF_WD              ( FDI_IF_WD1                )
+    ) u_aou_rx_core_in_mux_64b
+    (
+        .I_CLK                      ( I_CLK                     ),
+        .I_RESETN                   ( I_RESETN                  ),
+        .I_PHY_TYPE                 ( 1'b0                      ),
+        .I_FDI_PL_1_VALID         ( '0                        ),
+        .I_FDI_PL_1_DATA          ( '0                        ),
+        .I_FDI_PL_1_FLIT_CANCEL   ( '0                        ),
+    
+        .I_FDI_PL_0_VALID         ( I_FDI_PL_0_VALID          ),
+        .I_FDI_PL_0_DATA          ( I_FDI_PL_0_DATA           ),
+        .I_FDI_PL_0_FLIT_CANCEL   ( I_FDI_PL_0_FLIT_CANCEL    ),
+    
+        .O_FDI_PL_VALID             ( w_fdi_pl_valid            ),
+        .O_FDI_PL_DATA              ( w_fdi_pl_data             ),
+        .O_FDI_PL_FLIT_CANCEL       ( w_fdi_pl_flit_cancel      )
+    );
+`endif
+
     AOU_RX_CORE #(
+        .DEC_MULTI                        ( DEC_MULTI                         ),  
+        .PHY_TYPE                         ( PHY_TYPE                          ),
+        `ifdef TWO_PHY
+            .FDI_IF_WD                    ( FDI_IF_WD1                        ),
+        `elsif FDI_32B
+            .FDI_IF_WD                    ( FDI_IF_WD1                        ),
+        `else
+            .FDI_IF_WD                    ( FDI_IF_WD0                        ),
+        `endif    
+
         .AXI_PEER_DIE_MAX_DATA_WD           ( AXI_PEER_DIE_MAX_DATA_WD          ),
         .AXI_ADDR_WD                        ( AXI_ADDR_WD                       ),    
         .AXI_ID_WD                          ( AXI_ID_WD                         ),    
         .AXI_LEN_WD                         ( AXI_LEN_WD                        ),
     
-        .MAX_MISC_COUNT                     ( MAX_MISC_COUNT                    ),
-        .MAX_REQ_COUNT                      ( MAX_WR_REQ_COUNT                  ),
-        .MAX_DATA_COUNT                     ( MAX_WR_DATA_COUNT                 ),
-        .MAX_WR_RESP_COUNT                  ( MAX_WR_RESP_COUNT                 ),
-    
-        .RP_COUNT                           ( RP_COUNT                          ),
-       
+        .RP_COUNT                           ( RP_COUNT                          ),       
         .AW_AR_FIFO_DATA_WIDTH              ( AW_AR_FIFO_WIDTH                  ),
         .B_FIFO_DATA_WIDTH                  ( B_FIFO_WIDTH                      ),
         .R_FIFO_EXT_DATA_WIDTH              ( R_FIFO_EXT_DATA_WIDTH             )
@@ -1327,9 +1435,19 @@ module AOU_CORE #(
         .I_CLK                              ( I_CLK                             ),
         .I_RESETN                           ( I_RESETN                          ),
                               
+`ifdef TWO_PHY
         .I_FDI_PL_VALID                     ( w_fdi_pl_valid                    ),
         .I_FDI_PL_DATA                      ( w_fdi_pl_data                     ),          
         .I_FDI_PL_FLIT_CANCEL               ( w_fdi_pl_flit_cancel              ),
+`elsif FDI_32B
+        .I_FDI_PL_VALID                     ( w_fdi_pl_valid                    ),
+        .I_FDI_PL_DATA                      ( w_fdi_pl_data                     ),          
+        .I_FDI_PL_FLIT_CANCEL               ( w_fdi_pl_flit_cancel              ),
+`else
+        .I_FDI_PL_VALID                     ( I_FDI_PL_0_VALID                  ),
+        .I_FDI_PL_DATA                      ( I_FDI_PL_0_DATA                   ),          
+        .I_FDI_PL_FLIT_CANCEL               ( I_FDI_PL_0_FLIT_CANCEL            ),
+`endif
        
         .O_RD_REQ_FIFO_SDATA                ( O_RD_REQ_FIFO_SDATA               ),
         .O_RD_REQ_FIFO_SVALID               ( O_RD_REQ_FIFO_SVALID              ),
@@ -1384,24 +1502,6 @@ module AOU_CORE #(
         .O_ACTIVATION_VALID                 ( w_rxcore_activation_valid         )
     );
 
-    AOU_RX_CORE_IN_MUX u_aou_rx_core_in_mux
-    (
-        .I_CLK                      ( I_CLK                     ),
-        .I_RESETN                   ( I_RESETN                  ),
-        .I_PHY_TYPE                 ( I_PHY_TYPE                ),
-        .I_FDI_PL_64B_VALID         ( I_FDI_PL_64B_VALID        ),
-        .I_FDI_PL_64B_DATA          ( I_FDI_PL_64B_DATA         ),
-        .I_FDI_PL_64B_FLIT_CANCEL   ( I_FDI_PL_64B_FLIT_CANCEL  ),
-    
-        .I_FDI_PL_32B_VALID         ( I_FDI_PL_32B_VALID        ),
-        .I_FDI_PL_32B_DATA          ( I_FDI_PL_32B_DATA         ),
-        .I_FDI_PL_32B_FLIT_CANCEL   ( I_FDI_PL_32B_FLIT_CANCEL  ),
-    
-        .O_FDI_PL_VALID             ( w_fdi_pl_valid            ),
-        .O_FDI_PL_DATA              ( w_fdi_pl_data             ),
-        .O_FDI_PL_FLIT_CANCEL       ( w_fdi_pl_flit_cancel      )
-    );
-
 //-------------------------------------------------------------
     
     assign O_AOU_ACTIVATE_ST_DISABLED = w_status_disabled;
@@ -1415,6 +1515,9 @@ module AOU_CORE #(
                 assign w_early_bresp_ctrl_wdata[i][RP_AXI_DATA_WD_MAX-1:RP_AXI_DATA_WD[i]]  = 'd0;
                 assign w_early_bresp_ctrl_wstrb[i][RP_AXI_STRB_WD_MAX-1:RP_AXI_STRB_WD[i]]  = 'd0;
             end
+
+            assign O_AOU_TX_AXI_S_ARREADY[i] = w_aou_tx_axi_s_arready[i] && ~w_aou_slv_info_ar_hold_flag[i];
+            assign w_aou_tx_axi_s_arvalid[i] = I_AOU_TX_AXI_S_ARVALID[i] && ~w_aou_slv_info_ar_hold_flag[i];
 
             AOU_CORE_RP #(
                 .AXI_DATA_WD              (RP_AXI_DATA_WD[i]), 
@@ -1474,8 +1577,9 @@ module AOU_CORE #(
                 .O_AOU_TX_AXI_M_BREADY                     ( O_AOU_TX_AXI_M_BREADY[i]          ),
                 
                 .I_AOU_TX_AXI_S_ARID                       ( I_AOU_TX_AXI_S_ARID[i]            ),
-                .I_AOU_TX_AXI_S_ARVALID                    ( I_AOU_TX_AXI_S_ARVALID[i]         ),
+                .I_AOU_TX_AXI_S_ARVALID                    ( w_aou_tx_axi_s_arvalid[i]         ),
                 .I_AOU_TX_AXI_S_ARREADY                    ( O_AOU_TX_AXI_S_ARREADY[i]         ),    
+                .O_AOU_SLV_INFO_AR_HOLD_FLAG               ( w_aou_slv_info_ar_hold_flag[i]    ),
                                                                                             
                 .I_AOU_RX_AXI_S_RID                        ( I_AOU_RX_AXI_S_RID[i]             ),
                 .I_AOU_RX_AXI_S_RLAST                      ( I_AOU_RX_AXI_S_RLAST[i]           ),
@@ -1583,10 +1687,12 @@ module AOU_CORE #(
                 .I_AXI_SPLIT_TR_MAX_AWBURSTLEN             ( w_axi_split_tr_max_awburstlen[i]  ), 
                 .I_AXI_SPLIT_TR_MAX_ARBURSTLEN             ( w_axi_split_tr_max_arburstlen[i]  ), 
                 
+                .I_AXI_SLV_ID_MISMATCH_EN                  ( w_axi_slv_id_mismatch_en[i]       ),
+
                 .O_ERROR_INFO_SPLIT_BID_MISMATCH_INFO      ( w_err_info_split_bid_mismatch[i]  ),
-                .O_ERROR_INFO_SPLIT_RID_MISMATCH_INFO      ( w_err_info_split_rid_mismatch[i]  ),
+                .O_ERROR_INFO_RID_MISMATCH_INFO            ( w_err_info_rid_mismatch[i]        ),
                 .O_ERROR_INFO_SPLIT_BID_MISMATCH_ERR_SET   ( w_err_split_bid_mismatch_set[i]   ),
-                .O_ERROR_INFO_SPLIT_RID_MISMATCH_ERR_SET   ( w_err_split_rid_mismatch_set[i]   ),
+                .O_ERROR_INFO_RID_MISMATCH_ERR_SET         ( w_err_rid_mismatch_set[i]         ),
                 
                 .O_EARLY_BRESP_DONE                        ( w_early_bresp_done[i]             ),
                 .O_EARLY_BRESP_ERR_SET                     ( w_bresp_err[i]                    ),
@@ -1615,9 +1721,9 @@ module AOU_CORE #(
     generate
         for(j = RP_COUNT ; j < 4; j++) begin: gen_unused_sfr_tie
             assign  w_err_info_split_bid_mismatch[j]  = 1'b0; 
-            assign  w_err_info_split_rid_mismatch[j]  = 1'b0; 
+            assign  w_err_info_rid_mismatch[j]        = 1'b0; 
             assign  w_err_split_bid_mismatch_set[j]   = 1'b0; 
-            assign  w_err_split_rid_mismatch_set[j]   = 1'b0; 
+            assign  w_err_rid_mismatch_set[j]         = 1'b0; 
               
             assign  w_early_bresp_done[j]             = 1'b0; 
             assign  w_bresp_err[j]                    = 1'b0; 

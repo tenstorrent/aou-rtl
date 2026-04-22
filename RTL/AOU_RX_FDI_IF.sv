@@ -26,7 +26,7 @@
 `timescale 1ns/1ps
 
 module AOU_RX_FDI_IF #(
-  parameter FDI_DATA_WD = 512
+  parameter FDI_IF_WD = 1024
 )
 (
     input I_CLK,
@@ -36,27 +36,28 @@ module AOU_RX_FDI_IF #(
     //AOU_RX_CORE Interface
     //------------------------------------------------------------
     output                          O_AOU_RX_CHUNK_DATA_VALID,
-    output      [FDI_DATA_WD-1:0]   O_AOU_RX_CHUNK_DATA,
+    output      [FDI_IF_WD-1:0]     O_AOU_RX_CHUNK_DATA,
 
     //------------------------------------------------------------
     //FDI Interface
     //------------------------------------------------------------
     input                           I_FDI_PL_VALID,
-    input logic [FDI_DATA_WD-1:0]   I_FDI_PL_DATA,
+    input logic [FDI_IF_WD-1:0]     I_FDI_PL_DATA,
     input                           I_FDI_PL_FLIT_CANCEL
 
 );
-    localparam PHASE_CNT    = 256*8 / FDI_DATA_WD;
-    localparam HF_PHASE_CNT = PHASE_CNT/2;
-    localparam PHASE_WD     = $clog2(PHASE_CNT);
+    localparam PHASE_CNT    = 256*8 / FDI_IF_WD;
+    localparam HF_PHASE_CNT = (PHASE_CNT == 1) ? 1 : PHASE_CNT/2;
+    localparam PHASE_WD     = (PHASE_CNT == 1) ? 1 : $clog2(PHASE_CNT);
     
     logic   [PHASE_WD-1:0]  r_phase;
     logic                   r_half_flit_phase;
-    logic   [HF_PHASE_CNT-1:0][FDI_DATA_WD-1:0] r_data;
-    logic   [FDI_DATA_WD-1:0]                   zero_data;
+    logic   [HF_PHASE_CNT-1:0][FDI_IF_WD-1:0]   r_data;
+    logic   [FDI_IF_WD-1:0]                     zero_data;
     logic   [HF_PHASE_CNT-1:0]                  r_data_valid;
 
-
+    generate
+        if(PHASE_CNT == 4) begin :gen_64B_phase
     always_ff @(posedge I_CLK or negedge I_RESETN) begin
         if (!I_RESETN) begin
             r_phase <= 'd0;
@@ -76,8 +77,12 @@ module AOU_RX_FDI_IF #(
                 r_half_flit_phase <= 1'b1;
         end
     end 
+        end
+    endgenerate 
 
     assign zero_data = 'd0;
+    generate
+        if(PHASE_CNT == 4) begin :gen_64B
     always_ff @(posedge I_CLK or negedge I_RESETN) begin
         if(!I_RESETN) begin
             r_data <= 'd0;
@@ -106,9 +111,32 @@ module AOU_RX_FDI_IF #(
             end
         end
     end
+        end else if(PHASE_CNT <= 2) begin
+            always_ff @(posedge I_CLK or negedge I_RESETN) begin
+                if(!I_RESETN) begin
+                    r_data <= 'd0;
+                    r_data_valid <= 'd0;
+                end else begin
+                    if(I_FDI_PL_VALID) begin
+                        r_data <= I_FDI_PL_DATA;
+                        r_data_valid <= 1'b1;
+                    end else begin
+                        r_data <= 'd0;
+                        r_data_valid <= 'd0;
+                    end
+                end
+            end
+        end
+    endgenerate
     
+    generate
+        if(PHASE_CNT == 4) begin
     assign O_AOU_RX_CHUNK_DATA_VALID = (r_data_valid[1] && !I_FDI_PL_FLIT_CANCEL);
     assign O_AOU_RX_CHUNK_DATA = r_data[1];
-    
+        end else if(PHASE_CNT <= 2) begin
+            assign O_AOU_RX_CHUNK_DATA_VALID = (r_data_valid && !I_FDI_PL_FLIT_CANCEL);
+            assign O_AOU_RX_CHUNK_DATA = r_data ;
+        end
+    endgenerate
 endmodule
     
