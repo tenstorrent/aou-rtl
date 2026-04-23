@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // *****************************************************************************
 //  Copyright (c) 2026 BOS Semiconductors
+//  Copyright (c) 2026 Tenstorrent USA Inc
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -22,10 +23,15 @@
 //  Author     : Soyoung Min, Jaeyun Lee, Hojun Lee, Kwanho Kim
 //
 // *****************************************************************************
-+define+TWO_PHY
-+define+FDI_32B
-+define+FDI_64B
-//+define+FDI_128B
+// FDI data widths are now SystemVerilog parameters (FDI_IF_WD0 / FDI_IF_WD1)
+// on AOU_CORE_TOP and AOU_TOP. The +define+FDI_32B / FDI_64B / FDI_128B
+// preprocessor switches have been removed; override the parameters at the
+// top-level instantiation instead.
+//
+// TWO_PHY is intentionally NOT defined here: the parameter-refactor scope is
+// single-PHY only. AOU_TOP and AOU_CORE_TOP both wrap the second-PHY ports
+// and the I_PHY_TYPE port in `ifdef TWO_PHY` so the single-PHY build does
+// not require it. TWO_PHY enablement is tracked in a separate change.
 
 ${AOU_CORE_HOME}/RTL/packet_def_pkg.sv
 ${AOU_CORE_HOME}/RTL/AOU_RX_CORE.sv

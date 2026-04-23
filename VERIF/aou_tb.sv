@@ -650,44 +650,37 @@ module aou_tb;
 `endif // AXI_LOG
 
     // ================================================================
-    // FDI cross-connect wires (64B)
+    // FDI cross-connect wires (single-PHY 32B: FDI_IF_WD0 = 256b)
     // u_dut1 TX LP -> u_dut2 RX PL (request path)
     // u_dut2 TX LP -> u_dut1 RX PL (response path)
+    //
+    // The TWO_PHY second-PHY ports (_1, 512b) are gated out of AOU_CORE_TOP
+    // when +define+TWO_PHY is not set, so only the _0 (256b) nets are used.
     // ================================================================
-    wire [511:0] dut1_lp_64b_data;
-    wire         dut1_lp_64b_valid;
-    wire         dut1_lp_64b_irdy;
-    wire         dut1_lp_64b_stallack;
-
-    wire [511:0] dut2_lp_64b_data;
-    wire         dut2_lp_64b_valid;
-    wire         dut2_lp_64b_irdy;
-    wire         dut2_lp_64b_stallack;
-
-`ifdef AXI_LOG
-    fdi_flit_decoder #(.LOG_FILE("dut1_fdi.log"), .FDI_BYTES(64)) u_fdi_dec1 (
-        .clk    (clk),
-        .resetn (resetn),
-        .valid  (dut1_lp_64b_valid),
-        .data   (dut1_lp_64b_data)
-    );
-    fdi_flit_decoder #(.LOG_FILE("dut2_fdi.log"), .FDI_BYTES(64)) u_fdi_dec2 (
-        .clk    (clk),
-        .resetn (resetn),
-        .valid  (dut2_lp_64b_valid),
-        .data   (dut2_lp_64b_data)
-    );
-`endif
-
-    // 32B LP outputs (unused, just observed)
     wire [255:0] dut1_lp_32b_data;
     wire         dut1_lp_32b_valid;
     wire         dut1_lp_32b_irdy;
     wire         dut1_lp_32b_stallack;
+
     wire [255:0] dut2_lp_32b_data;
     wire         dut2_lp_32b_valid;
     wire         dut2_lp_32b_irdy;
     wire         dut2_lp_32b_stallack;
+
+`ifdef AXI_LOG
+    fdi_flit_decoder #(.LOG_FILE("dut1_fdi.log"), .FDI_BYTES(32)) u_fdi_dec1 (
+        .clk    (clk),
+        .resetn (resetn),
+        .valid  (dut1_lp_32b_valid),
+        .data   (dut1_lp_32b_data)
+    );
+    fdi_flit_decoder #(.LOG_FILE("dut2_fdi.log"), .FDI_BYTES(32)) u_fdi_dec2 (
+        .clk    (clk),
+        .resetn (resetn),
+        .valid  (dut2_lp_32b_valid),
+        .data   (dut2_lp_32b_data)
+    );
+`endif
 
     // u_dut1 error/status outputs
     wire d1_int_req_linkreset;
@@ -716,6 +709,10 @@ module aou_tb;
     // ================================================================
     AOU_CORE_TOP #(
         .RP_COUNT    (RP_COUNT),
+        // Preserve legacy +define+FDI_32B single-PHY behavior using the
+        // single FDI_CONFIG parameter (resolves to WD0=256, WD1=512).
+        // TWO_PHY is no longer defined for this refactor scope.
+        .FDI_CONFIG  (packet_def_pkg::FDI_CFG_SP_32B),
         .APB_ADDR_WD (APB_ADDR_WD),
         .APB_DATA_WD (APB_DATA_WD)
     ) u_dut1 (
@@ -812,32 +809,19 @@ module aou_tb;
         .O_AOU_RX_AXI_S_BVALID       (axi_s_bvalid),
         .I_AOU_RX_AXI_S_BREADY       (axi_s_bready),
 
-        // PHY
-        .I_PHY_TYPE                   (1'b1),
-
-        // FDI 0 (it could be 32B / 64B) (unused)
-        .I_FDI_PL_0_VALID           (1'b0),
-        .I_FDI_PL_0_DATA            (256'b0),
+        // FDI 0 (single-PHY 32B / 256b): RX takes u_dut2's TX, TX feeds u_dut2's RX.
+        // Second-PHY ports (_1) and I_PHY_TYPE are gated by `ifdef TWO_PHY` in
+        // AOU_CORE_TOP and therefore not instantiated in this single-PHY build.
+        .I_FDI_PL_0_VALID           (dut2_lp_32b_valid),
+        .I_FDI_PL_0_DATA            (dut2_lp_32b_data),
         .I_FDI_PL_0_FLIT_CANCEL     (1'b0),
-        .I_FDI_PL_0_TRDY            (1'b0),
+        .I_FDI_PL_0_TRDY            (1'b1),
         .I_FDI_PL_0_STALLREQ        (1'b0),
-        .I_FDI_PL_0_STATE_STS       (4'h0),
+        .I_FDI_PL_0_STATE_STS       (4'h1),
         .O_FDI_LP_0_DATA            (dut1_lp_32b_data),
         .O_FDI_LP_0_VALID           (dut1_lp_32b_valid),
         .O_FDI_LP_0_IRDY            (dut1_lp_32b_irdy),
         .O_FDI_LP_0_STALLACK        (dut1_lp_32b_stallack),
-
-        // FDI 1 (if could be 64B / 128B) -- RX from u_dut1 TX, TX outputs cross back to u_dut1 RX
-        .I_FDI_PL_1_VALID           (dut2_lp_64b_valid),
-        .I_FDI_PL_1_DATA            (dut2_lp_64b_data),
-        .I_FDI_PL_1_FLIT_CANCEL     (1'b0),
-        .I_FDI_PL_1_TRDY            (1'b1),
-        .I_FDI_PL_1_STALLREQ        (1'b0),
-        .I_FDI_PL_1_STATE_STS       (4'h1),
-        .O_FDI_LP_1_DATA            (dut1_lp_64b_data),
-        .O_FDI_LP_1_VALID           (dut1_lp_64b_valid),
-        .O_FDI_LP_1_IRDY            (dut1_lp_64b_irdy),
-        .O_FDI_LP_1_STALLACK        (dut1_lp_64b_stallack),
 
         // Error / status
         .INT_REQ_LINKRESET            (d1_int_req_linkreset),
@@ -868,6 +852,10 @@ module aou_tb;
         .RP1_AXI_DATA_WD (D2_AXI_DATA_WIDTH),
         .RP2_AXI_DATA_WD (D2_AXI_DATA_WIDTH),
         .RP3_AXI_DATA_WD (D2_AXI_DATA_WIDTH),
+        // Preserve legacy +define+FDI_32B single-PHY behavior using the
+        // single FDI_CONFIG parameter (resolves to WD0=256, WD1=512).
+        // TWO_PHY is no longer defined for this refactor scope.
+        .FDI_CONFIG      (packet_def_pkg::FDI_CFG_SP_32B),
         .APB_ADDR_WD     (APB_ADDR_WD),
         .APB_DATA_WD     (APB_DATA_WD)
     ) u_dut2 (
@@ -964,32 +952,19 @@ module aou_tb;
         .O_AOU_RX_AXI_S_BVALID       (d2_axi_s_bvalid),
         .I_AOU_RX_AXI_S_BREADY       (d2_axi_s_bready),
 
-        // PHY
-        .I_PHY_TYPE                   (1'b1),
-
-        // FDI 0 (it could be 32B / 64B) (unused)
-        .I_FDI_PL_0_VALID           (1'b0),
-        .I_FDI_PL_0_DATA            (256'b0),
+        // FDI 0 (single-PHY 32B / 256b): RX takes u_dut1's TX, TX feeds u_dut1's RX.
+        // Second-PHY ports (_1) and I_PHY_TYPE are gated by `ifdef TWO_PHY` in
+        // AOU_CORE_TOP and therefore not instantiated in this single-PHY build.
+        .I_FDI_PL_0_VALID           (dut1_lp_32b_valid),
+        .I_FDI_PL_0_DATA            (dut1_lp_32b_data),
         .I_FDI_PL_0_FLIT_CANCEL     (1'b0),
-        .I_FDI_PL_0_TRDY            (1'b0),
+        .I_FDI_PL_0_TRDY            (1'b1),
         .I_FDI_PL_0_STALLREQ        (1'b0),
-        .I_FDI_PL_0_STATE_STS       (4'h0),
+        .I_FDI_PL_0_STATE_STS       (4'h1),
         .O_FDI_LP_0_DATA            (dut2_lp_32b_data),
         .O_FDI_LP_0_VALID           (dut2_lp_32b_valid),
         .O_FDI_LP_0_IRDY            (dut2_lp_32b_irdy),
         .O_FDI_LP_0_STALLACK        (dut2_lp_32b_stallack),
-
-        // FDI 1 (if could be 64B / 128B) -- RX from u_dut1 TX, TX outputs cross back to u_dut1 RX
-        .I_FDI_PL_1_VALID           (dut1_lp_64b_valid),
-        .I_FDI_PL_1_DATA            (dut1_lp_64b_data),
-        .I_FDI_PL_1_FLIT_CANCEL     (1'b0),
-        .I_FDI_PL_1_TRDY            (1'b1),
-        .I_FDI_PL_1_STALLREQ        (1'b0),
-        .I_FDI_PL_1_STATE_STS       (4'h1),
-        .O_FDI_LP_1_DATA            (dut2_lp_64b_data),
-        .O_FDI_LP_1_VALID           (dut2_lp_64b_valid),
-        .O_FDI_LP_1_IRDY            (dut2_lp_64b_irdy),
-        .O_FDI_LP_1_STALLACK        (dut2_lp_64b_stallack),
 
         // Error / status
         .INT_REQ_LINKRESET            (d2_int_req_linkreset),

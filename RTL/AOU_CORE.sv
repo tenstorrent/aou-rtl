@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // *****************************************************************************
 //  Copyright (c) 2026 BOS Semiconductors
+//  Copyright (c) 2026 Tenstorrent USA Inc
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -93,11 +94,16 @@ module AOU_CORE #(
     parameter   M_RD_MO_CNT                 = 32,
     parameter   M_WR_MO_CNT                 = 32,
 
-    parameter   FDI_IF_WD0                  = 256,
+    parameter   FDI_IF_WD0                  = 512,
     parameter   FDI_IF_WD1                  = 512,
     parameter   RP_COUNT                    = 1,
     parameter   DEC_MULTI                   = 2,
     parameter   PHY_TYPE                    = 1,
+
+    // Active FDI width for RX decode: max of the two PHY widths. In both
+    // TWO_PHY and single-PHY configurations this matches the width the
+    // AOU_RX_CORE expects on its I_FDI_PL_DATA bus.
+    localparam  FDI_DEC_WD                  = (FDI_IF_WD0 > FDI_IF_WD1) ? FDI_IF_WD0 : FDI_IF_WD1,
 
     localparam  RP0_AXI_STRB_WD             = RP0_AXI_DATA_WD / 8,
     localparam  RP1_AXI_STRB_WD             = RP1_AXI_DATA_WD / 8,
@@ -106,7 +112,7 @@ module AOU_CORE #(
 
     localparam  RP_AXI_DATA_WD_MAX          = max4(RP0_AXI_DATA_WD, RP1_AXI_DATA_WD, RP2_AXI_DATA_WD, RP3_AXI_DATA_WD),
     localparam  RP_AXI_STRB_WD_MAX          = RP_AXI_DATA_WD_MAX / 8,
-    
+
     localparam  AXI_ADDR_WD                 = 64,
     localparam  AXI_ID_WD                   = 10,
     localparam  AXI_LEN_WD                  = 8,
@@ -242,18 +248,18 @@ module AOU_CORE #(
     input   [RP_COUNT-1:0][AXI_ID_WD-1:0]                   I_AOU_RX_WLAST_GEN_AWID,
     input   [RP_COUNT-1:0][AXI_ADDR_WD-1:0]                 I_AOU_RX_WLAST_GEN_AWADDR,
     input   [RP_COUNT-1:0][AXI_LEN_WD-1:0]                  I_AOU_RX_WLAST_GEN_AWLEN,
-    input   [RP_COUNT-1:0][2:0]                             I_AOU_RX_WLAST_GEN_AWSIZE,      
-    input   [RP_COUNT-1:0]                                  I_AOU_RX_WLAST_GEN_AWLOCK,      
-    input   [RP_COUNT-1:0][3:0]                             I_AOU_RX_WLAST_GEN_AWCACHE,     
-    input   [RP_COUNT-1:0][2:0]                             I_AOU_RX_WLAST_GEN_AWPROT,    
-    input   [RP_COUNT-1:0][3:0]                             I_AOU_RX_WLAST_GEN_AWQOS,     
-    input   [RP_COUNT-1:0]                                  I_AOU_RX_WLAST_GEN_AWVALID,       
-    output  [RP_COUNT-1:0]                                  O_AOU_RX_WLAST_GEN_AWREADY,     
-     
+    input   [RP_COUNT-1:0][2:0]                             I_AOU_RX_WLAST_GEN_AWSIZE,
+    input   [RP_COUNT-1:0]                                  I_AOU_RX_WLAST_GEN_AWLOCK,
+    input   [RP_COUNT-1:0][3:0]                             I_AOU_RX_WLAST_GEN_AWCACHE,
+    input   [RP_COUNT-1:0][2:0]                             I_AOU_RX_WLAST_GEN_AWPROT,
+    input   [RP_COUNT-1:0][3:0]                             I_AOU_RX_WLAST_GEN_AWQOS,
+    input   [RP_COUNT-1:0]                                  I_AOU_RX_WLAST_GEN_AWVALID,
+    output  [RP_COUNT-1:0]                                  O_AOU_RX_WLAST_GEN_AWREADY,
+
     input   [RP_COUNT-1:0][1:0]                             I_AOU_RX_WLAST_GEN_WDLENGTH,
     input   [RP_COUNT-1:0]                                  I_AOU_RX_WLAST_GEN_WDATAF,
-    input   [RP_COUNT-1:0][AXI_PEER_DIE_MAX_DATA_WD-1:0]    I_AOU_RX_WLAST_GEN_WDATA,    
-    input   [RP_COUNT-1:0][AXI_MAX_STRB_WD-1:0]             I_AOU_RX_WLAST_GEN_WSTRB,      
+    input   [RP_COUNT-1:0][AXI_PEER_DIE_MAX_DATA_WD-1:0]    I_AOU_RX_WLAST_GEN_WDATA,
+    input   [RP_COUNT-1:0][AXI_MAX_STRB_WD-1:0]             I_AOU_RX_WLAST_GEN_WSTRB,
     input   [RP_COUNT-1:0]                                  I_AOU_RX_WLAST_GEN_WVALID,
     output  [RP_COUNT-1:0]                                  O_AOU_RX_WLAST_GEN_WREADY,
 
@@ -264,27 +270,27 @@ module AOU_CORE #(
     output  [RP_COUNT-1:0]                                  O_EARLY_BRESP_CTRL_BREADY,
 
     //From aou_rx_ar_fifo
-    input   [RP_COUNT-1:0][AXI_ID_WD-1:0]                   I_AOU_RX_AXI_MM_ARID,        
+    input   [RP_COUNT-1:0][AXI_ID_WD-1:0]                   I_AOU_RX_AXI_MM_ARID,
     input   [RP_COUNT-1:0][AXI_ADDR_WD-1:0]                 I_AOU_RX_AXI_MM_ARADDR,
-    input   [RP_COUNT-1:0][AXI_LEN_WD-1:0]                  I_AOU_RX_AXI_MM_ARLEN,      
-    input   [RP_COUNT-1:0][2:0]                             I_AOU_RX_AXI_MM_ARSIZE,          
-    input   [RP_COUNT-1:0]                                  I_AOU_RX_AXI_MM_ARLOCK,      
-    input   [RP_COUNT-1:0][3:0]                             I_AOU_RX_AXI_MM_ARCACHE,     
-    input   [RP_COUNT-1:0][2:0]                             I_AOU_RX_AXI_MM_ARPROT,      
-    input   [RP_COUNT-1:0][3:0]                             I_AOU_RX_AXI_MM_ARQOS,       
-    input   [RP_COUNT-1:0]                                  I_AOU_RX_AXI_MM_ARVALID,     
+    input   [RP_COUNT-1:0][AXI_LEN_WD-1:0]                  I_AOU_RX_AXI_MM_ARLEN,
+    input   [RP_COUNT-1:0][2:0]                             I_AOU_RX_AXI_MM_ARSIZE,
+    input   [RP_COUNT-1:0]                                  I_AOU_RX_AXI_MM_ARLOCK,
+    input   [RP_COUNT-1:0][3:0]                             I_AOU_RX_AXI_MM_ARCACHE,
+    input   [RP_COUNT-1:0][2:0]                             I_AOU_RX_AXI_MM_ARPROT,
+    input   [RP_COUNT-1:0][3:0]                             I_AOU_RX_AXI_MM_ARQOS,
+    input   [RP_COUNT-1:0]                                  I_AOU_RX_AXI_MM_ARVALID,
     output  [RP_COUNT-1:0]                                  O_AOU_RX_AXI_MM_ARREADY,
 
     //Interface for AOU_RX_CORE FDI
     input                                                   I_FDI_PL_0_VALID,
-    input   [FDI_IF_WD0-1: 0]                               I_FDI_PL_0_DATA,            
+    input   [FDI_IF_WD0-1: 0]                               I_FDI_PL_0_DATA,
     input                                                   I_FDI_PL_0_FLIT_CANCEL,
 
 `ifdef TWO_PHY
     input                                                   I_PHY_TYPE,
 
     input                                                   I_FDI_PL_1_VALID,
-    input   [FDI_IF_WD1-1: 0]                               I_FDI_PL_1_DATA,            
+    input   [FDI_IF_WD1-1: 0]                               I_FDI_PL_1_DATA,
     input                                                   I_FDI_PL_1_FLIT_CANCEL,
 `endif
 
@@ -327,7 +333,7 @@ module AOU_CORE #(
     output  [RP_COUNT-1:0][DEC_MULTI-1:0][DATA_DEC_CNT-1:0]                                 O_RD_DATA_FIFO_SVALID,
 
     //Interface for Error Handler
-    output                                                O_ERR_INFO_RID_MISMATCH_ERR, 
+    output                                                O_ERR_INFO_RID_MISMATCH_ERR,
     output                                                O_ERR_INFO_SPLIT_BID_MISMATCH_ERR,
 
     output                                                O_AXI_SLV_RID_MISMATCH_ERROR,
@@ -434,7 +440,7 @@ module AOU_CORE #(
     localparam  CNT_RP_TX_AR_MAX_CREDIT_MAX = max4(CNT_RP0_TX_AR_MAX_CREDIT, CNT_RP1_TX_AR_MAX_CREDIT, CNT_RP2_TX_AR_MAX_CREDIT, CNT_RP3_TX_AR_MAX_CREDIT);
     localparam  CNT_RP_TX_W_MAX_CREDIT_MAX  = max4(CNT_RP0_TX_W_MAX_CREDIT,  CNT_RP1_TX_W_MAX_CREDIT,  CNT_RP2_TX_W_MAX_CREDIT,  CNT_RP3_TX_W_MAX_CREDIT);
     localparam  CNT_RP_TX_R_MAX_CREDIT_MAX  = max4(CNT_RP0_TX_R_MAX_CREDIT,  CNT_RP1_TX_R_MAX_CREDIT,  CNT_RP2_TX_R_MAX_CREDIT,  CNT_RP3_TX_R_MAX_CREDIT);
-    localparam  CNT_RP_TX_B_MAX_CREDIT_MAX  = max4(CNT_RP0_TX_B_MAX_CREDIT,  CNT_RP1_TX_B_MAX_CREDIT,  CNT_RP2_TX_B_MAX_CREDIT,  CNT_RP3_TX_B_MAX_CREDIT);  
+    localparam  CNT_RP_TX_B_MAX_CREDIT_MAX  = max4(CNT_RP0_TX_B_MAX_CREDIT,  CNT_RP1_TX_B_MAX_CREDIT,  CNT_RP2_TX_B_MAX_CREDIT,  CNT_RP3_TX_B_MAX_CREDIT);
 
 //----------------------------------------------------------------------------
     logic    [RP_COUNT-1:0]                               w_aou_slv_info_ar_hold_flag     ;
@@ -452,7 +458,7 @@ module AOU_CORE #(
     logic    [RP_COUNT-1:0][3:0]                          w_early_bresp_ctrl_awqos        ;
     logic    [RP_COUNT-1:0]                               w_early_bresp_ctrl_awvalid      ;
     logic    [RP_COUNT-1:0]                               w_early_bresp_ctrl_awready      ;
-    
+
     logic    [RP_COUNT-1:0][RP_AXI_DATA_WD_MAX-1:0]       w_early_bresp_ctrl_wdata        ;
     logic    [RP_COUNT-1:0][RP_AXI_STRB_WD_MAX-1:0]       w_early_bresp_ctrl_wstrb        ;
     logic    [RP_COUNT-1:0]                               w_early_bresp_ctrl_wlast        ;
@@ -467,15 +473,15 @@ module AOU_CORE #(
 
     logic    [3:0][1:0]                                   w_rp_dest_rp                    ;
 
-    logic    [3:0]                                        w_prior_rp_axi_axi_qos_to_np    ; 
-    logic    [3:0]                                        w_prior_rp_axi_axi_qos_to_hp    ; 
-    logic    [1:0]                                        w_prior_rp_axi_rp3_prior        ; 
-    logic    [1:0]                                        w_prior_rp_axi_rp2_prior        ; 
-    logic    [1:0]                                        w_prior_rp_axi_rp1_prior        ; 
-    logic    [1:0]                                        w_prior_rp_axi_rp0_prior        ; 
-    logic    [1:0]                                        w_prior_rp_axi_arb_mode         ; 
-    logic    [15:0]                                       w_prior_timer_timer_resolution  ; 
-    logic    [15:0]                                       w_prior_timer_timer_threshold   ; 
+    logic    [3:0]                                        w_prior_rp_axi_axi_qos_to_np    ;
+    logic    [3:0]                                        w_prior_rp_axi_axi_qos_to_hp    ;
+    logic    [1:0]                                        w_prior_rp_axi_rp3_prior        ;
+    logic    [1:0]                                        w_prior_rp_axi_rp2_prior        ;
+    logic    [1:0]                                        w_prior_rp_axi_rp1_prior        ;
+    logic    [1:0]                                        w_prior_rp_axi_rp0_prior        ;
+    logic    [1:0]                                        w_prior_rp_axi_arb_mode         ;
+    logic    [15:0]                                       w_prior_timer_timer_resolution  ;
+    logic    [15:0]                                       w_prior_timer_timer_threshold   ;
 
     logic    [3:0]                                        w_axi_slv_id_mismatch_en        ;
 //----------------------------------------------------------------------------
@@ -500,7 +506,7 @@ module AOU_CORE #(
     logic [DEC_MULTI-1:0][MAX_MISC_COUNT-1:0][2:0]  w_rxcore_crdtgrant_wreqcred1    ;
     logic [DEC_MULTI-1:0][MAX_MISC_COUNT-1:0][2:0]  w_rxcore_crdtgrant_wreqcred0    ;
     logic [DEC_MULTI-1:0][MAX_MISC_COUNT-1:0]       w_rxcore_crdtgrant_valid        ;
-        
+
     logic [1:0]                             w_rxcore_msgcrdt_wrespcred      ;
     logic [2:0]                             w_rxcore_msgcrdt_rdatacred      ;
     logic [2:0]                             w_rxcore_msgcrdt_wdatacred      ;
@@ -508,7 +514,7 @@ module AOU_CORE #(
     logic [2:0]                             w_rxcore_msgcrdt_wreqcred       ;
     logic [1:0]                             w_rxcore_msgcrdt_rp             ;
     logic                                   w_rxcore_msgcrdt_valid          ;
-        
+
     logic [2:0]                             w_txcore_msgcredit_wreqcred     ;
     logic [2:0]                             w_txcore_msgcredit_rreqcred     ;
     logic [2:0]                             w_txcore_msgcredit_wdatacred    ;
@@ -517,7 +523,7 @@ module AOU_CORE #(
     logic [1:0]                             w_txcore_msgcredit_rp           ;
     logic                                   w_txcore_msgcredit_cred_valid   ;
     logic                                   w_txcore_msgcredit_cred_ready   ;
-        
+
     logic [1:0]                             w_txcore_crdtgrant_wrespcred3   ;
     logic [1:0]                             w_txcore_crdtgrant_wrespcred2   ;
     logic [1:0]                             w_txcore_crdtgrant_wrespcred1   ;
@@ -540,14 +546,14 @@ module AOU_CORE #(
     logic [2:0]                             w_txcore_crdtgrant_wreqcred0    ;
     logic                                   w_txcore_crdtgrant_valid        ;
     logic                                   w_txcore_crdtgrant_ready        ;
-   
-    //interface 
+
+    //interface
     logic [RP_COUNT-1:0][CNT_RP_TX_AW_MAX_CREDIT_MAX-1:0] w_aou_tx_wreqcred ;
     logic [RP_COUNT-1:0][CNT_RP_TX_AR_MAX_CREDIT_MAX-1:0] w_aou_tx_rreqcred ;
     logic [RP_COUNT-1:0][CNT_RP_TX_W_MAX_CREDIT_MAX-1:0]  w_aou_tx_wdatacred;
     logic [RP_COUNT-1:0][CNT_RP_TX_R_MAX_CREDIT_MAX-1:0]  w_aou_tx_rdatacred;
     logic [RP_COUNT-1:0][CNT_RP_TX_B_MAX_CREDIT_MAX-1:0]  w_aou_tx_wrespcred;
-       
+
     logic [RP_COUNT-1:0]                    w_aou_tx_wreqvalid              ;
     logic [RP_COUNT-1:0]                    w_aou_tx_rreqvalid              ;
     logic [RP_COUNT-1:0]                    w_aou_tx_wdatavalid             ;
@@ -556,28 +562,28 @@ module AOU_CORE #(
     logic [RP_COUNT-1:0]                    w_aou_tx_rdatavalid             ;
     logic [RP_COUNT-1:0][1:0]               w_aou_tx_rdata_dlength          ;
     logic [RP_COUNT-1:0]                    w_aou_tx_wrespvalid             ;
-    
+
     logic                                   w_crd_count_en                  ;
-    logic                                   w_req_crd_advertise_en          ; 
+    logic                                   w_req_crd_advertise_en          ;
     logic                                   w_tx_req_credited_message_en    ;
-    logic                                   w_rsp_crd_advertise_en          ; 
+    logic                                   w_rsp_crd_advertise_en          ;
     logic                                   w_tx_rsp_credited_message_en    ;
-    
+
     logic                                   w_tx_credited_message_en        ;
     logic                                   w_status_disabled               ;
     logic                                   w_status_deactivate             ;
- 
+
     logic [3:0]                             w_txcore_activation_op          ;
     logic                                   w_txcore_activation_prop_req    ;
     logic                                   w_txcore_activation_valid       ;
     logic                                   w_txcore_activation_ready       ;
     logic                                   w_tx_pending                    ;
     logic                                   w_tx_axi_tr_pending             ;
-    
+
     logic [3:0]                             w_rxcore_activation_op          ;
     logic                                   w_rxcore_activation_prop_req    ;
     logic                                   w_rxcore_activation_valid       ;
-    
+
     logic [RP_COUNT-1:0][AXI_ID_WD-1:0]     w_aou_tx_axi_mm_rid             ;
     logic [RP_COUNT-1:0][1:0]               w_aou_tx_axi_mm_rdlen           ;
     logic [RP_COUNT-1:0][1023:0]            w_aou_tx_axi_mm_rdata           ;
@@ -585,17 +591,17 @@ module AOU_CORE #(
     logic [RP_COUNT-1:0]                    w_aou_tx_axi_mm_rlast           ;
     logic [RP_COUNT-1:0]                    w_aou_tx_axi_mm_rvalid          ;
     logic [RP_COUNT-1:0]                    w_aou_tx_axi_mm_rready          ;
-    
+
     logic [RP_COUNT-1:0][AXI_ID_WD-1:0]     w_aou_tx_axi_mm_bid_256         ;
     logic [RP_COUNT-1:0][1:0]               w_aou_tx_axi_mm_bresp_256       ;
     logic [RP_COUNT-1:0]                    w_aou_tx_axi_mm_bvalid_256      ;
     logic [RP_COUNT-1:0]                    w_aou_tx_axi_mm_bready_256      ;
-   
+
     logic [RP_COUNT-1:0][AXI_ID_WD-1:0]     w_aou_tx_axi_mm_bid_512         ;
     logic [RP_COUNT-1:0][1:0]               w_aou_tx_axi_mm_bresp_512       ;
     logic [RP_COUNT-1:0]                    w_aou_tx_axi_mm_bvalid_512      ;
     logic [RP_COUNT-1:0]                    w_aou_tx_axi_mm_bready_512      ;
-    
+
     logic [RP_COUNT-1:0][AXI_ID_WD-1:0]     w_aou_tx_axi_mm_bid_1024        ;
     logic [RP_COUNT-1:0][1:0]               w_aou_tx_axi_mm_bresp_1024      ;
     logic [RP_COUNT-1:0]                    w_aou_tx_axi_mm_bvalid_1024     ;
@@ -613,7 +619,7 @@ module AOU_CORE #(
     wire                                    w_deactivate_force              ;
     logic                                   w_int_activate_start            ;
     logic                                   w_int_deactivate_start          ;
-  
+
     logic [2:0]                             w_ack_time_out_value            ;
     logic [2:0]                             w_msgcredit_time_out_value      ;
     logic                                   w_act_ack_err_set               ;
@@ -621,20 +627,20 @@ module AOU_CORE #(
     logic [3:0]                             w_invalid_actmsg_opcode         ;
     logic                                   w_invalid_actmsg_err_set        ;
     logic                                   w_msgcredit_err_set             ;
-        
+
 //----------------------------------------------------------------------------
-     
+
     logic [3:0][31:0]                       w_debug_error_info_upper_addr;
     logic [3:0][31:0]                       w_debug_error_info_lower_addr;
     logic [3:0]                             w_debug_error_info_access_enable;
     logic [3:0]                             w_axi_aggregator_en;
-    
-//----------------------------------------------------------------------------    
+
+//----------------------------------------------------------------------------
     logic [3:0][AXI_ID_WD-1:0]      w_err_info_split_bid_mismatch, w_err_info_rid_mismatch;
     logic [3:0]                     w_err_split_bid_mismatch_set, w_err_rid_mismatch_set;
     logic [3:0][AXI_ID_WD-1:0]      w_axi_slv_bid_mismatch_info, w_axi_slv_rid_mismatch_info;
     logic [3:0]                     w_axi_slv_bid_mismatch_err_set, w_axi_slv_rid_mismatch_err_set;
-    
+
     logic [3:0]                     w_slv_tr_complete;
     logic [3:0]                     w_mst_tr_complete;
 
@@ -665,13 +671,13 @@ module AOU_CORE #(
     logic                           w_deact_ack_err_b       ;
     logic                           w_invalid_actmsg_err_b  ;
     logic                           w_msgcredit_err_b       ;
-    
-//---------------------------------------------------------------------------- 
-    logic             w_mst_rdata_eff_mon_active_rising_edge_detect ; 
-    logic             w_mst_wdata_eff_mon_active_rising_edge_detect ; 
-    logic             w_slv_rdata_eff_mon_active_rising_edge_detect ; 
-    logic             w_slv_wdata_eff_mon_active_rising_edge_detect ; 
-//---------------------------------------------------------------------------- 
+
+//----------------------------------------------------------------------------
+    logic             w_mst_rdata_eff_mon_active_rising_edge_detect ;
+    logic             w_mst_wdata_eff_mon_active_rising_edge_detect ;
+    logic             w_slv_rdata_eff_mon_active_rising_edge_detect ;
+    logic             w_slv_wdata_eff_mon_active_rising_edge_detect ;
+//----------------------------------------------------------------------------
      always_ff @ (posedge I_CLK or negedge I_RESETN) begin
         if (~I_RESETN) begin
             r_fdi_pl_0_stallreq <= 1'b0;
@@ -693,21 +699,21 @@ module AOU_CORE #(
 
     AOU_CORE_SFR #(
         .APB_ADDR_WD    ( APB_ADDR_WD   )
-    ) u_aou_core_sfr 
+    ) u_aou_core_sfr
     (
         .I_PCLK                                                         ( I_CLK                                 ),
         .I_PRESETN                                                      ( I_RESETN                              ),
-    
+
         .I_PSEL                                                         ( I_AOU_APB_SI0_PSEL                    ),
         .I_PENABLE                                                      ( I_AOU_APB_SI0_PENABLE                 ),
         .I_PADDR                                                        ( I_AOU_APB_SI0_PADDR                   ),
         .I_PWRITE                                                       ( I_AOU_APB_SI0_PWRITE                  ),
         .I_PWDATA                                                       ( I_AOU_APB_SI0_PWDATA                  ),
-    
+
         .O_PRDATA                                                       ( O_AOU_APB_SI0_PRDATA                  ),
         .O_PREADY                                                       ( O_AOU_APB_SI0_PREADY                  ),
         .O_PSLVERR                                                      ( O_AOU_APB_SI0_PSLVERR                 ),
-    
+
         .I_IP_VERSION_MAJOR_VERSION                                     ( 16'd1                                 ),
         .I_IP_VERSION_MINOR_VERSION                                     ( 16'b0                                 ),
 
@@ -738,8 +744,8 @@ module AOU_CORE #(
 
         .I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_DONE                     ( w_early_bresp_done[0]                 ),
         .I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_ERR_SET                  ( w_bresp_err[0]                        ),
-        .I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_ERR_TYPE_INFO            ( w_bresp_err_type[0]                   ), 
-        .I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_ERR_ID_INFO              ( w_bresp_err_id[0]                     ),    
+        .I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_ERR_TYPE_INFO            ( w_bresp_err_type[0]                   ),
+        .I_WRITE_EARLY_RESPONSE_RP0_WRITE_RESP_ERR_ID_INFO              ( w_bresp_err_id[0]                     ),
         .O_WRITE_EARLY_RESPONSE_RP0_EARLY_BRESP_EN                      ( w_early_bresp_en[0]                   ),
 
         .O_LP_LINKRESET_ACK_TIME_OUT_VALUE                              ( w_ack_time_out_value                  ),
@@ -774,12 +780,12 @@ module AOU_CORE #(
         .O_DEACT_ACK_ERR                                                ( w_deact_ack_err                       ),
         .O_INVALID_ACTMSG_ERR                                           ( w_invalid_actmsg_err                  ),
         .O_MSGCREDIT_ERR                                                ( w_msgcredit_err                       ),
-    
-        .O_AXI_SLV_RID_MISMATCH_ERROR                                   ( w_axi_slv_rid_mismatch_error          ),    
+
+        .O_AXI_SLV_RID_MISMATCH_ERROR                                   ( w_axi_slv_rid_mismatch_error          ),
         .O_AXI_SLV_BID_MISMATCH_ERROR                                   ( w_axi_slv_bid_mismatch_error          ),
 
         .ERR_SLV_EARLY_RESP_ERR                                         ( w_int_slv_early_resp_err              ),
-        
+
         .INT_ACTIVATE_START                                             ( O_INT_ACTIVATE_START                  ),
         .INT_DEACTIVATE_START                                           ( O_INT_DEACTIVATE_START                ),
 
@@ -844,20 +850,20 @@ module AOU_CORE #(
         .O_DEST_RP_RP2_DEST                                             ( w_rp_dest_rp[2]                       ),
         .O_DEST_RP_RP1_DEST                                             ( w_rp_dest_rp[1]                       ),
         .O_DEST_RP_RP0_DEST                                             ( w_rp_dest_rp[0]                       ),
-        .O_PRIOR_RP_AXI_AXI_QOS_TO_NP                                   ( w_prior_rp_axi_axi_qos_to_np          ),    
-        .O_PRIOR_RP_AXI_AXI_QOS_TO_HP                                   ( w_prior_rp_axi_axi_qos_to_hp          ),    
-        .O_PRIOR_RP_AXI_RP3_PRIOR                                       ( w_prior_rp_axi_rp3_prior              ),    
-        .O_PRIOR_RP_AXI_RP2_PRIOR                                       ( w_prior_rp_axi_rp2_prior              ),    
-        .O_PRIOR_RP_AXI_RP1_PRIOR                                       ( w_prior_rp_axi_rp1_prior              ),        
-        .O_PRIOR_RP_AXI_RP0_PRIOR                                       ( w_prior_rp_axi_rp0_prior              ),    
-        .O_PRIOR_RP_AXI_ARB_MODE                                        ( w_prior_rp_axi_arb_mode               ),    
+        .O_PRIOR_RP_AXI_AXI_QOS_TO_NP                                   ( w_prior_rp_axi_axi_qos_to_np          ),
+        .O_PRIOR_RP_AXI_AXI_QOS_TO_HP                                   ( w_prior_rp_axi_axi_qos_to_hp          ),
+        .O_PRIOR_RP_AXI_RP3_PRIOR                                       ( w_prior_rp_axi_rp3_prior              ),
+        .O_PRIOR_RP_AXI_RP2_PRIOR                                       ( w_prior_rp_axi_rp2_prior              ),
+        .O_PRIOR_RP_AXI_RP1_PRIOR                                       ( w_prior_rp_axi_rp1_prior              ),
+        .O_PRIOR_RP_AXI_RP0_PRIOR                                       ( w_prior_rp_axi_rp0_prior              ),
+        .O_PRIOR_RP_AXI_ARB_MODE                                        ( w_prior_rp_axi_arb_mode               ),
         .O_PRIOR_TIMER_TIMER_RESOLUTION                                 ( w_prior_timer_timer_resolution        ),
         .O_PRIOR_TIMER_TIMER_THRESHOLD                                  ( w_prior_timer_timer_threshold         ),
 
-        .O_AXI_SLV_ID_MISMATCH_RP0_EN                                   ( w_axi_slv_id_mismatch_en[0]           ), 
-        .O_AXI_SLV_ID_MISMATCH_RP1_EN                                   ( w_axi_slv_id_mismatch_en[1]           ), 
-        .O_AXI_SLV_ID_MISMATCH_RP2_EN                                   ( w_axi_slv_id_mismatch_en[2]           ), 
-        .O_AXI_SLV_ID_MISMATCH_RP3_EN                                   ( w_axi_slv_id_mismatch_en[3]           ) 
+        .O_AXI_SLV_ID_MISMATCH_RP0_EN                                   ( w_axi_slv_id_mismatch_en[0]           ),
+        .O_AXI_SLV_ID_MISMATCH_RP1_EN                                   ( w_axi_slv_id_mismatch_en[1]           ),
+        .O_AXI_SLV_ID_MISMATCH_RP2_EN                                   ( w_axi_slv_id_mismatch_en[2]           ),
+        .O_AXI_SLV_ID_MISMATCH_RP3_EN                                   ( w_axi_slv_id_mismatch_en[3]           )
     );
 
     assign O_ERR_INFO_RID_MISMATCH_ERR          = w_mi0_id_mismatch_mask ? 1'b0 : w_err_info_rid_mismatch_err;
@@ -871,10 +877,10 @@ module AOU_CORE #(
     assign w_deact_ack_err_b        = w_deact_timeout_mask ? 1'b0 : w_deact_ack_err;
     assign w_invalid_actmsg_err_b   = w_invalid_actmsg_mask ? 1'b0 : w_invalid_actmsg_err;
     assign w_msgcredit_err_b        = w_msgcredit_timeout_mask ? 1'b0 : w_msgcredit_err;
-    
-    assign O_AOU_REQ_LINKRESET = w_act_ack_err_b || w_deact_ack_err_b || w_invalid_actmsg_err_b || w_msgcredit_err_b; 
 
-//----------------------------------------------------------------------------    
+    assign O_AOU_REQ_LINKRESET = w_act_ack_err_b || w_deact_ack_err_b || w_invalid_actmsg_err_b || w_msgcredit_err_b;
+
+//----------------------------------------------------------------------------
     AOU_CRD_CTRL #(
         .RP_COUNT               ( RP_COUNT              ),
 
@@ -883,61 +889,61 @@ module AOU_CORE #(
         .RP0_RX_W_MAX_CREDIT    ( RP0_RX_W_MAX_CREDIT   ),
         .RP0_RX_R_MAX_CREDIT    ( RP0_RX_R_MAX_CREDIT   ),
         .RP0_RX_B_MAX_CREDIT    ( RP0_RX_B_MAX_CREDIT   ),
-    
+
         .RP1_RX_AW_MAX_CREDIT   ( RP1_RX_AW_MAX_CREDIT  ),
         .RP1_RX_AR_MAX_CREDIT   ( RP1_RX_AR_MAX_CREDIT  ),
         .RP1_RX_W_MAX_CREDIT    ( RP1_RX_W_MAX_CREDIT   ),
         .RP1_RX_R_MAX_CREDIT    ( RP1_RX_R_MAX_CREDIT   ),
         .RP1_RX_B_MAX_CREDIT    ( RP1_RX_B_MAX_CREDIT   ),
-    
+
         .RP2_RX_AW_MAX_CREDIT   ( RP2_RX_AW_MAX_CREDIT  ),
         .RP2_RX_AR_MAX_CREDIT   ( RP2_RX_AR_MAX_CREDIT  ),
         .RP2_RX_W_MAX_CREDIT    ( RP2_RX_W_MAX_CREDIT   ),
         .RP2_RX_R_MAX_CREDIT    ( RP2_RX_R_MAX_CREDIT   ),
         .RP2_RX_B_MAX_CREDIT    ( RP2_RX_B_MAX_CREDIT   ),
-    
+
         .RP3_RX_AW_MAX_CREDIT   ( RP3_RX_AW_MAX_CREDIT  ),
         .RP3_RX_AR_MAX_CREDIT   ( RP3_RX_AR_MAX_CREDIT  ),
         .RP3_RX_W_MAX_CREDIT    ( RP3_RX_W_MAX_CREDIT   ),
         .RP3_RX_R_MAX_CREDIT    ( RP3_RX_R_MAX_CREDIT   ),
         .RP3_RX_B_MAX_CREDIT    ( RP3_RX_B_MAX_CREDIT   ),
-    
+
         .RP0_TX_AW_MAX_CREDIT   ( RP0_TX_AW_MAX_CREDIT  ),
         .RP0_TX_AR_MAX_CREDIT   ( RP0_TX_AR_MAX_CREDIT  ),
         .RP0_TX_W_MAX_CREDIT    ( RP0_TX_W_MAX_CREDIT   ),
         .RP0_TX_R_MAX_CREDIT    ( RP0_TX_R_MAX_CREDIT   ),
         .RP0_TX_B_MAX_CREDIT    ( RP0_TX_B_MAX_CREDIT   ),
-    
+
         .RP1_TX_AW_MAX_CREDIT   ( RP1_TX_AW_MAX_CREDIT  ),
         .RP1_TX_AR_MAX_CREDIT   ( RP1_TX_AR_MAX_CREDIT  ),
         .RP1_TX_W_MAX_CREDIT    ( RP1_TX_W_MAX_CREDIT   ),
         .RP1_TX_R_MAX_CREDIT    ( RP1_TX_R_MAX_CREDIT   ),
         .RP1_TX_B_MAX_CREDIT    ( RP1_TX_B_MAX_CREDIT   ),
 
-        .RP2_TX_AW_MAX_CREDIT   ( RP2_TX_AW_MAX_CREDIT  ),    
+        .RP2_TX_AW_MAX_CREDIT   ( RP2_TX_AW_MAX_CREDIT  ),
         .RP2_TX_AR_MAX_CREDIT   ( RP2_TX_AR_MAX_CREDIT  ),
         .RP2_TX_W_MAX_CREDIT    ( RP2_TX_W_MAX_CREDIT   ),
         .RP2_TX_R_MAX_CREDIT    ( RP2_TX_R_MAX_CREDIT   ),
         .RP2_TX_B_MAX_CREDIT    ( RP2_TX_B_MAX_CREDIT   ),
-    
+
         .RP3_TX_AW_MAX_CREDIT   ( RP3_TX_AW_MAX_CREDIT  ),
         .RP3_TX_AR_MAX_CREDIT   ( RP3_TX_AR_MAX_CREDIT  ),
         .RP3_TX_W_MAX_CREDIT    ( RP3_TX_W_MAX_CREDIT   ),
         .RP3_TX_R_MAX_CREDIT    ( RP3_TX_R_MAX_CREDIT   ),
         .RP3_TX_B_MAX_CREDIT    ( RP3_TX_B_MAX_CREDIT   ),
-    
+
         .RP0_AXI_DATA_WD        ( RP0_AXI_DATA_WD       ),
         .RP1_AXI_DATA_WD        ( RP1_AXI_DATA_WD       ),
         .RP2_AXI_DATA_WD        ( RP2_AXI_DATA_WD       ),
         .RP3_AXI_DATA_WD        ( RP3_AXI_DATA_WD       ),
 
         .DEC_MULTI              ( DEC_MULTI             )
-    
+
     ) u_aou_crd_ctrl
     (
         .I_CLK                          ( I_CLK                         ),
         .I_RESETN                       ( I_RESETN                      ),
-    
+
         .O_AOU_MSGCREDIT_WREQCRED       ( w_txcore_msgcredit_wreqcred   ),
         .O_AOU_MSGCREDIT_RREQCRED       ( w_txcore_msgcredit_rreqcred   ),
         .O_AOU_MSGCREDIT_WDATACRED      ( w_txcore_msgcredit_wdatacred  ),
@@ -946,7 +952,7 @@ module AOU_CORE #(
         .O_AOU_MSGCREDIT_RP             ( w_txcore_msgcredit_rp         ),
         .O_AOU_MSGCREDIT_CRED_VALID     ( w_txcore_msgcredit_cred_valid ),
         .I_AOU_MSGCREDIT_CRED_READY     ( w_txcore_msgcredit_cred_ready ),
-    
+
         .O_AOU_CRDTGRANT_WRESPCRED3     ( w_txcore_crdtgrant_wrespcred3 ),
         .O_AOU_CRDTGRANT_WRESPCRED2     ( w_txcore_crdtgrant_wrespcred2 ),
         .O_AOU_CRDTGRANT_WRESPCRED1     ( w_txcore_crdtgrant_wrespcred1 ),
@@ -969,7 +975,7 @@ module AOU_CORE #(
         .O_AOU_CRDTGRANT_WREQCRED0      ( w_txcore_crdtgrant_wreqcred0  ),
         .O_AOU_CRDTGRANT_VALID          ( w_txcore_crdtgrant_valid      ),
         .I_AOU_CRDTGRANT_READY          ( w_txcore_crdtgrant_ready      ),
-    
+
         .I_AOU_RX_WREQVALID             ( I_AOU_RX_WLAST_GEN_AWVALID & O_AOU_RX_WLAST_GEN_AWREADY & {RP_COUNT{(O_AOU_ACTIVATE_ST_ENABLED | w_status_deactivate)}}),
         .I_AOU_RX_RREQVALID             ( O_AOU_RX_AXI_MM_ARREADY & I_AOU_RX_AXI_MM_ARVALID & {RP_COUNT{(O_AOU_ACTIVATE_ST_ENABLED | w_status_deactivate)}}),
         .I_AOU_RX_WDATAVALID            ( I_AOU_RX_WLAST_GEN_WVALID & O_AOU_RX_WLAST_GEN_WREADY & {RP_COUNT{(O_AOU_ACTIVATE_ST_ENABLED | w_status_deactivate)}}),
@@ -978,13 +984,13 @@ module AOU_CORE #(
         .I_AOU_RX_RDATAVALID            ( I_AOU_RX_AXI_S_RREADY & I_AOU_RX_AXI_S_RVALID           ),
         .I_AOU_RX_RDATA_DLENGTH         ( I_AOU_RX_AXI_S_RDLENGTH       ),
         .I_AOU_RX_WRESPVALID            ( I_EARLY_BRESP_CTRL_BVALID & O_EARLY_BRESP_CTRL_BREADY   ),
-    
+
         .O_AOU_TX_WREQCRED              ( w_aou_tx_wreqcred             ),
         .O_AOU_TX_RREQCRED              ( w_aou_tx_rreqcred             ),
         .O_AOU_TX_WDATACRED             ( w_aou_tx_wdatacred            ),
         .O_AOU_TX_RDATACRED             ( w_aou_tx_rdatacred            ),
         .O_AOU_TX_WRESPCRED             ( w_aou_tx_wrespcred            ),
-    
+
         .I_AOU_TX_WREQVALID             ( w_aou_tx_wreqvalid            ),
         .I_AOU_TX_RREQVALID             ( w_aou_tx_rreqvalid            ),
         .I_AOU_TX_WDATAVALID            ( w_aou_tx_wdatavalid           ),
@@ -992,7 +998,7 @@ module AOU_CORE #(
         .I_AOU_TX_RDATAVALID            ( w_aou_tx_rdatavalid           ),
         .I_AOU_TX_RDATA_DLENGTH         ( w_aou_tx_rdata_dlength        ),
         .I_AOU_TX_WRESPVALID            ( w_aou_tx_wrespvalid           ),
-    
+
         .I_AOU_CRDTGRANT_WRESPCRED3     ( w_rxcore_crdtgrant_wrespcred3 ),
         .I_AOU_CRDTGRANT_WRESPCRED2     ( w_rxcore_crdtgrant_wrespcred2 ),
         .I_AOU_CRDTGRANT_WRESPCRED1     ( w_rxcore_crdtgrant_wrespcred1 ),
@@ -1014,7 +1020,7 @@ module AOU_CORE #(
         .I_AOU_CRDTGRANT_WREQCRED1      ( w_rxcore_crdtgrant_wreqcred1  ),
         .I_AOU_CRDTGRANT_WREQCRED0      ( w_rxcore_crdtgrant_wreqcred0  ),
         .I_AOU_CRDTGRANT_VALID          ( w_rxcore_crdtgrant_valid      ),
-    
+
         .I_AOU_MSGCRDT_WRESPCRED        ( w_rxcore_msgcrdt_wrespcred    ),
         .I_AOU_MSGCRDT_RDATACRED        ( w_rxcore_msgcrdt_rdatacred    ),
         .I_AOU_MSGCRDT_WDATACRED        ( w_rxcore_msgcrdt_wdatacred    ),
@@ -1022,14 +1028,14 @@ module AOU_CORE #(
         .I_AOU_MSGCRDT_WREQCRED         ( w_rxcore_msgcrdt_wreqcred     ),
         .I_AOU_MSGCRDT_RP               ( w_rxcore_msgcrdt_rp           ),
         .I_AOU_MSGCRDT_VALID            ( w_rxcore_msgcrdt_valid        ),
-    
+
         .I_CRD_COUNT_EN                 ( w_crd_count_en                ),
-    
-        .I_REQ_CRD_ADVERTISE_EN         ( w_req_crd_advertise_en        ), 
-        .I_TX_REQ_CREDITED_MESSAGE_EN   ( w_tx_req_credited_message_en  ), 
-        .I_RSP_CRD_ADVERTISE_EN         ( w_rsp_crd_advertise_en        ), 
-        .I_TX_RSP_CREDITED_MESSAGE_EN   ( w_tx_rsp_credited_message_en  ), 
-    
+
+        .I_REQ_CRD_ADVERTISE_EN         ( w_req_crd_advertise_en        ),
+        .I_TX_REQ_CREDITED_MESSAGE_EN   ( w_tx_req_credited_message_en  ),
+        .I_RSP_CRD_ADVERTISE_EN         ( w_rsp_crd_advertise_en        ),
+        .I_TX_RSP_CREDITED_MESSAGE_EN   ( w_tx_rsp_credited_message_en  ),
+
         .I_STATUS_DISABLE               ( w_status_disabled             ),
 
         .I_RP_DEST_RP                   ( w_rp_dest_rp                  ),
@@ -1037,28 +1043,28 @@ module AOU_CORE #(
         .I_CREDIT_BLOCK                 ( w_err_info_rid_mismatch_err | w_err_info_split_bid_mismatch_err | (|w_err_split_bid_mismatch_set) | (|w_err_rid_mismatch_set))
     );
 
-//----------------------------------------------------------------------------  
+//----------------------------------------------------------------------------
     logic   w_aou_rx_fifo_pending;
-    
+
     assign w_aou_rx_fifo_pending = (|I_AOU_RX_WLAST_GEN_AWVALID) | (|I_AOU_RX_AXI_MM_ARVALID) | (|I_AOU_RX_WLAST_GEN_WVALID) | (|I_EARLY_BRESP_CTRL_BVALID) | (|I_AOU_RX_AXI_S_RVALID);
-     
-    AOU_ACTIVATION_CTRL u_aou_activation_ctrl 
+
+    AOU_ACTIVATION_CTRL u_aou_activation_ctrl
     (
         .I_CLK                             ( I_CLK                          ),
         .I_RESETN                          ( I_RESETN                       ),
-    
+
         .I_UCIE_INIT_DONE                  ( I_INT_FSM_IN_ACTIVE            ),
         .I_ACTIVATE_START                  ( w_activate_start               ),
-    
+
         .I_ACTMSG_ACTIVATION_OP            ( w_rxcore_activation_op         ),
         .I_ACTMSG_PROPERTYREQ              ( w_rxcore_activation_prop_req   ),
         .I_ACTMSG_VALID                    ( w_rxcore_activation_valid      ),
-    
+
         .O_ACTMSG_ACTIVATION_OP            ( w_txcore_activation_op         ),
         .O_ACTMSG_PROPERTYREQ              ( w_txcore_activation_prop_req   ),
         .O_ACTMSG_VALID                    ( w_txcore_activation_valid      ),
         .I_ACTMSG_READY                    ( w_txcore_activation_ready      ),
-    
+
         .I_DEACTIVATE_TIME_OUT_VALUE       ( w_deactivate_time_out_value    ),
         .I_DEACTIVATE_START                ( w_deactivate_start             ),
         .I_DEACTIVATE_FORCE                ( w_deactivate_force             ),
@@ -1068,27 +1074,27 @@ module AOU_CORE #(
         .I_SLV_BUS_CLEANY_COMPLETE         ( O_SLV_TR_COMPLETE              ),
         .I_AOU_RX_NEW_TR_HS                ( (|O_RD_REQ_FIFO_SVALID) | (|O_WR_REQ_FIFO_SVALID)  ),
         .I_AOU_RX_FIFO_PENDING             ( w_aou_rx_fifo_pending          ),
-    
+
         .I_CRDTGRANT_VALID                 ( |w_rxcore_crdtgrant_valid      ),
-    
+
         .I_ACK_TIME_OUT_VALUE              (  w_ack_time_out_value          ),
         .I_MSGCREDIT_TIME_OUT_VALUE        (  w_msgcredit_time_out_value    ),
         .I_CREDIT_MANAGE_TYPE              (  w_credit_manage               ),
-    
+
         .O_ACT_ACK_ERR                     (  w_act_ack_err_set             ),
         .O_DEACT_ACK_ERR                   (  w_deact_ack_err_set           ),
         .O_INVALID_ACTMSG_INFO             (  w_invalid_actmsg_opcode       ),
         .O_INVALID_ACTMSG_ERR              (  w_invalid_actmsg_err_set      ),
-        .O_MSGCREDIT_ERR                   (  w_msgcredit_err_set           ),   
-    
+        .O_MSGCREDIT_ERR                   (  w_msgcredit_err_set           ),
+
         .O_CRD_COUNT_EN                    ( w_crd_count_en                 ),
-    
-        .O_REQ_CRD_ADVERTISE_EN            ( w_req_crd_advertise_en         ), 
-        .O_TX_REQ_CREDITED_MESSAGE_EN      ( w_tx_req_credited_message_en   ), 
-        .O_RSP_CRD_ADVERTISE_EN            ( w_rsp_crd_advertise_en         ), 
-        .O_TX_RSP_CREDITED_MESSAGE_EN      ( w_tx_rsp_credited_message_en   ), 
-    
-    
+
+        .O_REQ_CRD_ADVERTISE_EN            ( w_req_crd_advertise_en         ),
+        .O_TX_REQ_CREDITED_MESSAGE_EN      ( w_tx_req_credited_message_en   ),
+        .O_RSP_CRD_ADVERTISE_EN            ( w_rsp_crd_advertise_en         ),
+        .O_TX_RSP_CREDITED_MESSAGE_EN      ( w_tx_rsp_credited_message_en   ),
+
+
         .O_STATUS_DISABLED                 ( w_status_disabled              ),
         .O_STATUS_ENABLED                  ( O_AOU_ACTIVATE_ST_ENABLED      ),
         .O_STATUS_DEACTIVATE               ( w_status_deactivate            ),
@@ -1109,28 +1115,28 @@ module AOU_CORE #(
     logic [FDI_IF_WD1-1:0]               w_fdi_lp_data_1;
     logic                                w_fdi_lp_valid_1;
 `endif
-    
+
     AOU_TX_CORE #(
         .RP_CNT                         ( RP_COUNT                      ),
-    
+
         .FDI_IF_WD0                     ( FDI_IF_WD0                    ),
         .FDI_IF_WD1                     ( FDI_IF_WD1                    ),
         .RP0_AXI_DATA_WD                ( RP0_AXI_DATA_WD               ),
         .RP1_AXI_DATA_WD                ( RP1_AXI_DATA_WD               ),
         .RP2_AXI_DATA_WD                ( RP2_AXI_DATA_WD               ),
-        .RP3_AXI_DATA_WD                ( RP3_AXI_DATA_WD               ),  
+        .RP3_AXI_DATA_WD                ( RP3_AXI_DATA_WD               ),
         .MAX_AXI_DATA_WD                ( RP_AXI_DATA_WD_MAX            ),
- 
+
         .AXI_ADDR_WD                    ( AXI_ADDR_WD                   ),
         .AXI_ID_WD                      ( AXI_ID_WD                     ),
         .AXI_LEN_WD                     ( AXI_LEN_WD                    ),
-    
+
         .CNT_RP0_AW_MAX_CREDIT          ( CNT_RP0_TX_AW_MAX_CREDIT      ),
         .CNT_RP0_AR_MAX_CREDIT          ( CNT_RP0_TX_AR_MAX_CREDIT      ),
         .CNT_RP0_W_MAX_CREDIT           ( CNT_RP0_TX_W_MAX_CREDIT       ),
         .CNT_RP0_R_MAX_CREDIT           ( CNT_RP0_TX_R_MAX_CREDIT       ),
         .CNT_RP0_B_MAX_CREDIT           ( CNT_RP0_TX_B_MAX_CREDIT       ),
-    
+
         .CNT_RP1_AW_MAX_CREDIT          ( CNT_RP1_TX_AW_MAX_CREDIT      ),
         .CNT_RP1_AR_MAX_CREDIT          ( CNT_RP1_TX_AR_MAX_CREDIT      ),
         .CNT_RP1_W_MAX_CREDIT           ( CNT_RP1_TX_W_MAX_CREDIT       ),
@@ -1148,13 +1154,13 @@ module AOU_CORE #(
         .CNT_RP3_W_MAX_CREDIT           ( CNT_RP3_TX_W_MAX_CREDIT       ),
         .CNT_RP3_R_MAX_CREDIT           ( CNT_RP3_TX_R_MAX_CREDIT       ),
         .CNT_RP3_B_MAX_CREDIT           ( CNT_RP3_TX_B_MAX_CREDIT       )
-        
-    
+
+
     ) u_aou_tx_core
     (
         .I_CLK                          ( I_CLK                         ),
         .I_RESETN                       ( I_RESETN                      ),
-    
+
         .I_AOU_TX_AXI_AWID              ( w_early_bresp_ctrl_awid       ),
         .I_AOU_TX_AXI_AWADDR            ( w_early_bresp_ctrl_awaddr     ),
         .I_AOU_TX_AXI_AWLEN             ( w_early_bresp_ctrl_awlen      ),
@@ -1166,13 +1172,13 @@ module AOU_CORE #(
         .I_AOU_TX_AXI_AWQOS             ( w_early_bresp_ctrl_awqos      ),
         .I_AOU_TX_AXI_AWVALID           ( w_early_bresp_ctrl_awvalid    ),
         .O_AOU_TX_AXI_AWREADY           ( w_early_bresp_ctrl_awready    ),
-                                               
+
         .I_AOU_TX_AXI_WDATA             ( w_early_bresp_ctrl_wdata      ),
         .I_AOU_TX_AXI_WSTRB             ( w_early_bresp_ctrl_wstrb      ),
         .I_AOU_TX_AXI_WLAST             ( w_early_bresp_ctrl_wlast      ),
         .I_AOU_TX_AXI_WVALID            ( w_early_bresp_ctrl_wvalid     ),
         .O_AOU_TX_AXI_WREADY            ( w_early_bresp_ctrl_wready     ),
-    
+
         .I_AOU_TX_AXI_ARID              ( I_AOU_TX_AXI_S_ARID           ),
         .I_AOU_TX_AXI_ARADDR            ( I_AOU_TX_AXI_S_ARADDR         ),
         .I_AOU_TX_AXI_ARLEN             ( I_AOU_TX_AXI_S_ARLEN          ),
@@ -1184,22 +1190,22 @@ module AOU_CORE #(
         .I_AOU_TX_AXI_ARQOS             ( I_AOU_TX_AXI_S_ARQOS          ),
         .I_AOU_TX_AXI_ARVALID           ( w_aou_tx_axi_s_arvalid        ),
         .O_AOU_TX_AXI_ARREADY           ( w_aou_tx_axi_s_arready        ),
-    
+
         .I_AOU_TX_AXI_BID_256           ( w_aou_tx_axi_mm_bid_256       ),
         .I_AOU_TX_AXI_BRESP_256         ( w_aou_tx_axi_mm_bresp_256     ),
         .I_AOU_TX_AXI_BVALID_256        ( w_aou_tx_axi_mm_bvalid_256    ),
         .O_AOU_TX_AXI_BREADY_256        ( w_aou_tx_axi_mm_bready_256    ),
-    
+
         .I_AOU_TX_AXI_BID_512           ( w_aou_tx_axi_mm_bid_512       ),
         .I_AOU_TX_AXI_BRESP_512         ( w_aou_tx_axi_mm_bresp_512     ),
         .I_AOU_TX_AXI_BVALID_512        ( w_aou_tx_axi_mm_bvalid_512    ),
         .O_AOU_TX_AXI_BREADY_512        ( w_aou_tx_axi_mm_bready_512    ),
-    
+
         .I_AOU_TX_AXI_BID_1024          ( w_aou_tx_axi_mm_bid_1024      ),
         .I_AOU_TX_AXI_BRESP_1024        ( w_aou_tx_axi_mm_bresp_1024    ),
         .I_AOU_TX_AXI_BVALID_1024       ( w_aou_tx_axi_mm_bvalid_1024   ),
         .O_AOU_TX_AXI_BREADY_1024       ( w_aou_tx_axi_mm_bready_1024   ),
-    
+
         .I_AOU_TX_AXI_RID               ( w_aou_tx_axi_mm_rid           ),
         .I_AOU_TX_AXI_RDLEN             ( w_aou_tx_axi_mm_rdlen         ),
         .I_AOU_TX_AXI_RDATA             ( w_aou_tx_axi_mm_rdata         ),
@@ -1207,7 +1213,7 @@ module AOU_CORE #(
         .I_AOU_TX_AXI_RLAST             ( w_aou_tx_axi_mm_rlast         ),
         .I_AOU_TX_AXI_RVALID            ( w_aou_tx_axi_mm_rvalid        ),
         .O_AOU_TX_AXI_RREADY            ( w_aou_tx_axi_mm_rready        ),
-    
+
         .I_AOU_MSGCREDIT_WREQCRED       ( w_txcore_msgcredit_wreqcred   ),
         .I_AOU_MSGCREDIT_RREQCRED       ( w_txcore_msgcredit_rreqcred   ),
         .I_AOU_MSGCREDIT_WDATACRED      ( w_txcore_msgcredit_wdatacred  ),
@@ -1216,7 +1222,7 @@ module AOU_CORE #(
         .I_AOU_MSGCREDIT_RP             ( w_txcore_msgcredit_rp         ),
         .I_AOU_MSGCREDIT_CRED_VALID     ( w_txcore_msgcredit_cred_valid ),
         .O_AOU_MSGCREDIT_CRED_READY     ( w_txcore_msgcredit_cred_ready ),
-    
+
         .I_AOU_CRDTGRANT_WRESPCRED3     ( w_txcore_crdtgrant_wrespcred3 ),
         .I_AOU_CRDTGRANT_WRESPCRED2     ( w_txcore_crdtgrant_wrespcred2 ),
         .I_AOU_CRDTGRANT_WRESPCRED1     ( w_txcore_crdtgrant_wrespcred1 ),
@@ -1239,20 +1245,20 @@ module AOU_CORE #(
         .I_AOU_CRDTGRANT_WREQCRED0      ( w_txcore_crdtgrant_wreqcred0  ),
         .I_AOU_CRDTGRANT_VALID          ( w_txcore_crdtgrant_valid      ),
         .O_AOU_CRDTGRANT_READY          ( w_txcore_crdtgrant_ready      ),
-    
+
         .I_AOU_ACTIVATION_OP            ( w_txcore_activation_op        ),
         .I_AOU_ACTIVATION_PROP_REQ      ( w_txcore_activation_prop_req  ),
         .I_AOU_ACTIVATION_VALID         ( w_txcore_activation_valid     ),
         .O_AOU_ACTIVATION_READY         ( w_txcore_activation_ready     ),
         .O_AOU_TX_PENDING               ( w_tx_pending                  ),
         .O_AOU_TX_AXI_TR_PENDING        ( w_tx_axi_tr_pending           ),
-    
+
         .I_AOU_TX_WREQCRED              ( w_aou_tx_wreqcred             ),
         .I_AOU_TX_RREQCRED              ( w_aou_tx_rreqcred             ),
         .I_AOU_TX_WDATACRED             ( w_aou_tx_wdatacred            ),
         .I_AOU_TX_RDATACRED             ( w_aou_tx_rdatacred            ),
         .I_AOU_TX_WRESPCRED             ( w_aou_tx_wrespcred            ),
-    
+
         .O_AOU_TX_WREQVALID             ( w_aou_tx_wreqvalid            ),
         .O_AOU_TX_RREQVALID             ( w_aou_tx_rreqvalid            ),
         .O_AOU_TX_WDATAVALID            ( w_aou_tx_wdatavalid           ),
@@ -1260,7 +1266,7 @@ module AOU_CORE #(
         .O_AOU_TX_RDATAVALID            ( w_aou_tx_rdatavalid           ),
         .O_AOU_TX_RDATA_DLENGTH         ( w_aou_tx_rdata_dlength        ),
         .O_AOU_TX_WRESPVALID            ( w_aou_tx_wrespvalid           ),
-    
+
         .I_AOU_WRITEFULL_MSGTYPE_EN     ( 1'b1                          ),
 
         .I_AOU_TX_LP_MODE_THRESHOLD     ( w_tx_lp_mode_threshold        ),
@@ -1269,200 +1275,168 @@ module AOU_CORE #(
         .I_FDI_PL_TRDY_0                ( w_fdi_pl_trdy_0               ),
         .O_FDI_LP_DATA_0                ( w_fdi_lp_data_0               ),
         .O_FDI_LP_VALID_0               ( w_fdi_lp_valid_0              ),
- 
+
 `ifdef TWO_PHY
         .I_PHY_TYPE                     ( I_PHY_TYPE                    ),
-    
+
         .I_FDI_PL_TRDY_1                ( w_fdi_pl_trdy_1               ),
         .O_FDI_LP_DATA_1                ( w_fdi_lp_data_1               ),
         .O_FDI_LP_VALID_1               ( w_fdi_lp_valid_1              ),
-`endif        
-        
+`endif
+
         .I_STATUS_DISABLED              ( w_status_disabled             ),
         .I_RP_DEST_RP                   ( w_rp_dest_rp                  ),
 
-        .I_PRIOR_RP_AXI_AXI_QOS_TO_NP   ( w_prior_rp_axi_axi_qos_to_np  ), 
-        .I_PRIOR_RP_AXI_AXI_QOS_TO_HP   ( w_prior_rp_axi_axi_qos_to_hp  ), 
-        .I_PRIOR_RP_AXI_RP3_PRIOR       ( w_prior_rp_axi_rp3_prior      ), 
-        .I_PRIOR_RP_AXI_RP2_PRIOR       ( w_prior_rp_axi_rp2_prior      ), 
-        .I_PRIOR_RP_AXI_RP1_PRIOR       ( w_prior_rp_axi_rp1_prior      ), 
-        .I_PRIOR_RP_AXI_RP0_PRIOR       ( w_prior_rp_axi_rp0_prior      ), 
-        .I_PRIOR_RP_AXI_ARB_MODE        ( w_prior_rp_axi_arb_mode       ), 
-        .I_PRIOR_TIMER_TIMER_RESOLUTION ( w_prior_timer_timer_resolution), 
-        .I_PRIOR_TIMER_TIMER_THRESHOLD  ( w_prior_timer_timer_threshold ) 
+        .I_PRIOR_RP_AXI_AXI_QOS_TO_NP   ( w_prior_rp_axi_axi_qos_to_np  ),
+        .I_PRIOR_RP_AXI_AXI_QOS_TO_HP   ( w_prior_rp_axi_axi_qos_to_hp  ),
+        .I_PRIOR_RP_AXI_RP3_PRIOR       ( w_prior_rp_axi_rp3_prior      ),
+        .I_PRIOR_RP_AXI_RP2_PRIOR       ( w_prior_rp_axi_rp2_prior      ),
+        .I_PRIOR_RP_AXI_RP1_PRIOR       ( w_prior_rp_axi_rp1_prior      ),
+        .I_PRIOR_RP_AXI_RP0_PRIOR       ( w_prior_rp_axi_rp0_prior      ),
+        .I_PRIOR_RP_AXI_ARB_MODE        ( w_prior_rp_axi_arb_mode       ),
+        .I_PRIOR_TIMER_TIMER_RESOLUTION ( w_prior_timer_timer_resolution),
+        .I_PRIOR_TIMER_TIMER_THRESHOLD  ( w_prior_timer_timer_threshold )
 
     );
 
     AOU_TX_FDI_IF # (
-        .FDI_DATA_WD    ( FDI_IF_WD0   )    
+        .FDI_DATA_WD    ( FDI_IF_WD0   )
     ) u_aou_tx_fdi_if0 (
         .I_CLK                          ( I_CLK                     ),
         .I_RESETN                       ( I_RESETN                  ),
-    
+
         .I_AOU_TX_FLIT_DATA_VALID       ( w_fdi_lp_valid_0            ),
         .I_AOU_TX_FLIT_DATA             ( w_fdi_lp_data_0             ),
         .O_AOU_TX_FLIT_READY            ( w_fdi_pl_trdy_0             ),
-        
+
         .I_FDI_PL_TRDY                  ( I_FDI_PL_0_TRDY             ),
         .I_FDI_PL_STALLREQ              ( r_fdi_pl_0_stallreq         ),
-        .I_FDI_PL_STATE_STS             ( I_FDI_PL_0_STATE_STS        ), 
-        .O_FDI_LP_DATA                  ( O_FDI_LP_0_DATA             ), 
+        .I_FDI_PL_STATE_STS             ( I_FDI_PL_0_STATE_STS        ),
+        .O_FDI_LP_DATA                  ( O_FDI_LP_0_DATA             ),
         .O_FDI_LP_VALID                 ( O_FDI_LP_0_VALID            ),
-        .O_FDI_LP_IRDY                  ( O_FDI_LP_0_IRDY             ),     
-        .O_FDI_LP_STALLACK              ( O_FDI_LP_0_STALLACK         ) 
+        .O_FDI_LP_IRDY                  ( O_FDI_LP_0_IRDY             ),
+        .O_FDI_LP_STALLACK              ( O_FDI_LP_0_STALLACK         )
     );
-    
+
 `ifdef TWO_PHY
     AOU_TX_FDI_IF # (
-        .FDI_DATA_WD    ( FDI_IF_WD1   )    
+        .FDI_DATA_WD    ( FDI_IF_WD1   )
     ) u_aou_tx_fdi_if1 (
         .I_CLK                          ( I_CLK                     ),
         .I_RESETN                       ( I_RESETN                  ),
-        
+
         .I_AOU_TX_FLIT_DATA_VALID       ( w_fdi_lp_valid_1            ),
         .I_AOU_TX_FLIT_DATA             ( w_fdi_lp_data_1             ),
         .O_AOU_TX_FLIT_READY            ( w_fdi_pl_trdy_1             ),
-        
+
         .I_FDI_PL_TRDY                  ( I_FDI_PL_1_TRDY             ),
         .I_FDI_PL_STALLREQ              ( r_fdi_pl_1_stallreq         ),
-        .I_FDI_PL_STATE_STS             ( I_FDI_PL_1_STATE_STS        ), 
-        .O_FDI_LP_DATA                  ( O_FDI_LP_1_DATA             ), 
+        .I_FDI_PL_STATE_STS             ( I_FDI_PL_1_STATE_STS        ),
+        .O_FDI_LP_DATA                  ( O_FDI_LP_1_DATA             ),
         .O_FDI_LP_VALID                 ( O_FDI_LP_1_VALID            ),
-        .O_FDI_LP_IRDY                  ( O_FDI_LP_1_IRDY             ),     
-        .O_FDI_LP_STALLACK              ( O_FDI_LP_1_STALLACK         ) 
+        .O_FDI_LP_IRDY                  ( O_FDI_LP_1_IRDY             ),
+        .O_FDI_LP_STALLACK              ( O_FDI_LP_1_STALLACK         )
     );
 
 
 `endif
 
-//------------------------------------------------------------- 
+//-------------------------------------------------------------
+
+    // RX PHY->decode width adapter: instantiate a mux when TWO_PHY is
+    // enabled (mux both PHY streams) or when the single PHY is narrower than
+    // the decode width (the 32B primary-width case). Otherwise PHY0 data
+    // matches the decode width and is wired through directly.
+    logic                           w_fdi_pl_valid;
+    logic   [FDI_DEC_WD-1:0]        w_fdi_pl_data;
+    logic                           w_fdi_pl_flit_cancel;
 
 `ifdef TWO_PHY
-    logic                           w_fdi_pl_valid;
-    logic   [FDI_IF_WD1- 1: 0]      w_fdi_pl_data;
-    logic                           w_fdi_pl_flit_cancel;
-
-    `ifdef FDI_128B
-        AOU_RX_CORE_IN_MUX #(
-            .FDI_IF_WD                  ( FDI_IF_WD1                )
-        ) u_aou_rx_core_in_mux_128b
-        (
-            .I_CLK                      ( I_CLK                     ),
-            .I_RESETN                   ( I_RESETN                  ),
-            .I_PHY_TYPE                 ( I_PHY_TYPE                ),
-            .I_FDI_PL_1_VALID           ( I_FDI_PL_1_VALID        ),
-            .I_FDI_PL_1_DATA            ( I_FDI_PL_1_DATA         ),
-            .I_FDI_PL_1_FLIT_CANCEL     ( I_FDI_PL_1_FLIT_CANCEL  ),
-        
-            .I_FDI_PL_0_VALID           ( I_FDI_PL_0_VALID        ),
-            .I_FDI_PL_0_DATA            ( I_FDI_PL_0_DATA         ),
-            .I_FDI_PL_0_FLIT_CANCEL     ( I_FDI_PL_0_FLIT_CANCEL  ),
-        
-            .O_FDI_PL_VALID             ( w_fdi_pl_valid            ),
-            .O_FDI_PL_DATA              ( w_fdi_pl_data             ),
-            .O_FDI_PL_FLIT_CANCEL       ( w_fdi_pl_flit_cancel      )
-        );
-    `else
-        AOU_RX_CORE_IN_MUX #(
-            .FDI_IF_WD                  ( FDI_IF_WD1                )
-        ) u_aou_rx_core_in_mux_64b
-        (
-            .I_CLK                      ( I_CLK                     ),
-            .I_RESETN                   ( I_RESETN                  ),
-            .I_PHY_TYPE                 ( I_PHY_TYPE                ),
-            .I_FDI_PL_1_VALID         ( I_FDI_PL_1_VALID        ),
-            .I_FDI_PL_1_DATA          ( I_FDI_PL_1_DATA         ),
-            .I_FDI_PL_1_FLIT_CANCEL   ( I_FDI_PL_1_FLIT_CANCEL  ),
-        
-            .I_FDI_PL_0_VALID         ( I_FDI_PL_0_VALID        ),
-            .I_FDI_PL_0_DATA          ( I_FDI_PL_0_DATA         ),
-            .I_FDI_PL_0_FLIT_CANCEL   ( I_FDI_PL_0_FLIT_CANCEL  ),
-        
-            .O_FDI_PL_VALID             ( w_fdi_pl_valid            ),
-            .O_FDI_PL_DATA              ( w_fdi_pl_data             ),
-            .O_FDI_PL_FLIT_CANCEL       ( w_fdi_pl_flit_cancel      )
-        );
-    `endif
-`elsif FDI_32B
-    logic                           w_fdi_pl_valid;
-    logic   [FDI_IF_WD1- 1: 0]      w_fdi_pl_data;
-    logic                           w_fdi_pl_flit_cancel;
-
     AOU_RX_CORE_IN_MUX #(
-            .FDI_IF_WD              ( FDI_IF_WD1                )
-    ) u_aou_rx_core_in_mux_64b
+        .FDI_IF_WD                  ( FDI_DEC_WD                )
+    ) u_aou_rx_core_in_mux
     (
         .I_CLK                      ( I_CLK                     ),
         .I_RESETN                   ( I_RESETN                  ),
-        .I_PHY_TYPE                 ( 1'b0                      ),
-        .I_FDI_PL_1_VALID         ( '0                        ),
-        .I_FDI_PL_1_DATA          ( '0                        ),
-        .I_FDI_PL_1_FLIT_CANCEL   ( '0                        ),
-    
-        .I_FDI_PL_0_VALID         ( I_FDI_PL_0_VALID          ),
-        .I_FDI_PL_0_DATA          ( I_FDI_PL_0_DATA           ),
-        .I_FDI_PL_0_FLIT_CANCEL   ( I_FDI_PL_0_FLIT_CANCEL    ),
-    
+        .I_PHY_TYPE                 ( I_PHY_TYPE                ),
+        .I_FDI_PL_1_VALID           ( I_FDI_PL_1_VALID          ),
+        .I_FDI_PL_1_DATA            ( I_FDI_PL_1_DATA           ),
+        .I_FDI_PL_1_FLIT_CANCEL     ( I_FDI_PL_1_FLIT_CANCEL    ),
+
+        .I_FDI_PL_0_VALID           ( I_FDI_PL_0_VALID          ),
+        .I_FDI_PL_0_DATA            ( I_FDI_PL_0_DATA           ),
+        .I_FDI_PL_0_FLIT_CANCEL     ( I_FDI_PL_0_FLIT_CANCEL    ),
+
         .O_FDI_PL_VALID             ( w_fdi_pl_valid            ),
         .O_FDI_PL_DATA              ( w_fdi_pl_data             ),
         .O_FDI_PL_FLIT_CANCEL       ( w_fdi_pl_flit_cancel      )
     );
+`else
+    generate if (FDI_IF_WD0 < FDI_DEC_WD) begin : g_rx_mux_sp
+        AOU_RX_CORE_IN_MUX #(
+            .FDI_IF_WD              ( FDI_DEC_WD                )
+        ) u_aou_rx_core_in_mux
+        (
+            .I_CLK                  ( I_CLK                     ),
+            .I_RESETN               ( I_RESETN                  ),
+            .I_PHY_TYPE             ( 1'b0                      ),
+            .I_FDI_PL_1_VALID       ( '0                        ),
+            .I_FDI_PL_1_DATA        ( '0                        ),
+            .I_FDI_PL_1_FLIT_CANCEL ( '0                        ),
+
+            .I_FDI_PL_0_VALID       ( I_FDI_PL_0_VALID          ),
+            .I_FDI_PL_0_DATA        ( I_FDI_PL_0_DATA           ),
+            .I_FDI_PL_0_FLIT_CANCEL ( I_FDI_PL_0_FLIT_CANCEL    ),
+
+            .O_FDI_PL_VALID         ( w_fdi_pl_valid            ),
+            .O_FDI_PL_DATA          ( w_fdi_pl_data             ),
+            .O_FDI_PL_FLIT_CANCEL   ( w_fdi_pl_flit_cancel      )
+        );
+    end else begin : g_rx_direct
+        assign w_fdi_pl_valid       = I_FDI_PL_0_VALID;
+        assign w_fdi_pl_data        = I_FDI_PL_0_DATA;
+        assign w_fdi_pl_flit_cancel = I_FDI_PL_0_FLIT_CANCEL;
+    end endgenerate
 `endif
 
     AOU_RX_CORE #(
-        .DEC_MULTI                        ( DEC_MULTI                         ),  
+        .DEC_MULTI                        ( DEC_MULTI                         ),
         .PHY_TYPE                         ( PHY_TYPE                          ),
-        `ifdef TWO_PHY
-            .FDI_IF_WD                    ( FDI_IF_WD1                        ),
-        `elsif FDI_32B
-            .FDI_IF_WD                    ( FDI_IF_WD1                        ),
-        `else
-            .FDI_IF_WD                    ( FDI_IF_WD0                        ),
-        `endif    
+        .FDI_IF_WD                        ( FDI_DEC_WD                        ),
 
         .AXI_PEER_DIE_MAX_DATA_WD           ( AXI_PEER_DIE_MAX_DATA_WD          ),
-        .AXI_ADDR_WD                        ( AXI_ADDR_WD                       ),    
-        .AXI_ID_WD                          ( AXI_ID_WD                         ),    
+        .AXI_ADDR_WD                        ( AXI_ADDR_WD                       ),
+        .AXI_ID_WD                          ( AXI_ID_WD                         ),
         .AXI_LEN_WD                         ( AXI_LEN_WD                        ),
-    
-        .RP_COUNT                           ( RP_COUNT                          ),       
+
+        .RP_COUNT                           ( RP_COUNT                          ),
         .AW_AR_FIFO_DATA_WIDTH              ( AW_AR_FIFO_WIDTH                  ),
         .B_FIFO_DATA_WIDTH                  ( B_FIFO_WIDTH                      ),
         .R_FIFO_EXT_DATA_WIDTH              ( R_FIFO_EXT_DATA_WIDTH             )
-    
+
     ) u_aou_rx_core
     (
         .I_CLK                              ( I_CLK                             ),
         .I_RESETN                           ( I_RESETN                          ),
-                              
-`ifdef TWO_PHY
+
         .I_FDI_PL_VALID                     ( w_fdi_pl_valid                    ),
-        .I_FDI_PL_DATA                      ( w_fdi_pl_data                     ),          
+        .I_FDI_PL_DATA                      ( w_fdi_pl_data                     ),
         .I_FDI_PL_FLIT_CANCEL               ( w_fdi_pl_flit_cancel              ),
-`elsif FDI_32B
-        .I_FDI_PL_VALID                     ( w_fdi_pl_valid                    ),
-        .I_FDI_PL_DATA                      ( w_fdi_pl_data                     ),          
-        .I_FDI_PL_FLIT_CANCEL               ( w_fdi_pl_flit_cancel              ),
-`else
-        .I_FDI_PL_VALID                     ( I_FDI_PL_0_VALID                  ),
-        .I_FDI_PL_DATA                      ( I_FDI_PL_0_DATA                   ),          
-        .I_FDI_PL_FLIT_CANCEL               ( I_FDI_PL_0_FLIT_CANCEL            ),
-`endif
-       
+
         .O_RD_REQ_FIFO_SDATA                ( O_RD_REQ_FIFO_SDATA               ),
         .O_RD_REQ_FIFO_SVALID               ( O_RD_REQ_FIFO_SVALID              ),
-    
+
         .O_WR_REQ_FIFO_SDATA                ( O_WR_REQ_FIFO_SDATA               ),
         .O_WR_REQ_FIFO_SVALID               ( O_WR_REQ_FIFO_SVALID              ),
-    
+
         .O_WR_DATA_FIFO_SDATA               ( O_WR_DATA_FIFO_SDATA              ),
-        .O_WR_DATA_FIFO_SDATA_STRB          ( O_WR_DATA_FIFO_SDATA_STRB         ), 
-        .O_WR_DATA_FIFO_SDATA_WDATAF        ( O_WR_DATA_FIFO_SDATA_WDATAF       ), 
+        .O_WR_DATA_FIFO_SDATA_STRB          ( O_WR_DATA_FIFO_SDATA_STRB         ),
+        .O_WR_DATA_FIFO_SDATA_WDATAF        ( O_WR_DATA_FIFO_SDATA_WDATAF       ),
         .O_WR_DATA_FIFO_SVALID              ( O_WR_DATA_FIFO_SVALID             ),
-    
+
         .O_WR_RESP_FIFO_SDATA               ( O_WR_RESP_FIFO_SDATA              ),
         .O_WR_RESP_FIFO_SVALID              ( O_WR_RESP_FIFO_SVALID             ),
-    
+
         .O_RD_DATA_FIFO_SDATA               ( O_RD_DATA_FIFO_SDATA              ),
         .O_RD_DATA_FIFO_EXT_SDATA           ( O_RD_DATA_FIFO_EXT_SDATA          ),
         .O_RD_DATA_FIFO_SVALID              ( O_RD_DATA_FIFO_SVALID             ),
@@ -1488,7 +1462,7 @@ module AOU_CORE #(
         .O_CRDTGRANT_WREQCRED1              ( w_rxcore_crdtgrant_wreqcred1      ),
         .O_CRDTGRANT_WREQCRED0              ( w_rxcore_crdtgrant_wreqcred0      ),
         .O_CRDTGRANT_VALID                  ( w_rxcore_crdtgrant_valid          ),
-                                                                     
+
         .O_MSGCRDT_WRESPCRED                ( w_rxcore_msgcrdt_wrespcred        ),
         .O_MSGCRDT_RDATACRED                ( w_rxcore_msgcrdt_rdatacred        ),
         .O_MSGCRDT_WDATACRED                ( w_rxcore_msgcrdt_wdatacred        ),
@@ -1496,22 +1470,22 @@ module AOU_CORE #(
         .O_MSGCRDT_WREQCRED                 ( w_rxcore_msgcrdt_wreqcred         ),
         .O_MSGCRDT_RP                       ( w_rxcore_msgcrdt_rp               ),
         .O_MSGCRDT_VALID                    ( w_rxcore_msgcrdt_valid            ),
-        
+
         .O_ACTIVATION_OP                    ( w_rxcore_activation_op            ),
         .O_ACTIVATION_PROP_REQ              ( w_rxcore_activation_prop_req      ),
         .O_ACTIVATION_VALID                 ( w_rxcore_activation_valid         )
     );
 
 //-------------------------------------------------------------
-    
+
     assign O_AOU_ACTIVATE_ST_DISABLED = w_status_disabled;
-    
+
     genvar i;
-    generate 
+    generate
         for(i = 0; i < RP_COUNT; i++) begin : gen_aou_core_rp
             if(RP_AXI_DATA_WD_MAX > RP_AXI_DATA_WD[i]) begin: GEN_PAD
-                assign O_AOU_RX_AXI_M_WDATA[i][RP_AXI_DATA_WD_MAX-1:RP_AXI_DATA_WD[i]]      = 'd0; 
-                assign O_AOU_RX_AXI_M_WSTRB[i][RP_AXI_STRB_WD_MAX-1:RP_AXI_STRB_WD[i]]      = 'd0;  
+                assign O_AOU_RX_AXI_M_WDATA[i][RP_AXI_DATA_WD_MAX-1:RP_AXI_DATA_WD[i]]      = 'd0;
+                assign O_AOU_RX_AXI_M_WSTRB[i][RP_AXI_STRB_WD_MAX-1:RP_AXI_STRB_WD[i]]      = 'd0;
                 assign w_early_bresp_ctrl_wdata[i][RP_AXI_DATA_WD_MAX-1:RP_AXI_DATA_WD[i]]  = 'd0;
                 assign w_early_bresp_ctrl_wstrb[i][RP_AXI_STRB_WD_MAX-1:RP_AXI_STRB_WD[i]]  = 'd0;
             end
@@ -1520,20 +1494,20 @@ module AOU_CORE #(
             assign w_aou_tx_axi_s_arvalid[i] = I_AOU_TX_AXI_S_ARVALID[i] && ~w_aou_slv_info_ar_hold_flag[i];
 
             AOU_CORE_RP #(
-                .AXI_DATA_WD              (RP_AXI_DATA_WD[i]), 
-                .AXI_PEER_DIE_MAX_DATA_WD (AXI_PEER_DIE_MAX_DATA_WD), 
-                                          
-                .S_RD_MO_CNT              (S_RD_MO_CNT), 
+                .AXI_DATA_WD              (RP_AXI_DATA_WD[i]),
+                .AXI_PEER_DIE_MAX_DATA_WD (AXI_PEER_DIE_MAX_DATA_WD),
+
+                .S_RD_MO_CNT              (S_RD_MO_CNT),
                 .S_WR_MO_CNT              (S_WR_MO_CNT),
 
-                .M_RD_MO_CNT              (M_RD_MO_CNT), 
-                .M_WR_MO_CNT              (M_WR_MO_CNT) 
- 
-            ) u_aou_core_rp 
+                .M_RD_MO_CNT              (M_RD_MO_CNT),
+                .M_WR_MO_CNT              (M_WR_MO_CNT)
+
+            ) u_aou_core_rp
             (
                 .I_CLK                                     ( I_CLK                             ),
                 .I_RESETN                                  ( I_RESETN                          ),
-                                                                                            
+
                 .O_AOU_RX_AXI_M_ARID                       ( O_AOU_RX_AXI_M_ARID[i]            ),
                 .O_AOU_RX_AXI_M_ARADDR                     ( O_AOU_RX_AXI_M_ARADDR[i]          ),
                 .O_AOU_RX_AXI_M_ARLEN                      ( O_AOU_RX_AXI_M_ARLEN[i]           ),
@@ -1545,14 +1519,14 @@ module AOU_CORE #(
                 .O_AOU_RX_AXI_M_ARQOS                      ( O_AOU_RX_AXI_M_ARQOS[i]           ),
                 .O_AOU_RX_AXI_M_ARVALID                    ( O_AOU_RX_AXI_M_ARVALID[i]         ),
                 .I_AOU_RX_AXI_M_ARREADY                    ( I_AOU_RX_AXI_M_ARREADY[i]         ),
-                                                                                            
+
                 .I_AOU_TX_AXI_M_RID                        ( I_AOU_TX_AXI_M_RID[i]             ),
                 .I_AOU_TX_AXI_M_RDATA                      ( I_AOU_TX_AXI_M_RDATA[i][RP_AXI_DATA_WD[i]-1:0] ),
                 .I_AOU_TX_AXI_M_RRESP                      ( I_AOU_TX_AXI_M_RRESP[i]           ),
                 .I_AOU_TX_AXI_M_RLAST                      ( I_AOU_TX_AXI_M_RLAST[i]           ),
                 .I_AOU_TX_AXI_M_RVALID                     ( I_AOU_TX_AXI_M_RVALID[i]          ),
                 .O_AOU_TX_AXI_M_RREADY                     ( O_AOU_TX_AXI_M_RREADY[i]          ),
-                                                                                            
+
                 .O_AOU_RX_AXI_M_AWID                       ( O_AOU_RX_AXI_M_AWID[i]            ),
                 .O_AOU_RX_AXI_M_AWADDR                     ( O_AOU_RX_AXI_M_AWADDR[i]          ),
                 .O_AOU_RX_AXI_M_AWLEN                      ( O_AOU_RX_AXI_M_AWLEN[i]           ),
@@ -1564,29 +1538,29 @@ module AOU_CORE #(
                 .O_AOU_RX_AXI_M_AWQOS                      ( O_AOU_RX_AXI_M_AWQOS[i]           ),
                 .O_AOU_RX_AXI_M_AWVALID                    ( O_AOU_RX_AXI_M_AWVALID[i]         ),
                 .I_AOU_RX_AXI_M_AWREADY                    ( I_AOU_RX_AXI_M_AWREADY[i]         ),
-                                                                                            
+
                 .O_AOU_RX_AXI_M_WDATA                      ( O_AOU_RX_AXI_M_WDATA[i][RP_AXI_DATA_WD[i]-1:0] ),
                 .O_AOU_RX_AXI_M_WSTRB                      ( O_AOU_RX_AXI_M_WSTRB[i][RP_AXI_STRB_WD[i]-1:0] ),
                 .O_AOU_RX_AXI_M_WLAST                      ( O_AOU_RX_AXI_M_WLAST[i]           ),
                 .O_AOU_RX_AXI_M_WVALID                     ( O_AOU_RX_AXI_M_WVALID[i]          ),
                 .I_AOU_RX_AXI_M_WREADY                     ( I_AOU_RX_AXI_M_WREADY[i]          ),
-                
+
                 .I_AOU_TX_AXI_M_BID                        ( I_AOU_TX_AXI_M_BID[i]             ),
                 .I_AOU_TX_AXI_M_BRESP                      ( I_AOU_TX_AXI_M_BRESP[i]           ),
                 .I_AOU_TX_AXI_M_BVALID                     ( I_AOU_TX_AXI_M_BVALID[i]          ),
                 .O_AOU_TX_AXI_M_BREADY                     ( O_AOU_TX_AXI_M_BREADY[i]          ),
-                
+
                 .I_AOU_TX_AXI_S_ARID                       ( I_AOU_TX_AXI_S_ARID[i]            ),
                 .I_AOU_TX_AXI_S_ARVALID                    ( w_aou_tx_axi_s_arvalid[i]         ),
-                .I_AOU_TX_AXI_S_ARREADY                    ( O_AOU_TX_AXI_S_ARREADY[i]         ),    
+                .I_AOU_TX_AXI_S_ARREADY                    ( O_AOU_TX_AXI_S_ARREADY[i]         ),
                 .O_AOU_SLV_INFO_AR_HOLD_FLAG               ( w_aou_slv_info_ar_hold_flag[i]    ),
-                                                                                            
+
                 .I_AOU_RX_AXI_S_RID                        ( I_AOU_RX_AXI_S_RID[i]             ),
                 .I_AOU_RX_AXI_S_RLAST                      ( I_AOU_RX_AXI_S_RLAST[i]           ),
                 .I_AOU_RX_AXI_S_RVALID                     ( I_AOU_RX_AXI_S_RVALID[i]          ),
                 .I_AOU_RX_AXI_S_RREADY                     ( I_AOU_RX_AXI_S_RREADY[i]          ),
                 .O_AOU_RX_AXI_S_RVALID_BLOCKED             ( O_AOU_RX_AXI_S_RVALID_BLOCKED[i]  ),
-                
+
                 .I_AOU_TX_AXI_S_AWID                       ( I_AOU_TX_AXI_S_AWID[i]            ),
                 .I_AOU_TX_AXI_S_AWADDR                     ( I_AOU_TX_AXI_S_AWADDR[i]          ),
                 .I_AOU_TX_AXI_S_AWLEN                      ( I_AOU_TX_AXI_S_AWLEN[i]           ),
@@ -1598,117 +1572,117 @@ module AOU_CORE #(
                 .I_AOU_TX_AXI_S_AWQOS                      ( I_AOU_TX_AXI_S_AWQOS[i]           ),
                 .I_AOU_TX_AXI_S_AWVALID                    ( I_AOU_TX_AXI_S_AWVALID[i]         ),
                 .O_AOU_TX_AXI_S_AWREADY                    ( O_AOU_TX_AXI_S_AWREADY[i]         ),
-                                                                                            
+
                 .I_AOU_TX_AXI_S_WDATA                      ( I_AOU_TX_AXI_S_WDATA[i][RP_AXI_DATA_WD[i]-1:0] ),
                 .I_AOU_TX_AXI_S_WSTRB                      ( I_AOU_TX_AXI_S_WSTRB[i][RP_AXI_STRB_WD[i]-1:0] ),
                 .I_AOU_TX_AXI_S_WLAST                      ( I_AOU_TX_AXI_S_WLAST[i]           ),
                 .I_AOU_TX_AXI_S_WVALID                     ( I_AOU_TX_AXI_S_WVALID[i]          ),
                 .O_AOU_TX_AXI_S_WREADY                     ( O_AOU_TX_AXI_S_WREADY[i]          ),
-                                                                                            
+
                 .O_AOU_RX_AXI_S_BID                        ( O_AOU_RX_AXI_S_BID[i]             ),
                 .O_AOU_RX_AXI_S_BRESP                      ( O_AOU_RX_AXI_S_BRESP[i]           ),
                 .O_AOU_RX_AXI_S_BVALID                     ( O_AOU_RX_AXI_S_BVALID[i]          ),
                 .I_AOU_RX_AXI_S_BREADY                     ( I_AOU_RX_AXI_S_BREADY[i]          ),
-                
+
                 .I_AOU_RX_WLAST_GEN_AWID                   ( I_AOU_RX_WLAST_GEN_AWID[i]        ),
                 .I_AOU_RX_WLAST_GEN_AWADDR                 ( I_AOU_RX_WLAST_GEN_AWADDR[i]      ),
                 .I_AOU_RX_WLAST_GEN_AWLEN                  ( I_AOU_RX_WLAST_GEN_AWLEN[i]       ),
-                .I_AOU_RX_WLAST_GEN_AWSIZE                 ( I_AOU_RX_WLAST_GEN_AWSIZE[i]      ),      
-                .I_AOU_RX_WLAST_GEN_AWLOCK                 ( I_AOU_RX_WLAST_GEN_AWLOCK[i]      ),      
-                .I_AOU_RX_WLAST_GEN_AWCACHE                ( I_AOU_RX_WLAST_GEN_AWCACHE[i]     ),     
-                .I_AOU_RX_WLAST_GEN_AWPROT                 ( I_AOU_RX_WLAST_GEN_AWPROT[i]      ),    
-                .I_AOU_RX_WLAST_GEN_AWQOS                  ( I_AOU_RX_WLAST_GEN_AWQOS[i]       ),     
-                .I_AOU_RX_WLAST_GEN_AWVALID                ( I_AOU_RX_WLAST_GEN_AWVALID[i]     ),       
-                .O_AOU_RX_WLAST_GEN_AWREADY                ( O_AOU_RX_WLAST_GEN_AWREADY[i]     ),     
-                                                                                            
+                .I_AOU_RX_WLAST_GEN_AWSIZE                 ( I_AOU_RX_WLAST_GEN_AWSIZE[i]      ),
+                .I_AOU_RX_WLAST_GEN_AWLOCK                 ( I_AOU_RX_WLAST_GEN_AWLOCK[i]      ),
+                .I_AOU_RX_WLAST_GEN_AWCACHE                ( I_AOU_RX_WLAST_GEN_AWCACHE[i]     ),
+                .I_AOU_RX_WLAST_GEN_AWPROT                 ( I_AOU_RX_WLAST_GEN_AWPROT[i]      ),
+                .I_AOU_RX_WLAST_GEN_AWQOS                  ( I_AOU_RX_WLAST_GEN_AWQOS[i]       ),
+                .I_AOU_RX_WLAST_GEN_AWVALID                ( I_AOU_RX_WLAST_GEN_AWVALID[i]     ),
+                .O_AOU_RX_WLAST_GEN_AWREADY                ( O_AOU_RX_WLAST_GEN_AWREADY[i]     ),
+
                 .I_AOU_RX_WLAST_GEN_WDLENGTH               ( I_AOU_RX_WLAST_GEN_WDLENGTH[i]    ),
-                .I_AOU_RX_WLAST_GEN_WDATA                  ( I_AOU_RX_WLAST_GEN_WDATA[i]       ),    
-                .I_AOU_RX_WLAST_GEN_WSTRB                  ( I_AOU_RX_WLAST_GEN_WSTRB[i]       ),      
+                .I_AOU_RX_WLAST_GEN_WDATA                  ( I_AOU_RX_WLAST_GEN_WDATA[i]       ),
+                .I_AOU_RX_WLAST_GEN_WSTRB                  ( I_AOU_RX_WLAST_GEN_WSTRB[i]       ),
                 .I_AOU_RX_WLAST_GEN_WVALID                 ( I_AOU_RX_WLAST_GEN_WVALID[i]      ),
                 .O_AOU_RX_WLAST_GEN_WREADY                 ( O_AOU_RX_WLAST_GEN_WREADY[i]      ),
-                                                                                            
-                .I_AOU_RX_AXI_MM_ARID                      ( I_AOU_RX_AXI_MM_ARID[i]           ),        
+
+                .I_AOU_RX_AXI_MM_ARID                      ( I_AOU_RX_AXI_MM_ARID[i]           ),
                 .I_AOU_RX_AXI_MM_ARADDR                    ( I_AOU_RX_AXI_MM_ARADDR[i]         ),
-                .I_AOU_RX_AXI_MM_ARLEN                     ( I_AOU_RX_AXI_MM_ARLEN[i]          ),      
-                .I_AOU_RX_AXI_MM_ARSIZE                    ( I_AOU_RX_AXI_MM_ARSIZE[i]         ),          
-                .I_AOU_RX_AXI_MM_ARLOCK                    ( I_AOU_RX_AXI_MM_ARLOCK[i]         ),      
-                .I_AOU_RX_AXI_MM_ARCACHE                   ( I_AOU_RX_AXI_MM_ARCACHE[i]        ),     
-                .I_AOU_RX_AXI_MM_ARPROT                    ( I_AOU_RX_AXI_MM_ARPROT[i]         ),      
-                .I_AOU_RX_AXI_MM_ARQOS                     ( I_AOU_RX_AXI_MM_ARQOS[i]          ),       
-                .I_AOU_RX_AXI_MM_ARVALID                   ( I_AOU_RX_AXI_MM_ARVALID[i]        ),     
+                .I_AOU_RX_AXI_MM_ARLEN                     ( I_AOU_RX_AXI_MM_ARLEN[i]          ),
+                .I_AOU_RX_AXI_MM_ARSIZE                    ( I_AOU_RX_AXI_MM_ARSIZE[i]         ),
+                .I_AOU_RX_AXI_MM_ARLOCK                    ( I_AOU_RX_AXI_MM_ARLOCK[i]         ),
+                .I_AOU_RX_AXI_MM_ARCACHE                   ( I_AOU_RX_AXI_MM_ARCACHE[i]        ),
+                .I_AOU_RX_AXI_MM_ARPROT                    ( I_AOU_RX_AXI_MM_ARPROT[i]         ),
+                .I_AOU_RX_AXI_MM_ARQOS                     ( I_AOU_RX_AXI_MM_ARQOS[i]          ),
+                .I_AOU_RX_AXI_MM_ARVALID                   ( I_AOU_RX_AXI_MM_ARVALID[i]        ),
                 .O_AOU_RX_AXI_MM_ARREADY                   ( O_AOU_RX_AXI_MM_ARREADY[i]        ),
-                
+
                 .I_EARLY_BRESP_CTRL_BID                    ( I_EARLY_BRESP_CTRL_BID[i]         ),
                 .I_EARLY_BRESP_CTRL_BRESP                  ( I_EARLY_BRESP_CTRL_BRESP[i]       ),
                 .I_EARLY_BRESP_CTRL_BVALID                 ( I_EARLY_BRESP_CTRL_BVALID[i]      ),
                 .O_EARLY_BRESP_CTRL_BREADY                 ( O_EARLY_BRESP_CTRL_BREADY[i]      ),
-                
-                .O_EARLY_BRESP_CTRL_AWID                   ( w_early_bresp_ctrl_awid[i]        ),    
-                .O_EARLY_BRESP_CTRL_AWADDR                 ( w_early_bresp_ctrl_awaddr[i]      ),    
-                .O_EARLY_BRESP_CTRL_AWLEN                  ( w_early_bresp_ctrl_awlen[i]       ),    
-                .O_EARLY_BRESP_CTRL_AWSIZE                 ( w_early_bresp_ctrl_awsize[i]      ),    
-                .O_EARLY_BRESP_CTRL_AWBURST                ( w_early_bresp_ctrl_awburst[i]     ),    
-                .O_EARLY_BRESP_CTRL_AWLOCK                 ( w_early_bresp_ctrl_awlock[i]      ),    
-                .O_EARLY_BRESP_CTRL_AWCACHE                ( w_early_bresp_ctrl_awcache[i]     ),    
-                .O_EARLY_BRESP_CTRL_AWPROT                 ( w_early_bresp_ctrl_awprot[i]      ),    
-                .O_EARLY_BRESP_CTRL_AWQOS                  ( w_early_bresp_ctrl_awqos[i]       ),    
-                .O_EARLY_BRESP_CTRL_AWVALID                ( w_early_bresp_ctrl_awvalid[i]     ),    
-                .I_EARLY_BRESP_CTRL_AWREADY                ( w_early_bresp_ctrl_awready[i]     ),        
-                                                                  
-                .O_EARLY_BRESP_CTRL_WDATA                  ( w_early_bresp_ctrl_wdata[i][RP_AXI_DATA_WD[i]-1:0] ), 
+
+                .O_EARLY_BRESP_CTRL_AWID                   ( w_early_bresp_ctrl_awid[i]        ),
+                .O_EARLY_BRESP_CTRL_AWADDR                 ( w_early_bresp_ctrl_awaddr[i]      ),
+                .O_EARLY_BRESP_CTRL_AWLEN                  ( w_early_bresp_ctrl_awlen[i]       ),
+                .O_EARLY_BRESP_CTRL_AWSIZE                 ( w_early_bresp_ctrl_awsize[i]      ),
+                .O_EARLY_BRESP_CTRL_AWBURST                ( w_early_bresp_ctrl_awburst[i]     ),
+                .O_EARLY_BRESP_CTRL_AWLOCK                 ( w_early_bresp_ctrl_awlock[i]      ),
+                .O_EARLY_BRESP_CTRL_AWCACHE                ( w_early_bresp_ctrl_awcache[i]     ),
+                .O_EARLY_BRESP_CTRL_AWPROT                 ( w_early_bresp_ctrl_awprot[i]      ),
+                .O_EARLY_BRESP_CTRL_AWQOS                  ( w_early_bresp_ctrl_awqos[i]       ),
+                .O_EARLY_BRESP_CTRL_AWVALID                ( w_early_bresp_ctrl_awvalid[i]     ),
+                .I_EARLY_BRESP_CTRL_AWREADY                ( w_early_bresp_ctrl_awready[i]     ),
+
+                .O_EARLY_BRESP_CTRL_WDATA                  ( w_early_bresp_ctrl_wdata[i][RP_AXI_DATA_WD[i]-1:0] ),
                 .O_EARLY_BRESP_CTRL_WSTRB                  ( w_early_bresp_ctrl_wstrb[i][RP_AXI_STRB_WD[i]-1:0] ),
-                .O_EARLY_BRESP_CTRL_WLAST                  ( w_early_bresp_ctrl_wlast[i]       ), 
-                .O_EARLY_BRESP_CTRL_WVALID                 ( w_early_bresp_ctrl_wvalid[i]      ), 
+                .O_EARLY_BRESP_CTRL_WLAST                  ( w_early_bresp_ctrl_wlast[i]       ),
+                .O_EARLY_BRESP_CTRL_WVALID                 ( w_early_bresp_ctrl_wvalid[i]      ),
                 .I_EARLY_BRESP_CTRL_WREADY                 ( w_early_bresp_ctrl_wready[i]      ),
-                
-                .O_AOU_TX_AXI_BID_256                      ( w_aou_tx_axi_mm_bid_256[i]        ), 
-                .O_AOU_TX_AXI_BRESP_256                    ( w_aou_tx_axi_mm_bresp_256[i]      ), 
-                .O_AOU_TX_AXI_BVALID_256                   ( w_aou_tx_axi_mm_bvalid_256[i]     ), 
-                .I_AOU_TX_AXI_BREADY_256                   ( w_aou_tx_axi_mm_bready_256[i]     ), 
-                                                                                            
-                .O_AOU_TX_AXI_BID_512                      ( w_aou_tx_axi_mm_bid_512[i]        ), 
-                .O_AOU_TX_AXI_BRESP_512                    ( w_aou_tx_axi_mm_bresp_512[i]      ), 
-                .O_AOU_TX_AXI_BVALID_512                   ( w_aou_tx_axi_mm_bvalid_512[i]     ), 
-                .I_AOU_TX_AXI_BREADY_512                   ( w_aou_tx_axi_mm_bready_512[i]     ), 
-                                                                                            
-                .O_AOU_TX_AXI_BID_1024                     ( w_aou_tx_axi_mm_bid_1024[i]       ), 
-                .O_AOU_TX_AXI_BRESP_1024                   ( w_aou_tx_axi_mm_bresp_1024[i]     ), 
-                .O_AOU_TX_AXI_BVALID_1024                  ( w_aou_tx_axi_mm_bvalid_1024[i]    ), 
-                .I_AOU_TX_AXI_BREADY_1024                  ( w_aou_tx_axi_mm_bready_1024[i]    ), 
-                
-                .O_AOU_TX_AXI_RID                          ( w_aou_tx_axi_mm_rid[i]            ), 
-                .O_AOU_TX_AXI_RDLEN                        ( w_aou_tx_axi_mm_rdlen[i]          ), 
-                .O_AOU_TX_AXI_RDATA                        ( w_aou_tx_axi_mm_rdata[i]          ), 
-                .O_AOU_TX_AXI_RRESP                        ( w_aou_tx_axi_mm_rresp[i]          ), 
-                .O_AOU_TX_AXI_RLAST                        ( w_aou_tx_axi_mm_rlast[i]          ), 
-                .O_AOU_TX_AXI_RVALID                       ( w_aou_tx_axi_mm_rvalid[i]         ), 
-                .I_AOU_TX_AXI_RREADY                       ( w_aou_tx_axi_mm_rready[i]         ), 
-                
-                .I_AXI_SPLIT_TR_MAX_AWBURSTLEN             ( w_axi_split_tr_max_awburstlen[i]  ), 
-                .I_AXI_SPLIT_TR_MAX_ARBURSTLEN             ( w_axi_split_tr_max_arburstlen[i]  ), 
-                
+
+                .O_AOU_TX_AXI_BID_256                      ( w_aou_tx_axi_mm_bid_256[i]        ),
+                .O_AOU_TX_AXI_BRESP_256                    ( w_aou_tx_axi_mm_bresp_256[i]      ),
+                .O_AOU_TX_AXI_BVALID_256                   ( w_aou_tx_axi_mm_bvalid_256[i]     ),
+                .I_AOU_TX_AXI_BREADY_256                   ( w_aou_tx_axi_mm_bready_256[i]     ),
+
+                .O_AOU_TX_AXI_BID_512                      ( w_aou_tx_axi_mm_bid_512[i]        ),
+                .O_AOU_TX_AXI_BRESP_512                    ( w_aou_tx_axi_mm_bresp_512[i]      ),
+                .O_AOU_TX_AXI_BVALID_512                   ( w_aou_tx_axi_mm_bvalid_512[i]     ),
+                .I_AOU_TX_AXI_BREADY_512                   ( w_aou_tx_axi_mm_bready_512[i]     ),
+
+                .O_AOU_TX_AXI_BID_1024                     ( w_aou_tx_axi_mm_bid_1024[i]       ),
+                .O_AOU_TX_AXI_BRESP_1024                   ( w_aou_tx_axi_mm_bresp_1024[i]     ),
+                .O_AOU_TX_AXI_BVALID_1024                  ( w_aou_tx_axi_mm_bvalid_1024[i]    ),
+                .I_AOU_TX_AXI_BREADY_1024                  ( w_aou_tx_axi_mm_bready_1024[i]    ),
+
+                .O_AOU_TX_AXI_RID                          ( w_aou_tx_axi_mm_rid[i]            ),
+                .O_AOU_TX_AXI_RDLEN                        ( w_aou_tx_axi_mm_rdlen[i]          ),
+                .O_AOU_TX_AXI_RDATA                        ( w_aou_tx_axi_mm_rdata[i]          ),
+                .O_AOU_TX_AXI_RRESP                        ( w_aou_tx_axi_mm_rresp[i]          ),
+                .O_AOU_TX_AXI_RLAST                        ( w_aou_tx_axi_mm_rlast[i]          ),
+                .O_AOU_TX_AXI_RVALID                       ( w_aou_tx_axi_mm_rvalid[i]         ),
+                .I_AOU_TX_AXI_RREADY                       ( w_aou_tx_axi_mm_rready[i]         ),
+
+                .I_AXI_SPLIT_TR_MAX_AWBURSTLEN             ( w_axi_split_tr_max_awburstlen[i]  ),
+                .I_AXI_SPLIT_TR_MAX_ARBURSTLEN             ( w_axi_split_tr_max_arburstlen[i]  ),
+
                 .I_AXI_SLV_ID_MISMATCH_EN                  ( w_axi_slv_id_mismatch_en[i]       ),
 
                 .O_ERROR_INFO_SPLIT_BID_MISMATCH_INFO      ( w_err_info_split_bid_mismatch[i]  ),
                 .O_ERROR_INFO_RID_MISMATCH_INFO            ( w_err_info_rid_mismatch[i]        ),
                 .O_ERROR_INFO_SPLIT_BID_MISMATCH_ERR_SET   ( w_err_split_bid_mismatch_set[i]   ),
                 .O_ERROR_INFO_RID_MISMATCH_ERR_SET         ( w_err_rid_mismatch_set[i]         ),
-                
+
                 .O_EARLY_BRESP_DONE                        ( w_early_bresp_done[i]             ),
                 .O_EARLY_BRESP_ERR_SET                     ( w_bresp_err[i]                    ),
                 .O_EARLY_BRESP_ERR_TYPE                    ( w_bresp_err_type[i]               ),
                 .O_EARLY_BRESP_ERR_ID                      ( w_bresp_err_id[i]                 ),
                 .I_EARLY_BRESP_EN                          ( w_early_bresp_en[i]               ),
-                
+
                 .I_DEBUG_ERROR_INFO_UPPER_ADDR             ( w_debug_error_info_upper_addr[i]  ),
                 .I_DEBUG_ERROR_INFO_LOWER_ADDR             ( w_debug_error_info_lower_addr[i]  ),
                 .I_DEBUG_ERR_ACCESS_ENABLE                 ( w_debug_error_info_access_enable[i]),
-                
+
                 .I_AXI_AGGREGATOR_EN                       ( w_axi_aggregator_en[i]            ),
-                
-                .O_AXI_SLV_BID_MISMATCH_INFO               ( w_axi_slv_bid_mismatch_info[i]    ),    
-                .O_AXI_SLV_RID_MISMATCH_INFO               ( w_axi_slv_rid_mismatch_info[i]    ), 
-                .O_AXI_SLV_BID_MISMATCH_ERR_SET            ( w_axi_slv_bid_mismatch_err_set[i] ),    
+
+                .O_AXI_SLV_BID_MISMATCH_INFO               ( w_axi_slv_bid_mismatch_info[i]    ),
+                .O_AXI_SLV_RID_MISMATCH_INFO               ( w_axi_slv_rid_mismatch_info[i]    ),
+                .O_AXI_SLV_BID_MISMATCH_ERR_SET            ( w_axi_slv_bid_mismatch_err_set[i] ),
                 .O_AXI_SLV_RID_MISMATCH_ERR_SET            ( w_axi_slv_rid_mismatch_err_set[i] ),
 
                 .O_SLV_TR_COMPLETE                         ( w_slv_tr_complete[i]              ),
@@ -1720,26 +1694,26 @@ module AOU_CORE #(
     genvar j;
     generate
         for(j = RP_COUNT ; j < 4; j++) begin: gen_unused_sfr_tie
-            assign  w_err_info_split_bid_mismatch[j]  = 1'b0; 
-            assign  w_err_info_rid_mismatch[j]        = 1'b0; 
-            assign  w_err_split_bid_mismatch_set[j]   = 1'b0; 
-            assign  w_err_rid_mismatch_set[j]         = 1'b0; 
-              
-            assign  w_early_bresp_done[j]             = 1'b0; 
-            assign  w_bresp_err[j]                    = 1'b0; 
-            assign  w_bresp_err_type[j]               = 1'b0; 
-            assign  w_bresp_err_id[j]                 = 1'b0; 
-              
-            assign  w_axi_slv_bid_mismatch_info[j]    = 1'b0; 
-            assign  w_axi_slv_rid_mismatch_info[j]    = 1'b0; 
-            assign  w_axi_slv_bid_mismatch_err_set[j] = 1'b0; 
-            assign  w_axi_slv_rid_mismatch_err_set[j] = 1'b0; 
-             
-            assign  w_slv_tr_complete[j]              = 1'b1; 
+            assign  w_err_info_split_bid_mismatch[j]  = 1'b0;
+            assign  w_err_info_rid_mismatch[j]        = 1'b0;
+            assign  w_err_split_bid_mismatch_set[j]   = 1'b0;
+            assign  w_err_rid_mismatch_set[j]         = 1'b0;
+
+            assign  w_early_bresp_done[j]             = 1'b0;
+            assign  w_bresp_err[j]                    = 1'b0;
+            assign  w_bresp_err_type[j]               = 1'b0;
+            assign  w_bresp_err_id[j]                 = 1'b0;
+
+            assign  w_axi_slv_bid_mismatch_info[j]    = 1'b0;
+            assign  w_axi_slv_rid_mismatch_info[j]    = 1'b0;
+            assign  w_axi_slv_bid_mismatch_err_set[j] = 1'b0;
+            assign  w_axi_slv_rid_mismatch_err_set[j] = 1'b0;
+
+            assign  w_slv_tr_complete[j]              = 1'b1;
             assign  w_mst_tr_complete[j]              = 1'b1;
-        end               
-    endgenerate 
-    
+        end
+    endgenerate
+
     assign O_SLV_TR_COMPLETE = &w_slv_tr_complete;
     assign O_MST_TR_COMPLETE = &w_mst_tr_complete;
 
