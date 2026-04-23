@@ -138,7 +138,7 @@ module AOU_DATA_W_FIFO_NS1M
     // address when FIFO_DEPTH is not a power of two. This avoids the X
     // don't-care lanes that would otherwise expand into a large set of LEC
     // "E" key points (with the associated runtime / abort cost).
-    integer i, j;
+    integer i;
     always_ff @ (posedge I_CLK or negedge I_RESETN) begin
     if (~I_RESETN) begin
             for (i = 0; i < FIFO_DEPTH; i = i+1) begin
