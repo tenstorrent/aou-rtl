@@ -1,6 +1,7 @@
 // *****************************************************************************
 // SPDX-License-Identifier: Apache-2.0
 // *****************************************************************************
+//  Copyright (c) 2026 BOS Semiconductors
 //  Copyright (c) 2026 Tenstorrent USA Inc
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
