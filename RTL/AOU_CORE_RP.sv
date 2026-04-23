@@ -25,9 +25,9 @@
 
 `timescale 1ns/1ps
 
+module AOU_CORE_RP
 import packet_def_pkg::*;
-
-module AOU_CORE_RP #(
+#(
 
     parameter   AXI_DATA_WD                 = 512,
     parameter   AXI_PEER_DIE_MAX_DATA_WD    = 1024,

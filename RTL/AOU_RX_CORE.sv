@@ -26,9 +26,8 @@
 
 `timescale 1ns/1ps
 
-import packet_def_pkg::*;
 module AOU_RX_CORE
-
+import packet_def_pkg::*;
 #(
     parameter   PHY_TYPE                    = 2, //0:32B, 1:64B, 2:128B, 3:256B
     parameter   FDI_IF_WD                   = 1024,

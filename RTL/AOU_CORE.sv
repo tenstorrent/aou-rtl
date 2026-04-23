@@ -26,9 +26,9 @@
 
 `timescale 1ns/1ps
 
+module AOU_CORE
 import packet_def_pkg::*;
-
-module AOU_CORE #(
+#(
     parameter   RP0_RX_AW_FIFO_DEPTH        = 40,
     parameter   RP0_RX_AR_FIFO_DEPTH        = 40,
     parameter   RP0_RX_W_FIFO_DEPTH         = 80,
