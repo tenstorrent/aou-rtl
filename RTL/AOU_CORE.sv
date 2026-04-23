@@ -1740,7 +1740,7 @@ module AOU_CORE #(
         end               
     endgenerate 
     
-    assign O_SLV_TR_COMPLETE = |w_slv_tr_complete;
-    assign O_MST_TR_COMPLETE = |w_mst_tr_complete;
+    assign O_SLV_TR_COMPLETE = &w_slv_tr_complete;
+    assign O_MST_TR_COMPLETE = &w_mst_tr_complete;
 
 endmodule
