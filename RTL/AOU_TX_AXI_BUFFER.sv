@@ -24,8 +24,9 @@
 // *****************************************************************************
 
 `timescale 1ns/1ps
-import packet_def_pkg::*; 
+
 module AOU_TX_AXI_BUFFER
+import packet_def_pkg::*;
 #(
     parameter   RP_CNT                  = 4,
     parameter   RP0_AXI_DATA_WD         = 512,
