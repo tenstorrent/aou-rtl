@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // *****************************************************************************
 //  Copyright (c) 2026 BOS Semiconductors
+//  Copyright (c) 2026 Tenstorrent USA Inc
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -45,6 +46,37 @@ parameter AR_G              = 3;
 parameter R256b_G           = 8;
 parameter R512b_G           = 14;
 parameter R1024b_G          = 27;
+
+// ----------------------------------------------------------------------------
+// FDI configuration selectors.
+//
+// FDI_CONFIG is a single integer parameter on AOU_TOP / AOU_CORE_TOP that
+// replaces the legacy FDI_IF_WD0 / FDI_IF_WD1 width pair. The selected value
+// determines the internally-derived FDI_IF_WD0 (always-present PHY0) and
+// FDI_IF_WD1 (PHY1, gated by `+define+TWO_PHY`) widths in bits.
+//
+// SP_* values describe a single-PHY configuration (no `+define+TWO_PHY`).
+// TP_* values describe a two-PHY configuration and require `+define+TWO_PHY`
+// at compile time so the second-PHY ports physically exist.
+//
+// Width mapping (also documented in DOC/integration_guide/integration_guide.md):
+//   FDI_CFG_SP_32B      -> WD0=256,  WD1=512   (single PHY, RX accumulates two
+//                                                256b phases into 512b internally)
+//   FDI_CFG_SP_64B      -> WD0=512,  WD1=512   (single PHY)
+//   FDI_CFG_SP_128B     -> WD0=1024, WD1=1024  (single PHY)
+//   FDI_CFG_TP_32B_64B  -> WD0=256,  WD1=512   (two PHY)
+//   FDI_CFG_TP_64B_128B -> WD0=512,  WD1=1024  (two PHY)
+//
+// Note: SP_32B and TP_32B_64B produce identical width pairs; only
+// `+define+TWO_PHY` distinguishes them. Consistency between FDI_CONFIG and
+// the presence/absence of `+define+TWO_PHY` is the integrator's
+// responsibility; no in-RTL elaboration check is added.
+// ----------------------------------------------------------------------------
+parameter int FDI_CFG_SP_32B      = 0;
+parameter int FDI_CFG_SP_64B      = 1;
+parameter int FDI_CFG_SP_128B     = 2;
+parameter int FDI_CFG_TP_32B_64B  = 3;
+parameter int FDI_CFG_TP_64B_128B = 4;
 
 parameter logic [7:0] CREDIT_TABLE [7:0] = '{
     8'd128,

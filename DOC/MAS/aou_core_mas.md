@@ -100,14 +100,15 @@ includes performance, power, and area information.
 The AOU_CORE is a bridge between AXI interface and the UCIe FDI
 interface, defined in AoU standard v0.7 spec.
 To achieve low latency, AOU_CORE directly handles signals related to the
-UCIe FDI interface data flow control and processes data in 64-byte or
-32-bytes chunks in a cut-through manner, without converting them to
-256-byte flit data. It receives AXI messages from its own AXI subordinate
-interface, packs them into 64-byte or 32-byte chunks, and transmits
-these chunks to the remote AoU device via UCIe. The remote AoU receives
-the 64-byte or 32-byte chunks from the UCIe FDI interface, unpacks them
-into AXI messages, and delivers the data through its AXI manager
-interface.
+UCIe FDI interface data flow control and processes data in 32-byte,
+64-byte, or 128-byte chunks (selected at integration time via the
+`FDI_CONFIG` parameter; see [Section 6.4](#64-configurable-parameters))
+in a cut-through manner, without converting them to 256-byte flit data.
+It receives AXI messages from its own AXI subordinate interface, packs
+them into chunks of the configured FDI width, and transmits these chunks
+to the remote AoU device via UCIe. The remote AoU receives the chunks
+from the UCIe FDI interface, unpacks them into AXI messages, and
+delivers the data through its AXI manager interface.
 The one-way AoU latency, measured from the AXI input of the local device
 to the AXI output of the remote device over a back-to-back connection in
 a single clock domain, is 7 cycles for read requests, 8 cycles for read
@@ -147,9 +148,12 @@ channels.
 The operating frequency of AOU_CORE targets 1 GHz and meets timing
 requirements without relying on multi-cycle paths. The TX buffer is
 configured with a minimal number of FIFO entries, while the RX Data
-buffer is designed with 88 entries to avoid any performance drop caused
-by AoU. The entry size takes into account the round-trip latency for
-credit consumption and return.
+buffer default depth is FDI-config aware: default 140 entries when `FDI_CONFIG`
+selects a 1024b (128B) FDI interface (`FDI_CFG_SP_128B` or
+`FDI_CFG_TP_64B_128B`), and default 88 entries otherwise. The entry size takes
+into account the round-trip latency for credit consumption and return,
+and matches the per-RP `RP*_RX_W_FIFO_DEPTH` / `RP*_RX_R_FIFO_DEPTH`
+parameter defaults documented in [Section 6.4](#64-configurable-parameters).
 
 # 2. Features
 
@@ -173,12 +177,17 @@ credit consumption and return.
 
 - UCIe 256B latency-optimized flit(Format 6) support only
 
-- Message packing and unpacking are handled in a unit of 64 bytes or 32
-  bytes, corresponding to the FDI data width (64B@1 GHz or 32@1 GHz).
+- Message packing and unpacking are handled in a unit of 32, 64, or
+  128 bytes, corresponding to the configured FDI data width
+  (32B@1 GHz, 64B@1 GHz, or 128B@1 GHz).
 
 - Selectable Early response by setting SFR
 
-- 64B and 32B FDI mode support
+- Selectable 32B / 64B / 128B single-PHY and 32B+64B / 64B+128B
+  two-PHY FDI configurations, selected via the `FDI_CONFIG` parameter
+  (see [Section 6.4](#64-configurable-parameters)). Two-PHY variants
+  additionally require the `+define+TWO_PHY` build flag so the
+  second-PHY ports physically exist.
 
 - Configurable number of Resource Plane and each RP's AXI data width
 
@@ -238,7 +247,11 @@ it to BUS. This functionality may modify AXI Len & Size. For example,
 AXI AR with 256-bit size & 16 burst length may transfer into 1024-bit
 size & 4 burst length. This operation can be controlled via SFR setting.
 
-AOU_CORE provides 64B FDI interface.
+AOU_CORE provides a parameterizable FDI interface; the data-path width
+is selected by `FDI_CONFIG` (`FDI_CFG_SP_32B` / `FDI_CFG_SP_64B` /
+`FDI_CFG_SP_128B` for single-PHY, `FDI_CFG_TP_32B_64B` /
+`FDI_CFG_TP_64B_128B` for two-PHY). See [Section 6.4](#64-configurable-parameters)
+for the full table of `FDI_CONFIG` values and resulting per-PHY widths.
 
 ## 3.2. TX_CORE
 
@@ -431,6 +444,13 @@ data width is 512 bits, each message is stored across two FIFO entries.
 Therefore, if the maximum turnaround time (TAT) to be covered is 50 ns
 (50 cycles), the depth can be set to 80 (50 / 1.25 x 2 = 80).
 Regarding the margin, Data FIFO's depth is set to 88.
+
+When `FDI_CONFIG` selects a 1024b (128B) FDI interface
+(`FDI_CFG_SP_128B` or `FDI_CFG_TP_64B_128B`), the per-chunk granule
+rate roughly doubles, so the per-RP `RP*_RX_W_FIFO_DEPTH` /
+`RP*_RX_R_FIFO_DEPTH` parameter defaults are bumped to 140 entries to
+keep the same effective TAT margin. See
+[Section 6.4](#64-configurable-parameters) for the parameter defaults.
 
 FIFOs are allocated for each RP, and the depth of the FIFOs for each RP
 is configurable.
@@ -1394,8 +1414,21 @@ activation sequence.
 # 6. Integration guide
 
 The details of integration for AOU_CORE are provided in this section.
-Number of AXI channels is configurable. I/O descriptions is for 2 AXI
-ports.
+Number of AXI channels is configurable: the `RP_COUNT` parameter
+defaults to 1 and is parameterizable up to 4. The I/O description in
+[Section 6.1](#61-io-descriptions) is shown for an example
+`RP_COUNT = 2` configuration.
+
+The AoU IP can be integrated either at `AOU_CORE_TOP` (the module
+documented in this MAS) or at the higher-level `AOU_TOP` wrapper, which
+adds the `AOU_FDI_BRINGUP_CTRL` block for turn-key UCIe FDI bringup.
+Both top modules share the same AXI, APB, FDI data-plane, interrupt,
+and DFT interfaces and forward the same `FDI_CONFIG` parameter (see
+[Section 6.4](#64-configurable-parameters)) through to AOU_CORE.
+For a side-by-side comparison of the two integration options see the
+companion *AOU Integration Guide*
+([`DOC/integration_guide/integration_guide.md`](../integration_guide/integration_guide.md)).
+The remainder of this MAS scopes itself to `AOU_CORE_TOP`.
 
 ## 6.1. I/O descriptions
 
@@ -2004,7 +2037,7 @@ ports.
 <td></td>
 </tr>
 <tr>
-<td>FDI interface (64B)</td>
+<td>FDI interface - PHY0 (always present; width = FDI_IF_WD0)</td>
 <td></td>
 <td></td>
 <td></td>
@@ -2013,127 +2046,139 @@ ports.
 <td></td>
 <td>input</td>
 <td></td>
-<td>I FDI PL 64B VALID</td>
+<td>I_FDI_PL_0_VALID</td>
 </tr>
 <tr>
 <td></td>
 <td>input</td>
-<td>[511:0]</td>
-<td>I_FDI PL 64B DATA</td>
-</tr>
-<tr>
-<td></td>
-<td>input</td>
-<td></td>
-<td>I FDI PL 64B FLIT CANCEL</td>
+<td>[FDI_IF_WD0-1:0]</td>
+<td>I_FDI_PL_0_DATA</td>
 </tr>
 <tr>
 <td></td>
 <td>input</td>
 <td></td>
-<td>I FDI PL 64B TRDY</td>
+<td>I_FDI_PL_0_FLIT_CANCEL</td>
 </tr>
 <tr>
 <td></td>
 <td>input</td>
 <td></td>
-<td>I FDI PL 64B STALLREQ</td>
-</tr>
-<tr>
-<td></td>
-<td>input</td>
-<td>[3:0]</td>
-<td>I FDI PL 64B STATE STS　</td>
-</tr>
-<tr>
-<td></td>
-<td>output</td>
-<td>[511:0]</td>
-<td>O FDI LP 64B DATA</td>
-</tr>
-<tr>
-<td></td>
-<td>output</td>
-<td></td>
-<td>O FDI LP 64B VALID</td>
-</tr>
-<tr>
-<td></td>
-<td>output</td>
-<td></td>
-<td>O FDI LP 64B IRDY</td>
-</tr>
-<tr>
-<td></td>
-<td>output</td>
-<td></td>
-<td>O FDI LP 64B STALLACK</td>
-</tr>
-<tr>
-<td>FDI interface (32B)</td>
-<td></td>
-<td></td>
-<td></td>
+<td>I_FDI_PL_0_TRDY</td>
 </tr>
 <tr>
 <td></td>
 <td>input</td>
 <td></td>
-<td>I FDI PL 32B VALID</td>
-</tr>
-<tr>
-<td></td>
-<td>input</td>
-<td>[255:0]</td>
-<td>I_FDI PL 32B DATA</td>
-</tr>
-<tr>
-<td></td>
-<td>input</td>
-<td></td>
-<td>I FDI PL 32B FLIT CANCEL</td>
-</tr>
-<tr>
-<td></td>
-<td>input</td>
-<td></td>
-<td>I FDI PL 32B TRDY</td>
-</tr>
-<tr>
-<td></td>
-<td>input</td>
-<td></td>
-<td>I FDI PL 32B STALLREQ</td>
+<td>I_FDI_PL_0_STALLREQ</td>
 </tr>
 <tr>
 <td></td>
 <td>input</td>
 <td>[3:0]</td>
-<td>I FDI PL 32B STATE STS　</td>
+<td>I_FDI_PL_0_STATE_STS</td>
 </tr>
 <tr>
 <td></td>
 <td>output</td>
-<td>[255:0]</td>
-<td>O FDI LP 32B DATA</td>
-</tr>
-<tr>
-<td></td>
-<td>output</td>
-<td></td>
-<td>O FDI LP 32B VALID</td>
+<td>[FDI_IF_WD0-1:0]</td>
+<td>O_FDI_LP_0_DATA</td>
 </tr>
 <tr>
 <td></td>
 <td>output</td>
 <td></td>
-<td>O FDI LP 32B IRDY</td>
+<td>O_FDI_LP_0_VALID</td>
 </tr>
 <tr>
 <td></td>
 <td>output</td>
 <td></td>
-<td>O FDI LP 32B STALLACK</td>
+<td>O_FDI_LP_0_IRDY</td>
+</tr>
+<tr>
+<td></td>
+<td>output</td>
+<td></td>
+<td>O_FDI_LP_0_STALLACK</td>
+</tr>
+<tr>
+<td>FDI interface - PHY1 (present only when +define+TWO_PHY; width = FDI_IF_WD1)</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>input</td>
+<td></td>
+<td>I_FDI_PL_1_VALID</td>
+</tr>
+<tr>
+<td></td>
+<td>input</td>
+<td>[FDI_IF_WD1-1:0]</td>
+<td>I_FDI_PL_1_DATA</td>
+</tr>
+<tr>
+<td></td>
+<td>input</td>
+<td></td>
+<td>I_FDI_PL_1_FLIT_CANCEL</td>
+</tr>
+<tr>
+<td></td>
+<td>input</td>
+<td></td>
+<td>I_FDI_PL_1_TRDY</td>
+</tr>
+<tr>
+<td></td>
+<td>input</td>
+<td></td>
+<td>I_FDI_PL_1_STALLREQ</td>
+</tr>
+<tr>
+<td></td>
+<td>input</td>
+<td>[3:0]</td>
+<td>I_FDI_PL_1_STATE_STS</td>
+</tr>
+<tr>
+<td></td>
+<td>output</td>
+<td>[FDI_IF_WD1-1:0]</td>
+<td>O_FDI_LP_1_DATA</td>
+</tr>
+<tr>
+<td></td>
+<td>output</td>
+<td></td>
+<td>O_FDI_LP_1_VALID</td>
+</tr>
+<tr>
+<td></td>
+<td>output</td>
+<td></td>
+<td>O_FDI_LP_1_IRDY</td>
+</tr>
+<tr>
+<td></td>
+<td>output</td>
+<td></td>
+<td>O_FDI_LP_1_STALLACK</td>
+</tr>
+<tr>
+<td>PHY type select (present only when +define+TWO_PHY)</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>input</td>
+<td></td>
+<td>I_PHY_TYPE</td>
 </tr>
 <tr>
 <td>Activation related signal</td>
@@ -2287,8 +2332,25 @@ There are 2 reset: I_PRESETN and I_RESETN.
 </tr>
 <tr>
 <td>RP_COUNT</td>
-<td>2</td>
-<td>Equal to the count of RP.</td>
+<td>1</td>
+<td>Equal to the count of RP. Default 1; parameterizable up to 4.</td>
+</tr>
+<tr>
+<td>FDI_CONFIG</td>
+<td>FDI_CFG_SP_32B</td>
+<td>FDI width selector. Single integer parameter (named constants in
+<code>RTL/packet_def_pkg.sv</code>) replacing the legacy
+<code>FDI_IF_WD0</code>/<code>FDI_IF_WD1</code> width pair.<br />
+Valid values:<br />
+- <code>FDI_CFG_SP_32B</code> (0) - single PHY, WD0=256, WD1=512 (internal decode)<br />
+- <code>FDI_CFG_SP_64B</code> (1) - single PHY, WD0=512, WD1=512 (internal decode)<br />
+- <code>FDI_CFG_SP_128B</code> (2) - single PHY, WD0=1024, WD1=1024 (internal decode)<br />
+- <code>FDI_CFG_TP_32B_64B</code> (3) - two PHY, WD0=256, WD1=512 (requires <code>+define+TWO_PHY</code>)<br />
+- <code>FDI_CFG_TP_64B_128B</code> (4) - two PHY, WD0=512, WD1=1024 (requires <code>+define+TWO_PHY</code>)<br />
+The two-PHY values are valid only with the <code>+define+TWO_PHY</code> build flag, which gates the
+physical presence of the PHY1 ports and the <code>I_PHY_TYPE</code> selector. Consistency between
+<code>FDI_CONFIG</code> and <code>+define+TWO_PHY</code> is the integrator's responsibility; no in-RTL
+elaboration check is added.</td>
 </tr>
 <tr>
 <td>RP*_AXI_DATA_WD</td>
@@ -2311,7 +2373,10 @@ Turn-Around-Time(TAT) between the local die and the remote die, so that
 no performance drop occurs due to AoU.<br />
 TAT refers to the time in an environment integrated with UCIe, measured
 from when the local die sends a message until the credit is received
-back from the remote die.</td>
+back from the remote die.<br />
+The <code>RP*_RX_W_FIFO_DEPTH</code> and <code>RP*_RX_R_FIFO_DEPTH</code> defaults are FDI-config aware:
+140 entries when <code>FDI_CONFIG</code> selects a 1024b interface (<code>FDI_CFG_SP_128B</code> or
+<code>FDI_CFG_TP_64B_128B</code>); 88 entries otherwise.</td>
 </tr>
 <tr>
 <td>RP*_RX_AR_FIFO_DEPTH</td>
@@ -2319,15 +2384,39 @@ back from the remote die.</td>
 </tr>
 <tr>
 <td>RP*_RX_W_FIFO_DEPTH</td>
-<td>88</td>
+<td>88 / 140</td>
 </tr>
 <tr>
 <td>RP*_RX_R_FIFO_DEPTH</td>
-<td>88</td>
+<td>88 / 140</td>
 </tr>
 <tr>
 <td>RP*_RX_B_FIFO_DEPTH</td>
 <td>44</td>
+</tr>
+<tr>
+<td>RX_AW_FIFO_RS_EN</td>
+<td>1</td>
+<td rowspan="5">When 1, inserts an output register-slice on the corresponding RX FIFO read
+port. Trades latency (+1 cycle) for timing closure on the AXI manager
+output paths. Independently controllable per channel
+(AW / AR / W / R / B).</td>
+</tr>
+<tr>
+<td>RX_AR_FIFO_RS_EN</td>
+<td>1</td>
+</tr>
+<tr>
+<td>RX_W_FIFO_RS_EN</td>
+<td>1</td>
+</tr>
+<tr>
+<td>RX_R_FIFO_RS_EN</td>
+<td>1</td>
+</tr>
+<tr>
+<td>RX_B_FIFO_RS_EN</td>
+<td>1</td>
 </tr>
 <tr>
 <td>APB_ADDR_WD</td>
@@ -2371,6 +2460,12 @@ about requests received from the remote die.</td>
 </table>
 
 *Table 6. AOU_CORE_TOP Configurable Parameters*
+
+### Build flags
+
+| Flag | Effect |
+| :---- | :---- |
+| `+define+TWO_PHY` | Compile-time switch that adds the second-PHY ports (`I_FDI_PL_1_*`, `O_FDI_LP_1_*`) and the `I_PHY_TYPE` selector to both `AOU_CORE_TOP` and `AOU_TOP`. Required for the `FDI_CFG_TP_*` values of `FDI_CONFIG`. |
 
 # 7. Software operation guide
 
@@ -3250,7 +3345,10 @@ data respectively, occupy the largest portion of the AOU area. These
 FIFOs are currently implemented as register-based FIFOs.
 
 FIFO Depths : TX = 2 entries / RX = 88 entries for R/W data, and 44
-entries for AW/AR/B.
+entries for AW/AR/B. The 88-entry default for R/W data applies when
+`FDI_CONFIG` selects a non-1024b interface; the 1024b configurations
+(`FDI_CFG_SP_128B` / `FDI_CFG_TP_64B_128B`) default to 140 entries,
+which proportionally increases the R/W FIFO area component.
 The Expected R/W data for 128GBs/s is 176 entries.
 
 **v0.4 AOU_CORE**
@@ -3268,7 +3366,9 @@ The FIFO depth of the two RPs are identical.
 | 2RP<br />
 (AXI : 256bit &amp; 512bit) | 197K |
 
-*Table 10. AOU_CORE Area*
+*Table 10. AOU_CORE Area (measured at an `FDI_CFG_SP_64B`-equivalent
+configuration; numbers will scale up for `FDI_CFG_*_128B` configurations
+due to the 88 -> 140 R/W FIFO depth bump.)*
 
 # Appendix A. Records of Changes
 
@@ -3278,6 +3378,7 @@ The FIFO depth of the two RPs are identical.
 | v0.1 | 2025/08/20 | Soyoung Min, Jaeyun Lee, Hojun Lee | Kwanho Kim | Initial version. |
 | v0.2 | 2025/09/19 | Soyoung Min, Jaeyun Lee, Hojun Lee | Kwanho Kim | 256, 512, 1024 datawidth verification finished. Early response feature added. |
 |      | 2026/04/09 | Brad Erwin | | Expand explanation of early response feature |
+|      | 2026/04/22 | Tenstorrent | | Refresh with 128B FDI support documentation. New `FDI_CONFIG` parameter (single integer with named constants in `RTL/packet_def_pkg.sv`). FDI ports renamed from `_32B`/`_64B` to `_0`/`_1`; second-PHY ports and `I_PHY_TYPE` are gated by the `+define+TWO_PHY` build flag. New `AOU_TOP` wrapper introduced (adds `AOU_FDI_BRINGUP_CTRL` for turn-key FDI bringup). New `RX_*_FIFO_RS_EN` parameters control per-channel RX-FIFO output register-slices. `RP*_RX_W_FIFO_DEPTH` / `RP*_RX_R_FIFO_DEPTH` defaults are now FDI-config aware (140 entries for 1024b configurations, 88 otherwise). `RP_COUNT` default changed from 2 to 1. |
 
 *Table 11. Record of Changes*
 
@@ -3286,6 +3387,6 @@ The FIFO depth of the two RPs are identical.
 <a id="table-12"></a>
 | Document Name     | Document Location and/or URL      | Issuance Date  |
 |-------------------|-----------------------------------|----------------|
-| <Document Name> | < Document Location and/or URL> | <MM/DD/YYYY> |
+| AXI-over-UCIe (AoU) Specification, Revision 0.7 | [https://openchipletatlas.org](https://openchipletatlas.org) | 2025 |
 
 *Table 12. Referenced Documents*

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // *****************************************************************************
 //  Copyright (c) 2026 BOS Semiconductors
+//  Copyright (c) 2026 Tenstorrent USA Inc
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -44,7 +45,7 @@ module AOU_SYNC_FIFO_NS1M
     input    [ICH_CNT -1:0]                 I_SVALID,
     input    [ICH_CNT -1:0][FIFO_WIDTH-1:0] I_SDATA,
     output                                  O_SREADY,
-    
+
     input                                   I_MREADY,
     output   [FIFO_WIDTH-1:0]               O_MDATA,
     output                                  O_MVALID,
@@ -74,14 +75,20 @@ always_comb begin
 
     for (idx_write_req = 0; idx_write_req < ICH_CNT; idx_write_req = idx_write_req + 1) begin
         if (I_SVALID[idx_write_req] == 1'b1) begin
-            w_nxt_fifo_data[w_write_req_cnt[ICH_WD-1:0]] = I_SDATA[idx_write_req]; 
+            w_nxt_fifo_data[w_write_req_cnt[ICH_WD-1:0]] = I_SDATA[idx_write_req];
             w_nxt_wr_ptr[w_write_req_cnt[ICH_WD-1:0]] = (r_wr_ptr + w_write_req_cnt >= FIFO_DEPTH) ? (r_wr_ptr + w_write_req_cnt - FIFO_DEPTH) : (r_wr_ptr + w_write_req_cnt);
             w_write_req_cnt = w_write_req_cnt + 1;
         end
     end
 end
 
-//for write 
+//for write
+//
+// The write port is expressed as a per-entry mux/enable network so that the
+// indexed select r_fifo[w_nxt_wr_ptr[i]] never appears with an out-of-range
+// address when FIFO_DEPTH is not a power of two. This avoids X don't-care
+// injection that would otherwise expand into a large set of LEC "E" key
+// points (with the associated runtime / abort cost).
 integer i;
 always_ff @ (posedge I_CLK or negedge I_RESETN) begin
     if (~I_RESETN) begin
@@ -92,12 +99,17 @@ always_ff @ (posedge I_CLK or negedge I_RESETN) begin
         r_ex_wr_ptr <= 0;
     end else begin
         if (|I_SVALID & O_SREADY ) begin
-            for (i = 0; i < ICH_CNT; i = i+1) begin
-                if(i < w_write_req_cnt) r_fifo[w_nxt_wr_ptr[i][AW-1:0]] <= w_nxt_fifo_data[i];
+            for (int j = 0; j < FIFO_DEPTH; j = j+1) begin
+                for (int wi = 0; wi < ICH_CNT; wi = wi+1) begin
+                    if ((wi < w_write_req_cnt) &&
+                        (w_nxt_wr_ptr[wi][AW-1:0] == j[AW-1:0])) begin
+                        r_fifo[j] <= w_nxt_fifo_data[wi];
+                    end
+                end
             end
             r_wr_ptr <= (r_wr_ptr + w_write_req_cnt >= FIFO_DEPTH) ? (r_wr_ptr + w_write_req_cnt - FIFO_DEPTH) : (r_wr_ptr + w_write_req_cnt);
             r_ex_wr_ptr <= (r_wr_ptr + w_write_req_cnt >= FIFO_DEPTH) ?  ~r_ex_wr_ptr : r_ex_wr_ptr;
-        end 
+        end
     end
 end
 
@@ -133,8 +145,21 @@ assign O_M_DATA_CNT = r_data_cnt;
 
 assign O_SREADY = (ALWAYS_READY == 1) ? 1'b1 : (O_S_EMPTY_CNT >= ICH_CNT) ;
 
-assign O_MVALID = ~((r_wr_ptr == r_rd_ptr) & (r_ex_wr_ptr == r_ex_rd_ptr)); 
-assign O_MDATA = r_fifo[r_rd_ptr];
+assign O_MVALID = ~((r_wr_ptr == r_rd_ptr) & (r_ex_wr_ptr == r_ex_rd_ptr));
+
+// Read mux is built as an explicit one-hot select over the reachable index
+// range [0, FIFO_DEPTH-1] so that pointer values in the unreachable range
+// [FIFO_DEPTH, 2**AW-1] -- which the wrap arithmetic above guarantees never
+// occur -- do not introduce out-of-range X don't-cares. Same motivation as
+// the write port above: keeps LEC clean of redundant "E" key points.
+logic [FIFO_WIDTH-1:0] w_rd_data;
+always_comb begin
+    w_rd_data = '0;
+    for (int j = 0; j < FIFO_DEPTH; j = j+1) begin
+        if (r_rd_ptr == j[AW-1:0]) w_rd_data = r_fifo[j];
+    end
+end
+assign O_MDATA = w_rd_data;
 
 endmodule
 

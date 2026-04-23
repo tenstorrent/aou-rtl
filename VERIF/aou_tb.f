@@ -1,11 +1,32 @@
-// =============================================================================
+// *****************************************************************************
+// SPDX-License-Identifier: Apache-2.0
+// *****************************************************************************
+//  Copyright (c) 2026 Tenstorrent USA Inc
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// *****************************************************************************
 // AOU_CORE_TOP AXI VIP Testbench -- File List
 // All paths relative to the VERIF/ directory
 // =============================================================================
-+define+TWO_PHY
-+define+FDI_32B
-+define+FDI_64B
-//+define+FDI_128B
+// FDI data widths are now SystemVerilog parameters (FDI_IF_WD0 / FDI_IF_WD1)
+// on AOU_CORE_TOP and AOU_TOP. The +define+FDI_32B / FDI_64B / FDI_128B
+// preprocessor switches have been removed; aou_tb.sv overrides the
+// parameters on each DUT instance.
+//
+// TWO_PHY is intentionally NOT defined here: the parameter-refactor scope is
+// single-PHY only. AOU_TOP and AOU_CORE_TOP both wrap the second-PHY ports
+// and the I_PHY_TYPE port in `ifdef TWO_PHY` so the single-PHY build does
+// not require it. TWO_PHY enablement is tracked in a separate change.
 
 // Include paths
 +incdir+axi_vip/include
@@ -84,6 +105,8 @@ axi_vip/src/axi_sim_mem.sv
 ../RTL/AOU_CORE_RP.sv
 ../RTL/AOU_CORE.sv
 ../RTL/AOU_CORE_TOP.sv
+../RTL/AOU_FDI_BRINGUP_CTRL.sv
+../RTL/AOU_TOP.sv
 
 // FDI flit decoder (must precede testbench)
 decoder/fdi_flit_decoder.sv

@@ -12,6 +12,10 @@
 #   - Implicit net declarations (IMPLICIT)
 #   - Incomplete case statements (CASEINCOMPLETE)
 #
+# Scope: AOU_TOP (the turnkey FDI bringup wrapper around AOU_CORE_TOP).
+# The single-PHY parameter configuration is exercised; TWO_PHY ports are
+# gated by `ifdef TWO_PHY` and excluded from this build.
+#
 # Usage:  bash scripts/run_lint.sh
 #         (run from the repository root)
 #

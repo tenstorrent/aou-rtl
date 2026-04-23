@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // *****************************************************************************
 //  Copyright (c) 2026 BOS Semiconductors
+//  Copyright (c) 2026 Tenstorrent USA Inc
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -25,7 +26,7 @@
 
 `timescale 1ns/1ps
 
-import packet_def_pkg::*; 
+import packet_def_pkg::*;
 module AOU_TX_CORE
 
 #(
@@ -33,7 +34,7 @@ module AOU_TX_CORE
     parameter   RP0_AXI_DATA_WD     = 512,
     parameter   RP1_AXI_DATA_WD     = 512,
     parameter   RP2_AXI_DATA_WD     = 512,
-    parameter   RP3_AXI_DATA_WD     = 512, 
+    parameter   RP3_AXI_DATA_WD     = 512,
     parameter   MAX_AXI_DATA_WD     = 1024,
     parameter   AXI_ADDR_WD         = 64,
     parameter   AXI_ID_WD           = 10,
@@ -84,7 +85,7 @@ module AOU_TX_CORE
     localparam  AOU_TX_R_FIFO_DEPTH   = 2,
     localparam  AOU_MISC_FIFO_DEPTH   = 2
 )
-( 
+(
     input  logic                                                I_CLK,
     input  logic                                                I_RESETN,
 
@@ -101,7 +102,7 @@ module AOU_TX_CORE
     input  logic    [RP_CNT-1:0][2:0]                           I_AOU_TX_AXI_AWPROT,
     input  logic    [RP_CNT-1:0][3:0]                           I_AOU_TX_AXI_AWQOS,
     input  logic    [RP_CNT-1:0]                                I_AOU_TX_AXI_AWVALID,
-    output logic    [RP_CNT-1:0]                                O_AOU_TX_AXI_AWREADY,      
+    output logic    [RP_CNT-1:0]                                O_AOU_TX_AXI_AWREADY,
 
     input  logic    [RP_CNT-1:0][MAX_AXI_DATA_WD-1:0]           I_AOU_TX_AXI_WDATA,
     input  logic    [RP_CNT-1:0][MAX_AXI_STRB_WD-1:0]           I_AOU_TX_AXI_WSTRB,
@@ -197,7 +198,7 @@ module AOU_TX_CORE
 
     //Interface for TX Credit - transaction valid
     output logic    [RP_CNT-1:0]                                O_AOU_TX_WREQVALID,
-    output logic    [RP_CNT-1:0]                                O_AOU_TX_RREQVALID, 
+    output logic    [RP_CNT-1:0]                                O_AOU_TX_RREQVALID,
     output logic    [RP_CNT-1:0]                                O_AOU_TX_WDATAVALID,
     output logic    [RP_CNT-1:0]                                O_AOU_TX_WFDATA,
     output logic    [RP_CNT-1:0]                                O_AOU_TX_RDATAVALID,
@@ -208,7 +209,7 @@ module AOU_TX_CORE
     input  logic                                                I_AOU_WRITEFULL_MSGTYPE_EN,
 
     input  logic    [7:0]                                       I_AOU_TX_LP_MODE_THRESHOLD,
-    input  logic                                                I_AOU_TX_LP_MODE,           
+    input  logic                                                I_AOU_TX_LP_MODE,
 
     //Interface for FDI
     input  logic                                                I_FDI_PL_TRDY_0,
@@ -226,43 +227,32 @@ module AOU_TX_CORE
 
     input  logic                                                I_STATUS_DISABLED,
     input  logic [3:0][1:0]                                     I_RP_DEST_RP,
-    input  logic [3:0]                                          I_PRIOR_RP_AXI_AXI_QOS_TO_NP,    
-    input  logic [3:0]                                          I_PRIOR_RP_AXI_AXI_QOS_TO_HP,    
-    input  logic [1:0]                                          I_PRIOR_RP_AXI_RP3_PRIOR,    
-    input  logic [1:0]                                          I_PRIOR_RP_AXI_RP2_PRIOR,    
-    input  logic [1:0]                                          I_PRIOR_RP_AXI_RP1_PRIOR,    
-    input  logic [1:0]                                          I_PRIOR_RP_AXI_RP0_PRIOR,    
-    input  logic [1:0]                                          I_PRIOR_RP_AXI_ARB_MODE,    
-    input  logic [15:0]                                         I_PRIOR_TIMER_TIMER_RESOLUTION,    
-    input  logic [15:0]                                         I_PRIOR_TIMER_TIMER_THRESHOLD       
+    input  logic [3:0]                                          I_PRIOR_RP_AXI_AXI_QOS_TO_NP,
+    input  logic [3:0]                                          I_PRIOR_RP_AXI_AXI_QOS_TO_HP,
+    input  logic [1:0]                                          I_PRIOR_RP_AXI_RP3_PRIOR,
+    input  logic [1:0]                                          I_PRIOR_RP_AXI_RP2_PRIOR,
+    input  logic [1:0]                                          I_PRIOR_RP_AXI_RP1_PRIOR,
+    input  logic [1:0]                                          I_PRIOR_RP_AXI_RP0_PRIOR,
+    input  logic [1:0]                                          I_PRIOR_RP_AXI_ARB_MODE,
+    input  logic [15:0]                                         I_PRIOR_TIMER_TIMER_RESOLUTION,
+    input  logic [15:0]                                         I_PRIOR_TIMER_TIMER_THRESHOLD
 
 );
-`ifdef FDI_128B
-    `define AOU_FDI_PACK_2STEP
-    localparam int FLIT_PACK_STATE_W = 1;
-    localparam int FLIT_PACK_GRANULE_CNT = 24;
-    localparam logic FLIT_LAST_PACK_STATE = 1'b1;
-`elsif FDI_64B
-    `define AOU_FDI_PACK_4STEP
-    localparam int FLIT_PACK_STATE_W = 2;
-    localparam int FLIT_PACK_GRANULE_CNT = 12;
-    localparam logic [1:0] FLIT_LAST_PACK_STATE = 2'b11;
-`elsif FDI_32B
-    `define AOU_FDI_PACK_4STEP
-    localparam int FLIT_PACK_STATE_W = 2;
-    localparam int FLIT_PACK_GRANULE_CNT = 12;
-    localparam logic [1:0] FLIT_LAST_PACK_STATE = 2'b11;
-`else
-    `define AOU_FDI_PACK_4STEP
-    localparam int FLIT_PACK_STATE_W = 2;
-    localparam int FLIT_PACK_GRANULE_CNT = 12;
-    localparam logic [1:0] FLIT_LAST_PACK_STATE = 2'b11;
-`endif
+// Flit-packing parameters derived from FDI data width.
+//   "Active" width for packing = max(FDI_IF_WD0, FDI_IF_WD1) so both
+//   single-PHY (WD1 defaults to 512) and two-PHY configurations select the
+//   same packing pipeline depth as the original FDI_*B defines:
+//     FDI_PACK_WD == 1024 -> 2-step pack (half-flit at a time, 24 granules)
+//     FDI_PACK_WD <= 512  -> 4-step pack (quarter-flit at a time, 12 granules)
+localparam int FDI_PACK_WD           = (FDI_IF_WD0 > FDI_IF_WD1) ? FDI_IF_WD0 : FDI_IF_WD1;
+localparam int FLIT_PACK_STATE_W     = (FDI_PACK_WD == 1024) ? 1 : 2;
+localparam int FLIT_PACK_GRANULE_CNT = (FDI_PACK_WD == 1024) ? 24 : 12;
+localparam logic [FLIT_PACK_STATE_W-1:0] FLIT_LAST_PACK_STATE = {FLIT_PACK_STATE_W{1'b1}};
 
 localparam RP0_NO_STRB_W_G_SIZE  = (RP0_AXI_DATA_WD == 256) ? WF256b_G  :
                                     (RP0_AXI_DATA_WD == 512) ? WF512b_G  :
                                     (RP0_AXI_DATA_WD == 1024)? WF1024b_G : 0;
-                            
+
 localparam RP0_W_G_SIZE          = (RP0_AXI_DATA_WD == 256) ? W256b_G  :
                                     (RP0_AXI_DATA_WD == 512) ? W512b_G  :
                                     (RP0_AXI_DATA_WD == 1024)? W1024b_G : 0;
@@ -270,7 +260,7 @@ localparam RP0_W_G_SIZE          = (RP0_AXI_DATA_WD == 256) ? W256b_G  :
 localparam RP1_NO_STRB_W_G_SIZE  = (RP1_AXI_DATA_WD == 256) ? WF256b_G  :
                                     (RP1_AXI_DATA_WD == 512) ? WF512b_G  :
                                     (RP1_AXI_DATA_WD == 1024)? WF1024b_G : 0;
-                            
+
 localparam RP1_W_G_SIZE          = (RP1_AXI_DATA_WD == 256) ? W256b_G  :
                                     (RP1_AXI_DATA_WD == 512) ? W512b_G  :
                                     (RP1_AXI_DATA_WD == 1024)? W1024b_G : 0;
@@ -278,7 +268,7 @@ localparam RP1_W_G_SIZE          = (RP1_AXI_DATA_WD == 256) ? W256b_G  :
 localparam RP2_NO_STRB_W_G_SIZE  = (RP2_AXI_DATA_WD == 256) ? WF256b_G  :
                                     (RP2_AXI_DATA_WD == 512) ? WF512b_G  :
                                     (RP2_AXI_DATA_WD == 1024)? WF1024b_G : 0;
-                            
+
 localparam RP2_W_G_SIZE          = (RP2_AXI_DATA_WD == 256) ? W256b_G  :
                                     (RP2_AXI_DATA_WD == 512) ? W512b_G  :
                                     (RP2_AXI_DATA_WD == 1024)? W1024b_G : 0;
@@ -286,15 +276,15 @@ localparam RP2_W_G_SIZE          = (RP2_AXI_DATA_WD == 256) ? W256b_G  :
 localparam RP3_NO_STRB_W_G_SIZE  = (RP3_AXI_DATA_WD == 256) ? WF256b_G  :
                                     (RP3_AXI_DATA_WD == 512) ? WF512b_G  :
                                     (RP3_AXI_DATA_WD == 1024)? WF1024b_G : 0;
-                            
+
 localparam RP3_W_G_SIZE          = (RP3_AXI_DATA_WD == 256) ? W256b_G  :
                                     (RP3_AXI_DATA_WD == 512) ? W512b_G  :
-                                    (RP3_AXI_DATA_WD == 1024)? W1024b_G : 0;     
+                                    (RP3_AXI_DATA_WD == 1024)? W1024b_G : 0;
 
 localparam int RP_AXI_DATA_WD [4] = '{RP0_AXI_DATA_WD, RP1_AXI_DATA_WD, RP2_AXI_DATA_WD, RP3_AXI_DATA_WD};
 localparam int RP_AXI_STRB_WD [4] = '{RP0_AXI_STRB_WD, RP1_AXI_STRB_WD, RP2_AXI_STRB_WD, RP3_AXI_STRB_WD};
 localparam int RP_W_G_SIZE [4] = '{RP0_W_G_SIZE, RP1_W_G_SIZE, RP2_W_G_SIZE, RP3_W_G_SIZE};
-localparam int RP_NO_STRB_W_G_SIZE [4] = '{RP0_NO_STRB_W_G_SIZE, RP1_NO_STRB_W_G_SIZE, RP2_NO_STRB_W_G_SIZE, RP3_NO_STRB_W_G_SIZE};                     
+localparam int RP_NO_STRB_W_G_SIZE [4] = '{RP0_NO_STRB_W_G_SIZE, RP1_NO_STRB_W_G_SIZE, RP2_NO_STRB_W_G_SIZE, RP3_NO_STRB_W_G_SIZE};
 
 localparam RING_DEPTH = 128;
 localparam RING_CNT   = $clog2(RING_DEPTH+1);
@@ -310,7 +300,7 @@ logic   [3:0]                   w_aou_fifo_awcache;
 logic   [2:0]                   w_aou_fifo_awprot;
 logic   [3:0]                   w_aou_fifo_awqos;
 logic                           w_aou_fifo_awvalid;
-logic                           w_aou_fifo_awready; 
+logic                           w_aou_fifo_awready;
 
 logic   [MAX_AXI_DATA_WD-1:0]   w_aou_fifo_wdata;
 logic   [MAX_AXI_STRB_WD-1:0]   w_aou_fifo_wstrb;
@@ -359,9 +349,9 @@ logic                           w_aou_tx_axi_hs;
 integer unsigned i, j;
 
 logic   w_aou_fifo_ar_hs;
-logic   w_aou_fifo_aw_hs; 
-logic   w_aou_fifo_w_hs;  
-logic   w_aou_fifo_b_hs;  
+logic   w_aou_fifo_aw_hs;
+logic   w_aou_fifo_w_hs;
+logic   w_aou_fifo_b_hs;
 logic   w_aou_fifo_r_hs;
 logic   w_aou_fifo_misc_crd_hs;
 logic   w_aou_fifo_misc_act_hs;
@@ -491,7 +481,7 @@ end
 assign w_ring_buffer_ready = (((r_cur_granule_start - r_cur_flit_for_fifo_start) & 8'b1111_1111 ) < (128 - (AW_G + w_wdata_granule_size + B_G + AR_G + w_rdata_granule_size) ));
 
 assign w_aou_fifo_awready   = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
-assign w_aou_fifo_wready    = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready; 
+assign w_aou_fifo_wready    = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
 assign w_aou_fifo_bready    = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
 assign w_aou_fifo_arready   = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
 assign w_aou_fifo_rready    = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
@@ -518,7 +508,7 @@ AOU_TX_AXI_BUFFER
     .AXI_ADDR_WD             ( AXI_ADDR_WD           ),
     .AXI_ID_WD               ( AXI_ID_WD             ),
     .AXI_LEN_WD              ( AXI_LEN_WD            ),
-    .MAX_AXI_DATA_WD         ( MAX_AXI_DATA_WD       ), 
+    .MAX_AXI_DATA_WD         ( MAX_AXI_DATA_WD       ),
 
     .AXI_AW_FIFO_DEPTH       ( AOU_TX_AW_FIFO_DEPTH  ),
     .AXI_W_FIFO_DEPTH        ( AOU_TX_W_FIFO_DEPTH   ),
@@ -526,31 +516,31 @@ AOU_TX_AXI_BUFFER
     .AXI_AR_FIFO_DEPTH       ( AOU_TX_AR_FIFO_DEPTH  ),
     .AXI_R_FIFO_DEPTH        ( AOU_TX_R_FIFO_DEPTH   ),
 
-    .CNT_RP0_AW_MAX_CREDIT   ( CNT_RP0_AW_MAX_CREDIT ),   
-    .CNT_RP0_W_MAX_CREDIT    ( CNT_RP0_W_MAX_CREDIT  ),   
-    .CNT_RP0_B_MAX_CREDIT    ( CNT_RP0_B_MAX_CREDIT  ),   
-    .CNT_RP0_AR_MAX_CREDIT   ( CNT_RP0_AR_MAX_CREDIT ),   
-    .CNT_RP0_R_MAX_CREDIT    ( CNT_RP0_R_MAX_CREDIT  ),   
-                                                   
-    .CNT_RP1_AW_MAX_CREDIT   ( CNT_RP1_AW_MAX_CREDIT ),   
-    .CNT_RP1_W_MAX_CREDIT    ( CNT_RP1_W_MAX_CREDIT  ),   
-    .CNT_RP1_B_MAX_CREDIT    ( CNT_RP1_B_MAX_CREDIT  ),   
-    .CNT_RP1_AR_MAX_CREDIT   ( CNT_RP1_AR_MAX_CREDIT ),   
-    .CNT_RP1_R_MAX_CREDIT    ( CNT_RP1_R_MAX_CREDIT  ),   
-                                                   
-    .CNT_RP2_AW_MAX_CREDIT   ( CNT_RP2_AW_MAX_CREDIT ),   
-    .CNT_RP2_W_MAX_CREDIT    ( CNT_RP2_W_MAX_CREDIT  ),   
-    .CNT_RP2_B_MAX_CREDIT    ( CNT_RP2_B_MAX_CREDIT  ),   
-    .CNT_RP2_AR_MAX_CREDIT   ( CNT_RP2_AR_MAX_CREDIT ),   
-    .CNT_RP2_R_MAX_CREDIT    ( CNT_RP2_R_MAX_CREDIT  ),   
-                                                   
-    .CNT_RP3_AW_MAX_CREDIT   ( CNT_RP3_AW_MAX_CREDIT ),   
-    .CNT_RP3_W_MAX_CREDIT    ( CNT_RP3_W_MAX_CREDIT  ),   
-    .CNT_RP3_B_MAX_CREDIT    ( CNT_RP3_B_MAX_CREDIT  ),   
-    .CNT_RP3_AR_MAX_CREDIT   ( CNT_RP3_AR_MAX_CREDIT ),   
-    .CNT_RP3_R_MAX_CREDIT    ( CNT_RP3_R_MAX_CREDIT  )   
+    .CNT_RP0_AW_MAX_CREDIT   ( CNT_RP0_AW_MAX_CREDIT ),
+    .CNT_RP0_W_MAX_CREDIT    ( CNT_RP0_W_MAX_CREDIT  ),
+    .CNT_RP0_B_MAX_CREDIT    ( CNT_RP0_B_MAX_CREDIT  ),
+    .CNT_RP0_AR_MAX_CREDIT   ( CNT_RP0_AR_MAX_CREDIT ),
+    .CNT_RP0_R_MAX_CREDIT    ( CNT_RP0_R_MAX_CREDIT  ),
+
+    .CNT_RP1_AW_MAX_CREDIT   ( CNT_RP1_AW_MAX_CREDIT ),
+    .CNT_RP1_W_MAX_CREDIT    ( CNT_RP1_W_MAX_CREDIT  ),
+    .CNT_RP1_B_MAX_CREDIT    ( CNT_RP1_B_MAX_CREDIT  ),
+    .CNT_RP1_AR_MAX_CREDIT   ( CNT_RP1_AR_MAX_CREDIT ),
+    .CNT_RP1_R_MAX_CREDIT    ( CNT_RP1_R_MAX_CREDIT  ),
+
+    .CNT_RP2_AW_MAX_CREDIT   ( CNT_RP2_AW_MAX_CREDIT ),
+    .CNT_RP2_W_MAX_CREDIT    ( CNT_RP2_W_MAX_CREDIT  ),
+    .CNT_RP2_B_MAX_CREDIT    ( CNT_RP2_B_MAX_CREDIT  ),
+    .CNT_RP2_AR_MAX_CREDIT   ( CNT_RP2_AR_MAX_CREDIT ),
+    .CNT_RP2_R_MAX_CREDIT    ( CNT_RP2_R_MAX_CREDIT  ),
+
+    .CNT_RP3_AW_MAX_CREDIT   ( CNT_RP3_AW_MAX_CREDIT ),
+    .CNT_RP3_W_MAX_CREDIT    ( CNT_RP3_W_MAX_CREDIT  ),
+    .CNT_RP3_B_MAX_CREDIT    ( CNT_RP3_B_MAX_CREDIT  ),
+    .CNT_RP3_AR_MAX_CREDIT   ( CNT_RP3_AR_MAX_CREDIT ),
+    .CNT_RP3_R_MAX_CREDIT    ( CNT_RP3_R_MAX_CREDIT  )
 ) u_aou_tx_axi_buffer
-( 
+(
     .I_CLK                                  ( I_CLK                         ),
     .I_RESETN                               ( I_RESETN                      ),
 
@@ -565,7 +555,7 @@ AOU_TX_AXI_BUFFER
     .I_AOU_TX_S_AXI_AWPROT                  ( I_AOU_TX_AXI_AWPROT           ),
     .I_AOU_TX_S_AXI_AWQOS                   ( I_AOU_TX_AXI_AWQOS            ),
     .I_AOU_TX_S_AXI_AWVALID                 ( I_AOU_TX_AXI_AWVALID          ),
-    .O_AOU_TX_S_AXI_AWREADY                 ( O_AOU_TX_AXI_AWREADY          ),      
+    .O_AOU_TX_S_AXI_AWREADY                 ( O_AOU_TX_AXI_AWREADY          ),
 
     .I_AOU_TX_S_AXI_WDATA                   ( I_AOU_TX_AXI_WDATA            ),
     .I_AOU_TX_S_AXI_WSTRB                   ( I_AOU_TX_AXI_WSTRB            ),
@@ -624,7 +614,7 @@ AOU_TX_AXI_BUFFER
     .O_AOU_TX_M_AXI_BVALID                  ( w_aou_fifo_bvalid             ),
     .I_AOU_TX_M_AXI_BREADY                  ( w_aou_fifo_bready             ),
 
-    .O_AOU_TX_M_AXI_AR_MESSAGE              ( w_aou_tx_m_axi_ar_message     ), 
+    .O_AOU_TX_M_AXI_AR_MESSAGE              ( w_aou_tx_m_axi_ar_message     ),
     .O_AOU_TX_M_AXI_ARVALID                 ( w_aou_fifo_arvalid            ),
     .I_AOU_TX_M_AXI_ARREADY                 ( w_aou_fifo_arready            ),
 
@@ -646,20 +636,20 @@ AOU_TX_AXI_BUFFER
     .O_AOU_TX_RDATAVALID                    ( O_AOU_TX_RDATAVALID           ),
     .O_AOU_TX_RDATA_DLENGTH                 ( O_AOU_TX_RDATA_DLENGTH        ),
     .O_AOU_TX_WRESPVALID                    ( O_AOU_TX_WRESPVALID           ),
-    
+
     .I_RP_DEST_RP                           ( I_RP_DEST_RP                  ),
 
-    .I_PRIOR_RP_AXI_AXI_QOS_TO_NP           (I_PRIOR_RP_AXI_AXI_QOS_TO_NP    ), 
-    .I_PRIOR_RP_AXI_AXI_QOS_TO_HP           (I_PRIOR_RP_AXI_AXI_QOS_TO_HP    ), 
-    .I_PRIOR_RP_AXI_RP3_PRIOR               (I_PRIOR_RP_AXI_RP3_PRIOR        ), 
-    .I_PRIOR_RP_AXI_RP2_PRIOR               (I_PRIOR_RP_AXI_RP2_PRIOR        ), 
-    .I_PRIOR_RP_AXI_RP1_PRIOR               (I_PRIOR_RP_AXI_RP1_PRIOR        ), 
-    .I_PRIOR_RP_AXI_RP0_PRIOR               (I_PRIOR_RP_AXI_RP0_PRIOR        ), 
-    .I_PRIOR_RP_AXI_ARB_MODE                (I_PRIOR_RP_AXI_ARB_MODE         ), 
+    .I_PRIOR_RP_AXI_AXI_QOS_TO_NP           (I_PRIOR_RP_AXI_AXI_QOS_TO_NP    ),
+    .I_PRIOR_RP_AXI_AXI_QOS_TO_HP           (I_PRIOR_RP_AXI_AXI_QOS_TO_HP    ),
+    .I_PRIOR_RP_AXI_RP3_PRIOR               (I_PRIOR_RP_AXI_RP3_PRIOR        ),
+    .I_PRIOR_RP_AXI_RP2_PRIOR               (I_PRIOR_RP_AXI_RP2_PRIOR        ),
+    .I_PRIOR_RP_AXI_RP1_PRIOR               (I_PRIOR_RP_AXI_RP1_PRIOR        ),
+    .I_PRIOR_RP_AXI_RP0_PRIOR               (I_PRIOR_RP_AXI_RP0_PRIOR        ),
+    .I_PRIOR_RP_AXI_ARB_MODE                (I_PRIOR_RP_AXI_ARB_MODE         ),
     .I_PRIOR_TIMER_TIMER_RESOLUTION         (I_PRIOR_TIMER_TIMER_RESOLUTION  ),
     .I_PRIOR_TIMER_TIMER_THRESHOLD          (I_PRIOR_TIMER_TIMER_THRESHOLD   ),
 
-    .I_AOU_WRITEFULL_MSGTYPE_EN             (I_AOU_WRITEFULL_MSGTYPE_EN      ) 
+    .I_AOU_WRITEFULL_MSGTYPE_EN             (I_AOU_WRITEFULL_MSGTYPE_EN      )
 
 
 
@@ -668,7 +658,7 @@ AOU_TX_AXI_BUFFER
 AOU_SYNC_FIFO_REG
 #(
     .FIFO_WIDTH                     (56),
-    .FIFO_DEPTH                     (AOU_MISC_FIFO_DEPTH)        
+    .FIFO_DEPTH                     (AOU_MISC_FIFO_DEPTH)
 )
 u_aou_misc_crdtgrant_tx_fifo(
     .I_CLK                          (I_CLK),
@@ -683,7 +673,7 @@ u_aou_misc_crdtgrant_tx_fifo(
     .O_SREADY                       (O_AOU_CRDTGRANT_READY),
 
     .I_MREADY                       (w_misc_crdtgrant_fifo_ready),
-    .O_MDATA                        (w_misc_crdtgrant_payload),  
+    .O_MDATA                        (w_misc_crdtgrant_payload),
     .O_MVALID                       (w_misc_crdtgrant_fifo_valid),
 
     .O_EMPTY_CNT                    (),
@@ -694,7 +684,7 @@ u_aou_misc_crdtgrant_tx_fifo(
 AOU_SYNC_FIFO_REG
 #(
     .FIFO_WIDTH                     (4 + 1),
-    .FIFO_DEPTH                     (AOU_MISC_FIFO_DEPTH)        
+    .FIFO_DEPTH                     (AOU_MISC_FIFO_DEPTH)
 )
 u_misc_activate_fifo(
     .I_CLK                          (I_CLK),
@@ -705,7 +695,7 @@ u_misc_activate_fifo(
     .O_SREADY                       (O_AOU_ACTIVATION_READY),
 
     .I_MREADY                       (w_misc_activation_ready),
-    .O_MDATA                        ({w_misc_activation_op, w_misc_activation_prop_req}),  
+    .O_MDATA                        ({w_misc_activation_op, w_misc_activation_prop_req}),
     .O_MVALID                       (w_misc_activation_valid),
 
     .O_EMPTY_CNT                    (),
@@ -728,7 +718,7 @@ AOU_FWD_RS #(
     .I_RESETN        ( I_RESETN                     ),
 
     .I_SVALID        ( I_AOU_MSGCREDIT_CRED_VALID        ),
-    .I_SDATA         ( {I_AOU_MSGCREDIT_RP, I_AOU_MSGCREDIT_WRESPCRED, I_AOU_MSGCREDIT_RDATACRED, 
+    .I_SDATA         ( {I_AOU_MSGCREDIT_RP, I_AOU_MSGCREDIT_WRESPCRED, I_AOU_MSGCREDIT_RDATACRED,
                     I_AOU_MSGCREDIT_WDATACRED, I_AOU_MSGCREDIT_RREQCRED, I_AOU_MSGCREDIT_WREQCRED}),
     .O_SREADY        ( O_AOU_MSGCREDIT_CRED_READY        ),
 
@@ -801,13 +791,13 @@ always_ff @ (posedge I_CLK or negedge I_RESETN) begin
         r_msgstart_buffer <= nxt_msgstart_buffer ;
 
         r_cur_granule_start <= nxt_granule_start;
-        
+
     end
 end
 
 always_comb begin
-    nxt_granule_buffer = r_granule_buffer; 
-    nxt_msgstart_buffer = r_msgstart_buffer; 
+    nxt_granule_buffer = r_granule_buffer;
+    nxt_msgstart_buffer = r_msgstart_buffer;
 
     if (w_aou_fifo_aw_hs) begin
         for (int unsigned n=0; n < AW_G; n++) begin
@@ -828,7 +818,7 @@ always_comb begin
                     for (int unsigned n=0; n < RP_W_G_SIZE[i]; n++) begin
                         nxt_granule_buffer[add_idx(w_w_message_start_idx, n)] = w_writedata_message[n*40 +: 40];
                         nxt_msgstart_buffer[add_idx(w_w_message_start_idx, n)] = (n == 0);
-                    end  
+                    end
                 end
             end
         end
@@ -838,14 +828,14 @@ always_comb begin
         for (int unsigned n=0; n < B_G; n++) begin
             nxt_granule_buffer[add_idx(w_b_message_start_idx, n)] = w_writeresp_message[n*40 +: 40];
             nxt_msgstart_buffer[add_idx(w_b_message_start_idx, n)] = (n == 0);
-        end 
+        end
     end
 
     if (w_aou_fifo_ar_hs) begin
         for (int unsigned n=0; n < AR_G; n++) begin
             nxt_granule_buffer[add_idx(w_ar_message_start_idx, n)] = w_readreq_message[n*40 +: 40];
             nxt_msgstart_buffer[add_idx(w_ar_message_start_idx, n)] = (n == 0);
-        end 
+        end
     end
 
     if (w_aou_fifo_r_hs) begin
@@ -858,12 +848,12 @@ always_comb begin
             for (int unsigned n=0; n < R512b_G; n++) begin
                 nxt_granule_buffer[add_idx(w_r_message_start_idx, n)] = w_readdata512b_message[n*40 +: 40];
                 nxt_msgstart_buffer[add_idx(w_r_message_start_idx, n)] = (n == 0);
-            end 
+            end
         end else begin
             for (int unsigned n=0; n < R1024b_G; n++) begin
                 nxt_granule_buffer[add_idx(w_r_message_start_idx, n)] = w_readdata1024b_message[n*40 +: 40];
                 nxt_msgstart_buffer[add_idx(w_r_message_start_idx, n)] = (n == 0);
-            end         
+            end
         end
     end
 
@@ -871,14 +861,14 @@ always_comb begin
         for (int unsigned n=0; n < 2; n++) begin
             nxt_granule_buffer[add_idx(w_misc_crdt_start_idx, n)] = w_misc_crdtgrant_message[n*40 +: 40];
             nxt_msgstart_buffer[add_idx(w_misc_crdt_start_idx, n)] = (n == 0);
-        end 
+        end
     end
 
     if (w_aou_fifo_misc_act_hs) begin
         for (int unsigned n=0; n < 1; n++) begin
             nxt_granule_buffer[add_idx(w_misc_activate_start_idx, n)] = w_misc_activate_message[n*40 +: 40];
             nxt_msgstart_buffer[add_idx(w_misc_activate_start_idx, n)] = (n == 0);
-        end 
+        end
     end
 
 end
@@ -900,7 +890,7 @@ always_comb begin
         end else begin
             nxt_flit_for_fifo_start = r_cur_granule_start;
         end
-    end 
+    end
 end
 
 always_ff @ (posedge I_CLK or negedge I_RESETN) begin
@@ -942,23 +932,26 @@ end
 
 assign w_flit_fifo_valid_out_valid = (w_flit_fifo_valid_timeout == I_AOU_TX_LP_MODE_THRESHOLD);
 
-assign w_flit_fifo_valid = I_AOU_TX_LP_MODE ? (r_cur_granule_start != r_cur_flit_for_fifo_start) || (r_flit_packing_state != '0) ||  (r_tx_activation_valid && w_flit_fifo_valid_out_valid): 
+assign w_flit_fifo_valid = I_AOU_TX_LP_MODE ? (r_cur_granule_start != r_cur_flit_for_fifo_start) || (r_flit_packing_state != '0) ||  (r_tx_activation_valid && w_flit_fifo_valid_out_valid):
                                             (r_cur_granule_start != r_cur_flit_for_fifo_start) || (r_flit_packing_state != '0) || (r_tx_activation_valid);
 
 
-assign O_AOU_TX_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_aou_fifo_bvalid 
+assign O_AOU_TX_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_aou_fifo_bvalid
                         || w_aou_fifo_arvalid || w_aou_fifo_rvalid || (r_cur_granule_start != r_cur_flit_for_fifo_start) || w_aou_tx_axi_hs;
 
-assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_aou_fifo_bvalid || w_aou_fifo_arvalid || w_aou_fifo_rvalid 
+assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_aou_fifo_bvalid || w_aou_fifo_arvalid || w_aou_fifo_rvalid
                                 || w_aou_tx_axi_hs;
 
 
-`ifdef AOU_FDI_PACK_4STEP
+// Two parallel packing pipelines. Exactly one elaborates per config:
+//   FDI_PACK_WD == 1024 -> g_pack_2step (half-flit per cycle, 24 granules)
+//   otherwise           -> g_pack_4step (quarter-flit per cycle, 12 granules)
+generate if (FDI_PACK_WD != 1024) begin : g_pack_4step
     logic [64*8-1:0]    r_flit_fifo_data;
     logic [64*8-1:0]    w_flit_fifo_data;
     logic [16-1:0]      w_a_half_header;
     logic [16-1:0]      w_b_half_header;
-    
+
     always_ff @ (posedge I_CLK or negedge I_RESETN) begin
         if (!I_RESETN) begin
             r_flit_fifo_data <= 'd0;
@@ -966,13 +959,13 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
             r_flit_fifo_data <= w_flit_fifo_data;
         end
     end
-    
+
     always_comb begin
         //flit chunk
-    
+
         case (nxt_flit_packing_state)
             2'b00: begin
-                w_a_half_header[2*8-1:0] = 16'b0000_0000_1100_0000;  //flit header 
+                w_a_half_header[2*8-1:0] = 16'b0000_0000_1100_0000;  //flit header
             end
             2'b01: begin
                 w_a_half_header[0 +: 4] = 4'b0000; //RSVD
@@ -1000,7 +993,7 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
                 end
             end
         endcase
-    
+
         case (nxt_flit_packing_state)
             2'b00: begin
                 for (int unsigned n=0; n<12; n++) begin
@@ -1022,7 +1015,7 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
                     end else begin
                         w_b_half_header[4 + n +: 1] = 1'b0;
                     end
-                        
+
                 end
                 w_b_half_header[0 +: 4] = 4'b0000; //RSVD
             end
@@ -1031,10 +1024,10 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
                 w_b_half_header[0 +: 16] = 16'b0;
             end
         endcase
-        
+
         w_flit_fifo_data[0 +: 16] = w_a_half_header;
         w_flit_fifo_data[64 * 8 -1 -: 16] = w_b_half_header;
-    
+
         for (int unsigned n=0; n<12; n++) begin
             if (n < ((nxt_granule_start - nxt_flit_for_fifo_start ) & 8'b1111_1111 )) begin
                 w_flit_fifo_data[16 + 40*n +: 40] = nxt_granule_buffer[(nxt_flit_for_fifo_start + n) & (8'b0111_1111)];
@@ -1042,13 +1035,15 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
                 w_flit_fifo_data[16 + 40*n +: 40] = 40'b0;
             end
         end
-    
+
     end
-    
+
     assign w_aou_msgcredit_ready = w_flit_fifo_valid && w_flit_fifo_ready && (r_flit_packing_state == 2'b10);
-    
-   
+
+
     `ifdef TWO_PHY
+        // Two-PHY + 4-step packing (FDI_IF_WD0 = 256, FDI_IF_WD1 = 512):
+        //   out-mux splits flit across the two PHY streams, one REV_RS per PHY.
         logic                                w_fdi_pl_0_trdy;
         logic [FDI_IF_WD0-1:0]               w_fdi_lp_0_data;
         logic                                w_fdi_lp_0_valid;
@@ -1059,21 +1054,21 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
 
         AOU_TX_CORE_OUT_MUX #(
             .FDI_IF_WD           ( FDI_IF_WD1           )
-        ) u_aou_tx_core_out_mux_64b
+        ) u_aou_tx_core_out_mux
         (
             .I_CLK               ( I_CLK                ),
             .I_RESETN            ( I_RESETN             ),
-        
+
             .I_PHY_TYPE          ( I_PHY_TYPE           ),
-        
+
             .O_FDI_PL_TRDY       ( w_flit_fifo_ready    ),
             .I_FDI_LP_DATA       ( r_flit_fifo_data     ),
             .I_FDI_LP_VALID      ( w_flit_fifo_valid    ),
-        
+
             .I_FDI_PL_0_TRDY     ( w_fdi_pl_0_trdy      ),
             .O_FDI_LP_0_DATA     ( w_fdi_lp_0_data      ),
             .O_FDI_LP_0_VALID    ( w_fdi_lp_0_valid     ),
-        
+
             .I_FDI_PL_1_TRDY     ( w_fdi_pl_1_trdy      ),
             .O_FDI_LP_1_DATA     ( w_fdi_lp_1_data      ),
             .O_FDI_LP_1_VALID    ( w_fdi_lp_1_valid     )
@@ -1081,104 +1076,107 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
 
         AOU_REV_RS #(
             .DATA_WIDTH         (FDI_IF_WD0)
-        ) u_aou_tx_core_32b
+        ) u_aou_tx_core_phy0_rs
         (
             .I_CLK              ( I_CLK              ),
             .I_RESETN           ( I_RESETN           ),
-    
+
             .I_SVALID           ( w_fdi_lp_0_valid   ),
             .O_SREADY           ( w_fdi_pl_0_trdy    ),
             .I_SDATA            ( w_fdi_lp_0_data    ),
-    
+
             .O_MVALID           ( O_FDI_LP_VALID_0   ),
             .I_MREADY           ( I_FDI_PL_TRDY_0    ),
             .O_MDATA            ( O_FDI_LP_DATA_0    )
         );
-    
+
         AOU_REV_RS #(
             .DATA_WIDTH         (FDI_IF_WD1)
-        ) u_aou_tx_core_64b
+        ) u_aou_tx_core_phy1_rs
         (
             .I_CLK              ( I_CLK              ),
             .I_RESETN           ( I_RESETN           ),
-    
+
             .I_SVALID           ( w_fdi_lp_1_valid   ),
             .O_SREADY           ( w_fdi_pl_1_trdy    ),
             .I_SDATA            ( w_fdi_lp_1_data    ),
-    
+
             .O_MVALID           ( O_FDI_LP_VALID_1   ),
             .I_MREADY           ( I_FDI_PL_TRDY_1    ),
             .O_MDATA            ( O_FDI_LP_DATA_1    )
         );
-    `elsif FDI_32B
-        logic                                w_fdi_pl_0_trdy;
-        logic [FDI_IF_WD0-1:0]               w_fdi_lp_0_data;
-        logic                                w_fdi_lp_0_valid;
+    `else
+        // Single-PHY + 4-step packing. Two sub-cases:
+        //   FDI_IF_WD0 == 256 (FDI_32B): out-mux with PHY1 tied, one REV_RS
+        //   FDI_IF_WD0 == 512 (FDI_64B): direct REV_RS, no out-mux needed
+        if (FDI_IF_WD0 == 256) begin : g_sp_32b
+            logic                                w_fdi_pl_0_trdy;
+            logic [FDI_IF_WD0-1:0]               w_fdi_lp_0_data;
+            logic                                w_fdi_lp_0_valid;
 
-        AOU_TX_CORE_OUT_MUX #(
-            .FDI_IF_WD           ( FDI_IF_WD1           )
-        ) u_aou_tx_core_out_mux_64b
-        (
-            .I_CLK               ( I_CLK                ),
-            .I_RESETN            ( I_RESETN             ),
-        
-            .I_PHY_TYPE          ( 1'b0                 ),
-        
-            .O_FDI_PL_TRDY       ( w_flit_fifo_ready    ),
-            .I_FDI_LP_DATA       ( r_flit_fifo_data     ),
-            .I_FDI_LP_VALID      ( w_flit_fifo_valid    ),
-        
-            .I_FDI_PL_0_TRDY     ( w_fdi_pl_0_trdy      ),
-            .O_FDI_LP_0_DATA     ( w_fdi_lp_0_data      ),
-            .O_FDI_LP_0_VALID    ( w_fdi_lp_0_valid     ),
-        
-            .I_FDI_PL_1_TRDY     ( 1'b0                 ),
-            .O_FDI_LP_1_DATA     (                      ),
-            .O_FDI_LP_1_VALID    (                      )
-        );
-    
-        AOU_REV_RS #(
-            .DATA_WIDTH         (FDI_IF_WD0)
-        ) u_aou_tx_core_32b
-        (
-            .I_CLK              ( I_CLK                 ),
-            .I_RESETN           ( I_RESETN              ),
-    
-            .I_SVALID           ( w_fdi_lp_0_valid      ),
-            .O_SREADY           ( w_fdi_pl_0_trdy       ),
-            .I_SDATA            ( w_fdi_lp_0_data       ),
-    
-            .O_MVALID           ( O_FDI_LP_VALID_0      ),
-            .I_MREADY           ( I_FDI_PL_TRDY_0       ),
-            .O_MDATA            ( O_FDI_LP_DATA_0       )
-        );
-    
-    `elsif FDI_64B
-    
-        AOU_REV_RS #(
-            .DATA_WIDTH         (FDI_IF_WD0)
-        ) u_aou_tx_core_64b
-        (
-            .I_CLK              ( I_CLK                 ),
-            .I_RESETN           ( I_RESETN              ),
-    
-            .I_SVALID           ( w_flit_fifo_valid     ),
-            .O_SREADY           ( w_flit_fifo_ready     ),
-            .I_SDATA            ( r_flit_fifo_data      ),
-    
-            .O_MVALID           ( O_FDI_LP_VALID_0      ),
-            .I_MREADY           ( I_FDI_PL_TRDY_0       ),
-            .O_MDATA            ( O_FDI_LP_DATA_0       )
-        );
+            AOU_TX_CORE_OUT_MUX #(
+                .FDI_IF_WD           ( FDI_IF_WD1           )
+            ) u_aou_tx_core_out_mux
+            (
+                .I_CLK               ( I_CLK                ),
+                .I_RESETN            ( I_RESETN             ),
+
+                .I_PHY_TYPE          ( 1'b0                 ),
+
+                .O_FDI_PL_TRDY       ( w_flit_fifo_ready    ),
+                .I_FDI_LP_DATA       ( r_flit_fifo_data     ),
+                .I_FDI_LP_VALID      ( w_flit_fifo_valid    ),
+
+                .I_FDI_PL_0_TRDY     ( w_fdi_pl_0_trdy      ),
+                .O_FDI_LP_0_DATA     ( w_fdi_lp_0_data      ),
+                .O_FDI_LP_0_VALID    ( w_fdi_lp_0_valid     ),
+
+                .I_FDI_PL_1_TRDY     ( 1'b0                 ),
+                .O_FDI_LP_1_DATA     (                      ),
+                .O_FDI_LP_1_VALID    (                      )
+            );
+
+            AOU_REV_RS #(
+                .DATA_WIDTH         (FDI_IF_WD0)
+            ) u_aou_tx_core_phy0_rs
+            (
+                .I_CLK              ( I_CLK                 ),
+                .I_RESETN           ( I_RESETN              ),
+
+                .I_SVALID           ( w_fdi_lp_0_valid      ),
+                .O_SREADY           ( w_fdi_pl_0_trdy       ),
+                .I_SDATA            ( w_fdi_lp_0_data       ),
+
+                .O_MVALID           ( O_FDI_LP_VALID_0      ),
+                .I_MREADY           ( I_FDI_PL_TRDY_0       ),
+                .O_MDATA            ( O_FDI_LP_DATA_0       )
+            );
+        end else begin : g_sp_64b
+            AOU_REV_RS #(
+                .DATA_WIDTH         (FDI_IF_WD0)
+            ) u_aou_tx_core_phy0_rs
+            (
+                .I_CLK              ( I_CLK                 ),
+                .I_RESETN           ( I_RESETN              ),
+
+                .I_SVALID           ( w_flit_fifo_valid     ),
+                .O_SREADY           ( w_flit_fifo_ready     ),
+                .I_SDATA            ( r_flit_fifo_data      ),
+
+                .O_MVALID           ( O_FDI_LP_VALID_0      ),
+                .I_MREADY           ( I_FDI_PL_TRDY_0       ),
+                .O_MDATA            ( O_FDI_LP_DATA_0       )
+            );
+        end
     `endif
-    
 
-`elsif AOU_FDI_PACK_2STEP
+
+end else begin : g_pack_2step
     logic [64*8*2-1:0]    r_flit_fifo_data;
     logic [64*8*2-1:0]    w_flit_fifo_data;
     logic [16-1:0]      w_first_a_half_header, w_second_a_half_header;
     logic [16-1:0]      w_first_b_half_header, w_second_b_half_header;
-    
+
     always_ff @ (posedge I_CLK or negedge I_RESETN) begin
         if (!I_RESETN) begin
             r_flit_fifo_data <= 'd0;
@@ -1186,14 +1184,14 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
             r_flit_fifo_data <= w_flit_fifo_data;
         end
     end
-    
+
     always_comb begin
         //flit chunk
-    
+
         case (nxt_flit_packing_state)
             1'b0 : begin
-                w_first_a_half_header[2*8-1:0] = 16'b0000_0000_1100_0000;  //flit header 
-    
+                w_first_a_half_header[2*8-1:0] = 16'b0000_0000_1100_0000;  //flit header
+
                 w_second_a_half_header[0 +: 4] = 4'b0000; //RSVD
                 for (int unsigned n=0; n<12; n++) begin
                     if (n + 12< ((nxt_granule_start - nxt_flit_for_fifo_start) & 8'b1111_1111 )) begin
@@ -1206,7 +1204,7 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
             1'b1: begin
                 w_first_a_half_header[0 +: 16] = w_aou_msgcredit_valid ? {w_aou_rs_msgcredit_rp, w_aou_rs_msgcredit_wrespcred, w_aou_rs_msgcredit_rdatacred,
                                             w_aou_rs_msgcredit_wdatacred, w_aou_rs_msgcredit_rreqcred, w_aou_rs_msgcredit_wreqcred} : 16'b0;
-    
+
                 w_second_a_half_header[0+: 4] = 4'b0000; //RSVD
                 for (int unsigned n=0; n<12; n++) begin
                     if (n + 12 < ((nxt_granule_start - nxt_flit_for_fifo_start) & 8'b1111_1111 )) begin
@@ -1217,7 +1215,7 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
                 end
             end
         endcase
-    
+
         case (nxt_flit_packing_state)
             'b0: begin
                 for (int unsigned n=0; n<12; n++) begin
@@ -1228,7 +1226,7 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
                     end
                 end
                 w_first_b_half_header[0 +: 4] = 4'b0000; //RSVD
-    
+
                 w_second_b_half_header[0 +: 16] = 16'b0;
             end
             1'b1: begin
@@ -1238,20 +1236,20 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
                     end else begin
                         w_first_b_half_header[4 + n +: 1] = 1'b0;
                     end
-                        
+
                 end
                 w_first_b_half_header[0 +: 4] = 4'b0000; //RSVD
-    
+
                 w_second_b_half_header[0 +: 16] = 16'b0;
             end
         endcase
-        
+
         w_flit_fifo_data[0 +: 16] = w_first_a_half_header;
         w_flit_fifo_data[64 * 8 -1 -: 16] = w_first_b_half_header;
-    
+
         w_flit_fifo_data[512 +: 16] = w_second_a_half_header;
         w_flit_fifo_data[512 + 64 * 8 -1 -: 16] = w_second_b_half_header;
-    
+
         for (int unsigned n=0; n<12; n++) begin
             if (n < ((nxt_granule_start - nxt_flit_for_fifo_start ) & 8'b1111_1111 )) begin
                 w_flit_fifo_data[16 + 40*n +: 40] = nxt_granule_buffer[(nxt_flit_for_fifo_start + n) & (8'b0111_1111)];
@@ -1259,7 +1257,7 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
                 w_flit_fifo_data[16 + 40*n +: 40] = 40'b0;
             end
         end
-    
+
         for (int unsigned n=0; n<12; n++) begin
             if (n + 12 < ((nxt_granule_start - nxt_flit_for_fifo_start ) & 8'b1111_1111 )) begin
                 w_flit_fifo_data[512 + 16 + 40*n +: 40] = nxt_granule_buffer[(nxt_flit_for_fifo_start + n + 12) & (8'b0111_1111)];
@@ -1267,9 +1265,9 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
                 w_flit_fifo_data[512 + 16 + 40*n +: 40] = 40'b0;
             end
         end
-    
+
     end
-    
+
     assign w_aou_msgcredit_ready = w_flit_fifo_valid && w_flit_fifo_ready && (r_flit_packing_state == 1'b1);
 
     logic                                w_fdi_pl_0_trdy;
@@ -1281,81 +1279,80 @@ assign O_AOU_TX_AXI_TR_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_ao
         logic                                w_fdi_pl_1_trdy;
         logic [FDI_IF_WD1-1:0]               w_fdi_lp_1_data;
         logic                                w_fdi_lp_1_valid;
-    
+
         AOU_TX_CORE_OUT_MUX #(
             .FDI_IF_WD           ( FDI_IF_WD1        )
-        ) u_aou_tx_core_out_mux_128b
+        ) u_aou_tx_core_out_mux
         (
             .I_CLK               ( I_CLK             ),
             .I_RESETN            ( I_RESETN          ),
-        
+
             .I_PHY_TYPE          ( I_PHY_TYPE        ),
-        
+
             .O_FDI_PL_TRDY       ( w_flit_fifo_ready ),
             .I_FDI_LP_DATA       ( r_flit_fifo_data  ),
             .I_FDI_LP_VALID      ( w_flit_fifo_valid ),
-        
+
             .I_FDI_PL_0_TRDY     ( w_fdi_pl_0_trdy   ),
             .O_FDI_LP_0_DATA     ( w_fdi_lp_0_data   ),
             .O_FDI_LP_0_VALID    ( w_fdi_lp_0_valid  ),
-        
+
             .I_FDI_PL_1_TRDY     ( w_fdi_pl_1_trdy   ),
             .O_FDI_LP_1_DATA     ( w_fdi_lp_1_data   ),
             .O_FDI_LP_1_VALID    ( w_fdi_lp_1_valid  )
         );
-        
+
         AOU_REV_RS #(
             .DATA_WIDTH         (FDI_IF_WD0)
-        ) u_aou_tx_core_64b
+        ) u_aou_tx_core_phy0_rs
         (
             .I_CLK              ( I_CLK              ),
             .I_RESETN           ( I_RESETN           ),
-        
+
             .I_SVALID           ( w_fdi_lp_0_valid   ),
             .O_SREADY           ( w_fdi_pl_0_trdy    ),
             .I_SDATA            ( w_fdi_lp_0_data    ),
-        
+
             .O_MVALID           ( O_FDI_LP_VALID_0   ),
             .I_MREADY           ( I_FDI_PL_TRDY_0    ),
             .O_MDATA            ( O_FDI_LP_DATA_0    )
         );
-        
+
         AOU_REV_RS #(
             .DATA_WIDTH         (FDI_IF_WD1)
-        ) u_aou_tx_core_128b
+        ) u_aou_tx_core_phy1_rs
         (
             .I_CLK              ( I_CLK              ),
             .I_RESETN           ( I_RESETN           ),
-        
+
             .I_SVALID           ( w_fdi_lp_1_valid   ),
             .O_SREADY           ( w_fdi_pl_1_trdy    ),
             .I_SDATA            ( w_fdi_lp_1_data    ),
-        
+
             .O_MVALID           ( O_FDI_LP_VALID_1   ),
             .I_MREADY           ( I_FDI_PL_TRDY_1    ),
             .O_MDATA            ( O_FDI_LP_DATA_1    )
         );
     `else
+        // Single-PHY + 2-step packing (FDI_IF_WD0 = 1024): direct REV_RS.
         AOU_REV_RS #(
             .DATA_WIDTH         (FDI_IF_WD0)
-        ) u_aou_tx_core_128b
+        ) u_aou_tx_core_phy0_rs
         (
             .I_CLK              ( I_CLK                 ),
             .I_RESETN           ( I_RESETN              ),
-        
+
             .I_SVALID           ( w_flit_fifo_valid     ),
             .O_SREADY           ( w_flit_fifo_ready     ),
             .I_SDATA            ( r_flit_fifo_data      ),
-        
+
             .O_MVALID           ( O_FDI_LP_VALID_0      ),
             .I_MREADY           ( I_FDI_PL_TRDY_0       ),
             .O_MDATA            ( O_FDI_LP_DATA_0       )
         );
-        `endif
+    `endif
 
-`else
-
-`endif
+end endgenerate
 
 endmodule
 

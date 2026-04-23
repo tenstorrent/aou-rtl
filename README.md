@@ -2,7 +2,7 @@
 
 Open-source RTL implementation of the AXI-over-UCIe (AoU) protocol [[1]](#references), bridging AXI4 traffic [[3]](#references) over the Universal Chiplet Interconnect Express (UCIe) 3.0 Flit-Die Interface (FDI) [[2]](#references). This bridge enables native AXI transactions to traverse UCIe die-to-die interconnects, facilitating high-performance communication between heterogeneous chiplets in multi-die systems—such as CPUs, GPUs, AI accelerators, and custom IP blocks—without requiring protocol conversion through PCIe or CXL.
 
-The top-level module `AOU_CORE_TOP` provides AXI4 master and slave interfaces, an APB3 configuration port [[4]](#references), and 32B/64B FDI interfaces for integration into UCIe-based chiplet designs.
+Two top-level integration options are provided: `AOU_TOP` is a turn-key wrapper that includes an FDI bringup controller (`AOU_FDI_BRINGUP_CTRL`) for systems that want a self-contained UCIe FDI state machine, and `AOU_CORE_TOP` exposes the protocol engine directly for systems that already own the FDI bringup flow externally. Both top modules expose AXI4 master and slave interfaces, an APB3 configuration port [[4]](#references), and a parameterized FDI data plane: 32B / 64B / 128B FDI interfaces (single-PHY or two-PHY) selected via the `FDI_CONFIG` parameter for integration into UCIe-based chiplet designs.
 
 ## Directory Structure
 
@@ -12,7 +12,8 @@ RTL/                    Design source (SystemVerilog / Verilog)
   AXI4MUX_3X1/          AXI 3:1 mux / splitter / aggregator
 csr/                    SystemRDL register definitions
 DOC/                    Documentation
-  integration_guide/    AOU_CORE_TOP integration guide
+  integration_guide/    AOU_TOP / AOU_CORE_TOP integration guide
+  MAS/                  AOU_CORE micro-architecture specification
   csr/                  Generated register docs (Markdown, HTML, C header)
 INTEG/                  Integration collateral
   constraints/          SDC timing constraints and UPF power intent
@@ -51,7 +52,8 @@ See sections below for detailed documentation, integration guidance, and tool re
 
 ## Documentation
 
-- **[Integration Guide](DOC/integration_guide/AOU_CORE_TOP_integration_guide.md)** -- comprehensive guide covering module interfaces, register map, activation flow, debugging, verification, timing constraints, power intent, and library cell replacement.
+- **[Integration Guide](DOC/integration_guide/integration_guide.md)** -- comprehensive guide for `AOU_TOP` and `AOU_CORE_TOP` covering module interfaces, parameter list (including `FDI_CONFIG`), register map, activation flow, debugging, verification, timing constraints, power intent, and library cell replacement.
+- **[Micro-Architecture Specification](DOC/MAS/aou_core_mas.md)** -- AOU_CORE block-level architectural specification (datapaths, FIFO sizing, credit management, area, internal flows).
 - **[CSR Documentation](DOC/csr/README.md)** -- register map outputs (Markdown, C header, interactive HTML browser, IP-XACT, UVM model).
 - **Interactive HTML Register Browser** -- generated in `DOC/csr/html/` (see Tool Requirements below to generate).
 
@@ -85,12 +87,12 @@ This runs a dual-DUT FDI loopback simulation with AXI scoreboard-based data inte
 
 ## Integration
 
-For integrators bringing AOU_CORE_TOP into a chip design:
+For integrators bringing AOU_TOP or AOU_CORE_TOP into a chip design:
 
-- **[Integration Guide, Section 9](DOC/integration_guide/AOU_CORE_TOP_integration_guide.md#9-ip-integration-collateral)** covers all integration collateral: generated outputs, timing constraints (SDC), power intent (UPF), and library cell replacement guidance.
+- **[Integration Guide, Section 8](DOC/integration_guide/integration_guide.md#8-ip-integration-collateral)** covers all integration collateral: generated outputs, timing constraints (SDC), power intent (UPF), and library cell replacement guidance.
 - **Timing constraints**: `INTEG/constraints/aou_core_top.sdc` (1 GHz core, 100 MHz APB).
 - **Power intent**: `INTEG/constraints/aou_core_top.upf` (single always-on domain).
-- **Library cells** in `RTL/LIB/` are behavioral reference models that must be replaced with process-appropriate implementations before synthesis. See integration guide section 9.7 for details.
+- **Library cells** in `RTL/LIB/` are behavioral reference models that must be replaced with process-appropriate implementations before synthesis. See [integration guide Section 8.7](DOC/integration_guide/integration_guide.md#87-library-cell-replacement) for details.
 
 ## License
 

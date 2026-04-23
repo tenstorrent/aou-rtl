@@ -199,7 +199,11 @@ associated control/status signals listed in
 - Message packing and unpacking are handled in a unit of 64 bytes, corresponding to the
   FDI data width (64B@1 GHz).
 - Selectable Early response by setting SFR8
-- Selectable 32B and 64B FDI mode
+- Selectable 32B / 64B / 128B single-PHY and 32B+64B / 64B+128B two-PHY
+  FDI configurations via the `FDI_CONFIG` parameter (see
+  [Section 2](#2-parameter-list)). Two-PHY variants additionally require
+  the `+define+TWO_PHY` build flag so the second-PHY ports physically
+  exist.
 - Parameterized  number of Resource Plane and each RP’s AXI data width
 - RP Remapping
 - QoS scheme between RP with AW, W, AR channel
@@ -213,27 +217,33 @@ associated control/status signals listed in
 
 | Parameter | Type | Default / Note | Description |
 | :---- | :---- | :---- | :---- |
-| RP_COUNT | parameter | 2 | Number of receive ports (AXI M/S pairs). |
+| RP_COUNT | parameter | 1 | Number of receive ports (AXI M/S pairs). Parameterizable up to 4. |
+| FDI_CONFIG | parameter (int) | `FDI_CFG_SP_32B` | FDI width selector. See *FDI_CONFIG values* below. Two-PHY values additionally require `+define+TWO_PHY` at compile time. |
 | RP0_RX_AW_FIFO_DEPTH | parameter | 44 | RX AW FIFO depth for RP0. |
 | RP0_RX_AR_FIFO_DEPTH | parameter | 44 | RX AR FIFO depth for RP0. |
-| RP0_RX_W_FIFO_DEPTH | parameter | 88 | RX W FIFO depth for RP0. |
-| RP0_RX_R_FIFO_DEPTH | parameter | 88 | RX R FIFO depth for RP0. |
+| RP0_RX_W_FIFO_DEPTH | parameter | 88 / 140 | RX W FIFO depth for RP0. Default is 140 when `FDI_CONFIG` selects a 1024b interface (`FDI_CFG_SP_128B` / `FDI_CFG_TP_64B_128B`); 88 otherwise. |
+| RP0_RX_R_FIFO_DEPTH | parameter | 88 / 140 | RX R FIFO depth for RP0. Same FDI-aware default as `RP0_RX_W_FIFO_DEPTH`. |
 | RP0_RX_B_FIFO_DEPTH | parameter | 44 | RX B FIFO depth for RP0. |
 | RP1_RX_AW_FIFO_DEPTH | parameter | 44 | RX AW FIFO depth for RP1. |
 | RP1_RX_AR_FIFO_DEPTH | parameter | 44 | RX AR FIFO depth for RP1. |
-| RP1_RX_W_FIFO_DEPTH | parameter | 88 | RX W FIFO depth for RP1. |
-| RP1_RX_R_FIFO_DEPTH | parameter | 88 | RX R FIFO depth for RP1. |
+| RP1_RX_W_FIFO_DEPTH | parameter | 88 / 140 | RX W FIFO depth for RP1 (FDI-aware default; see RP0). |
+| RP1_RX_R_FIFO_DEPTH | parameter | 88 / 140 | RX R FIFO depth for RP1 (FDI-aware default; see RP0). |
 | RP1_RX_B_FIFO_DEPTH | parameter | 44 | RX B FIFO depth for RP1. |
 | RP2_RX_AW_FIFO_DEPTH | parameter | 44 | RX AW FIFO depth for RP2. |
 | RP2_RX_AR_FIFO_DEPTH | parameter | 44 | RX AR FIFO depth for RP2. |
-| RP2_RX_W_FIFO_DEPTH | parameter | 88 | RX W FIFO depth for RP2. |
-| RP2_RX_R_FIFO_DEPTH | parameter | 88 | RX R FIFO depth for RP2. |
+| RP2_RX_W_FIFO_DEPTH | parameter | 88 / 140 | RX W FIFO depth for RP2 (FDI-aware default; see RP0). |
+| RP2_RX_R_FIFO_DEPTH | parameter | 88 / 140 | RX R FIFO depth for RP2 (FDI-aware default; see RP0). |
 | RP2_RX_B_FIFO_DEPTH | parameter | 44 | RX B FIFO depth for RP2. |
 | RP3_RX_AW_FIFO_DEPTH | parameter | 44 | RX AW FIFO depth for RP3. |
 | RP3_RX_AR_FIFO_DEPTH | parameter | 44 | RX AR FIFO depth for RP3. |
-| RP3_RX_W_FIFO_DEPTH | parameter | 88 | RX W FIFO depth for RP3. |
-| RP3_RX_R_FIFO_DEPTH | parameter | 88 | RX R FIFO depth for RP3. |
+| RP3_RX_W_FIFO_DEPTH | parameter | 88 / 140 | RX W FIFO depth for RP3 (FDI-aware default; see RP0). |
+| RP3_RX_R_FIFO_DEPTH | parameter | 88 / 140 | RX R FIFO depth for RP3 (FDI-aware default; see RP0). |
 | RP3_RX_B_FIFO_DEPTH | parameter | 44 | RX B FIFO depth for RP3. |
+| RX_AW_FIFO_RS_EN | parameter | 1 | When 1, inserts an output register-slice on the RX AW FIFO read port. Trades latency (+1 cycle) for timing closure. |
+| RX_AR_FIFO_RS_EN | parameter | 1 | RX AR FIFO output register-slice enable (see `RX_AW_FIFO_RS_EN`). |
+| RX_W_FIFO_RS_EN | parameter | 1 | RX W FIFO output register-slice enable (see `RX_AW_FIFO_RS_EN`). |
+| RX_R_FIFO_RS_EN | parameter | 1 | RX R FIFO output register-slice enable (see `RX_AW_FIFO_RS_EN`). |
+| RX_B_FIFO_RS_EN | parameter | 1 | RX B FIFO output register-slice enable (see `RX_AW_FIFO_RS_EN`). |
 | RP0_AXI_DATA_WD | parameter | 512 | AXI data width for RP0 (bits). |
 | RP1_AXI_DATA_WD | parameter | 512 | AXI data width for RP1 (bits). |
 | RP2_AXI_DATA_WD | parameter | 512 | AXI data width for RP2 (bits). |
@@ -246,6 +256,42 @@ associated control/status signals listed in
 | M_RD_MO_CNT | parameter | 32 | Master read outstanding count. |
 | M_WR_MO_CNT | parameter | 32 | Master write outstanding count. |
 
+#### FDI_CONFIG values
+
+`FDI_CONFIG` is a single integer parameter that selects the FDI data
+width pair forwarded to the internal hierarchy. Named constants are
+declared in [`RTL/packet_def_pkg.sv`](../../RTL/packet_def_pkg.sv) and
+should be used at the instantiation site:
+
+| `FDI_CONFIG` value | PHY0 width (`FDI_IF_WD0`) | PHY1 width (`FDI_IF_WD1`) | PHY count | Build flag |
+| :---- | :---- | :---- | :---- | :---- |
+| `FDI_CFG_SP_32B` (default) | 256 | 512 (internal decode) | Single PHY | none |
+| `FDI_CFG_SP_64B` | 512 | 512 (internal decode) | Single PHY | none |
+| `FDI_CFG_SP_128B` | 1024 | 1024 (internal decode) | Single PHY | none |
+| `FDI_CFG_TP_32B_64B` | 256 | 512 | Two PHY | `+define+TWO_PHY` |
+| `FDI_CFG_TP_64B_128B` | 512 | 1024 | Two PHY | `+define+TWO_PHY` |
+
+Notes:
+
+- For single-PHY values, only the PHY0 ports
+  (`I_FDI_PL_0_*` / `O_FDI_LP_0_*`) carry traffic. The PHY1 internal
+  width is used only as the RX-side decode width.
+- The two-PHY values (`FDI_CFG_TP_*`) are valid **only** when the design
+  is built with `+define+TWO_PHY`. The build flag gates the physical
+  presence of the PHY1 ports (`I_FDI_PL_1_*`, `O_FDI_LP_1_*`) and the
+  `I_PHY_TYPE` selector on both `AOU_TOP` and `AOU_CORE_TOP`. Mixing a
+  `FDI_CFG_TP_*` value with a build that omits `+define+TWO_PHY` (or
+  vice-versa) is an integration error; the design does **not** enforce
+  this consistency at elaboration time.
+- The `FDI_CFG_TP_32B_128B` (256b + 1024b) combination is **not**
+  supported by the design: `AOU_RX_CORE_IN_MUX` requires
+  `FDI_IF_WD0 == FDI_IF_WD1 / 2` for two-PHY accumulation.
+
+#### Build flags
+
+| Flag | Effect |
+| :---- | :---- |
+| `+define+TWO_PHY` | Compile-time switch that adds the second-PHY ports (`I_FDI_PL_1_*`, `O_FDI_LP_1_*`) and the `I_PHY_TYPE` selector to both `AOU_TOP` and `AOU_CORE_TOP`. Required for `FDI_CFG_TP_*` values of `FDI_CONFIG`. |
 
 ---
 
@@ -384,29 +430,54 @@ associated control/status signals listed in
 
 ### 3.10 PHY and FDI (Flit Data Interface)
 
+The FDI port set is split into two banks: PHY0 (always present) and
+PHY1 (present only when the design is built with `+define+TWO_PHY`).
+Both banks use the parameterized widths derived from `FDI_CONFIG` (see
+[Section 2 - FDI_CONFIG values](#fdi_config-values)).
+
+| `FDI_CONFIG` | `FDI_IF_WD0` (PHY0 width) | `FDI_IF_WD1` (PHY1 width) | PHY1 ports present |
+| :---- | :---- | :---- | :---- |
+| `FDI_CFG_SP_32B` | 256 | 512 (internal decode) | no |
+| `FDI_CFG_SP_64B` | 512 | 512 (internal decode) | no |
+| `FDI_CFG_SP_128B` | 1024 | 1024 (internal decode) | no |
+| `FDI_CFG_TP_32B_64B` | 256 | 512 | yes (`+define+TWO_PHY`) |
+| `FDI_CFG_TP_64B_128B` | 512 | 1024 | yes (`+define+TWO_PHY`) |
+
+#### PHY0 (always present)
+
 | Signal | Direction | Width | Description |
 | :---- | :---- | :---- | :---- |
-| I_PHY_TYPE | input | 1 | PHY width mode (e.g., 32B vs 64B). |
-| I_FDI_PL_32B_VALID | input | 1 | 32B flit valid from PHY. |
-| I_FDI_PL_32B_DATA | input | 256 | 32B flit data. |
-| I_FDI_PL_32B_FLIT_CANCEL | input | 1 | 32B flit cancel. |
-| I_FDI_PL_64B_VALID | input | 1 | 64B flit valid from PHY. |
-| I_FDI_PL_64B_DATA | input | 512 | 64B flit data. |
-| I_FDI_PL_64B_FLIT_CANCEL | input | 1 | 64B flit cancel. |
-| I_FDI_PL_32B_TRDY | input | 1 | 32B PHY ready. |
-| I_FDI_PL_32B_STALLREQ | input | 1 | 32B stall request. |
-| I_FDI_PL_32B_STATE_STS | input | [3:0] | 32B state status. |
-| O_FDI_LP_32B_DATA | output | 256 | 32B flit data to PHY. |
-| O_FDI_LP_32B_VALID | output | 1 | 32B flit valid. |
-| O_FDI_LP_32B_IRDY | output | 1 | 32B link ready. |
-| O_FDI_LP_32B_STALLACK | output | 1 | 32B stall acknowledge. |
-| I_FDI_PL_64B_TRDY | input | 1 | 64B PHY ready. |
-| I_FDI_PL_64B_STALLREQ | input | 1 | 64B stall request. |
-| I_FDI_PL_64B_STATE_STS | input | [3:0] | 64B state status. |
-| O_FDI_LP_64B_DATA | output | 512 | 64B flit data to PHY. |
-| O_FDI_LP_64B_VALID | output | 1 | 64B flit valid. |
-| O_FDI_LP_64B_IRDY | output | 1 | 64B link ready. |
-| O_FDI_LP_64B_STALLACK | output | 1 | 64B stall acknowledge. |
+| I_FDI_PL_0_VALID | input | 1 | PHY0 flit valid from PHY. |
+| I_FDI_PL_0_DATA | input | `FDI_IF_WD0` | PHY0 flit data. |
+| I_FDI_PL_0_FLIT_CANCEL | input | 1 | PHY0 flit cancel. |
+| I_FDI_PL_0_TRDY | input | 1 | PHY0 ready. |
+| I_FDI_PL_0_STALLREQ | input | 1 | PHY0 stall request. |
+| I_FDI_PL_0_STATE_STS | input | [3:0] | PHY0 state status. |
+| O_FDI_LP_0_DATA | output | `FDI_IF_WD0` | PHY0 flit data to PHY. |
+| O_FDI_LP_0_VALID | output | 1 | PHY0 flit valid. |
+| O_FDI_LP_0_IRDY | output | 1 | PHY0 link ready. |
+| O_FDI_LP_0_STALLACK | output | 1 | PHY0 stall acknowledge. |
+
+#### PHY1 (present only when `+define+TWO_PHY`)
+
+| Signal | Direction | Width | Description |
+| :---- | :---- | :---- | :---- |
+| I_FDI_PL_1_VALID | input | 1 | PHY1 flit valid from PHY. |
+| I_FDI_PL_1_DATA | input | `FDI_IF_WD1` | PHY1 flit data. |
+| I_FDI_PL_1_FLIT_CANCEL | input | 1 | PHY1 flit cancel. |
+| I_FDI_PL_1_TRDY | input | 1 | PHY1 ready. |
+| I_FDI_PL_1_STALLREQ | input | 1 | PHY1 stall request. |
+| I_FDI_PL_1_STATE_STS | input | [3:0] | PHY1 state status. |
+| O_FDI_LP_1_DATA | output | `FDI_IF_WD1` | PHY1 flit data to PHY. |
+| O_FDI_LP_1_VALID | output | 1 | PHY1 flit valid. |
+| O_FDI_LP_1_IRDY | output | 1 | PHY1 link ready. |
+| O_FDI_LP_1_STALLACK | output | 1 | PHY1 stall acknowledge. |
+
+#### PHY type select (present only when `+define+TWO_PHY`)
+
+| Signal | Direction | Width | Description |
+| :---- | :---- | :---- | :---- |
+| I_PHY_TYPE | input | 1 | PHY selector for state-status / stall-request multiplexing: 0 = PHY0, 1 = PHY1. See [Section 6.6.4](#664-phy-type-mux). |
 
 ### 3.11 Interrupt and Error (to Error Handler)
 
@@ -811,18 +882,24 @@ The steps in detail:
 
 #### 6.6.4 PHY Type Mux
 
-`AOU_TOP` includes a PHY-type multiplexer controlled by `I_PHY_TYPE`:
+> **Note:** This PHY-type multiplexer is only present in builds compiled
+> with `+define+TWO_PHY`. In single-PHY builds, the `pl_state_sts` and
+> `pl_stallreq` signals routed to the bringup controller come from PHY0
+> unconditionally; the `I_PHY_TYPE` port and the PHY1-side ports do not
+> exist on the module boundary.
 
-| I_PHY_TYPE | PHY width | `pl_state_sts` source | `pl_stallreq` source |
+When built with `+define+TWO_PHY`, `AOU_TOP` includes a PHY-type
+multiplexer controlled by `I_PHY_TYPE`:
+
+| I_PHY_TYPE | Selected PHY | `pl_state_sts` source | `pl_stallreq` source |
 | :---- | :---- | :---- | :---- |
-| 0 | 32B (256-bit) | `I_FDI_PL_32B_STATE_STS` | `I_FDI_PL_32B_STALLREQ` |
-| 1 | 64B (512-bit) | `I_FDI_PL_64B_STATE_STS` | `I_FDI_PL_64B_STALLREQ` |
+| 0 | PHY0 (`FDI_IF_WD0`) | `I_FDI_PL_0_STATE_STS` | `I_FDI_PL_0_STALLREQ` |
+| 1 | PHY1 (`FDI_IF_WD1`) | `I_FDI_PL_1_STATE_STS` | `I_FDI_PL_1_STALLREQ` |
 
 The muxed `pl_state_sts` and `pl_stallreq` are routed to the bringup
 controller. FDI datapath signals (data, valid, trdy, etc.) pass through
 to `AOU_CORE_TOP` unchanged -- the core's `AOU_TX_FDI_IF` and
-`AOU_RX_FDI_IF` handle PHY-width-specific data path switching
-internally.
+`AOU_RX_FDI_IF` handle per-PHY data-path switching internally.
 
 #### 6.6.5 Software Bringup Control
 
@@ -855,7 +932,15 @@ gap analysis):
 
 ## 7 Verification Testbench
 
-A sample testbench (`VERIF/aou_tb.sv`) is provided that instantiates two AOU_CORE_TOP modules connected back-to-back via their 64B FDI interfaces, along with open-source AMBA AXI verification IP and a protocol-aware FDI flit decoder. The two DUT instances use different AXI data widths (512b and 256b) to exercise the interoperability path.  Refer to the README.md in the VERIF directory for additional information.
+A sample testbench (`VERIF/aou_tb.sv`) is provided that instantiates
+two `AOU_CORE_TOP` modules connected back-to-back via their 32B (256b)
+single-PHY FDI interfaces, along with open-source AMBA AXI verification
+IP and a protocol-aware FDI flit decoder. Each DUT is overridden with
+`.FDI_CONFIG(packet_def_pkg::FDI_CFG_SP_32B)`, and the testbench is
+built without `+define+TWO_PHY` (so only the PHY0 ports are connected).
+The two DUT instances use different AXI data widths (512b and 256b) to
+exercise the interoperability path. Refer to the README.md in the VERIF
+directory for additional information.
 
 ### 7.1 Architecture
 
@@ -867,7 +952,7 @@ A sample testbench (`VERIF/aou_tb.sv`) is provided that instantiates two AOU_COR
   +-----------------+      .      |  (AXI 512b)      |             | (512b)          |
   +-----------------+      .      +------------------+             +-----------------+
   | axi_scoreboard  |  .....              |      ^
-  | (monitor SI)    |              FDI 64B|      |FDI 64B
+  | (monitor SI)    |       FDI 32B (256b)|      |FDI 32B (256b)
   +-----------------+                     |      |
                                  fdi_dec1 |      | fdi_dec2
                                           v      |
@@ -884,7 +969,7 @@ A sample testbench (`VERIF/aou_tb.sv`) is provided that instantiates two AOU_COR
 The data flow for a write transaction initiated on `u_dut1`'s AXI slave interface is:
 
 1. `axi_rand_master` issues a 512b write on the `u_dut1` AXI SI.
-2. `u_dut1` packs the AXI transaction into AOU flit(s) and transmits via 64B FDI.
+2. `u_dut1` packs the AXI transaction into AOU flit(s) and transmits via the 32B (256b) PHY0 FDI port.
 3. `u_dut2` receives the FDI data, unpacks, and presents the transaction on its AXI MI.
 4. `axi_sim_mem_intf` accepts the write into its internal memory model.
 5. A subsequent read to the same address returns the stored data back through the reverse FDI path.
@@ -896,16 +981,16 @@ The reverse direction (initiated from `u_dut2` SI to `u_dut1` MI) operates symme
 
 | Component | Instance | Description |
 | :---- | :---- | :---- |
-| AOU_CORE_TOP | u_dut1 | DUT instance 1. AXI data width = 512b (default parameters). |
-| AOU_CORE_TOP | u_dut2 | DUT instance 2. RP0-RP3 AXI data widths overridden to 256b. |
+| AOU_CORE_TOP | u_dut1 | DUT instance 1. AXI data width = 512b (default parameters). `FDI_CONFIG = FDI_CFG_SP_32B` (256b PHY0; no TWO_PHY). |
+| AOU_CORE_TOP | u_dut2 | DUT instance 2. RP0-RP3 AXI data widths overridden to 256b. `FDI_CONFIG = FDI_CFG_SP_32B`. |
 | axi_rand_master | proc_axi_master_d1 | Constrained random AXI master on u_dut1 SI. Issues 512b transactions (1 beat, 64-byte aligned). |
 | axi_rand_master | proc_axi_master_d2 | Constrained random AXI master on u_dut2 SI. Issues 512b transactions (2 beats of 256b, 64-byte aligned). |
 | axi_sim_mem_intf | i_mem_d2mi | Memory-backed AXI slave on u_dut2 MI (256b). Stores writes and serves reads. |
 | axi_sim_mem_intf | i_mem_d1mi | Memory-backed AXI slave on u_dut1 MI (512b). Stores writes and serves reads. |
 | axi_scoreboard | proc_scoreboard_d1 | Monitors u_dut1 SI. Checks that read data matches previously written data. |
 | axi_scoreboard | proc_scoreboard_d2 | Monitors u_dut2 SI. Checks that read data matches previously written data. |
-| fdi_flit_decoder | u_fdi_dec1 | Logs and decodes FDI flits from u_dut1 TX to `dut1_fdi.log`. Enabled by `+define+AXI_LOG`. |
-| fdi_flit_decoder | u_fdi_dec2 | Logs and decodes FDI flits from u_dut2 TX to `dut2_fdi.log`. Enabled by `+define+AXI_LOG`. |
+| fdi_flit_decoder | u_fdi_dec1 | Logs and decodes FDI flits from u_dut1 TX to `dut1_fdi.log`. Configured with `FDI_BYTES(32)` to match `FDI_CFG_SP_32B`. Enabled by `+define+AXI_LOG`. |
+| fdi_flit_decoder | u_fdi_dec2 | Logs and decodes FDI flits from u_dut2 TX to `dut2_fdi.log`. Configured with `FDI_BYTES(32)` to match `FDI_CFG_SP_32B`. Enabled by `+define+AXI_LOG`. |
 
 Key testbench parameters:
 
@@ -1028,7 +1113,7 @@ The only CDC in AOU_CORE_TOP is between `clk_core` and `clk_apb`, handled by the
 
 ### 8.6 UPF Power Intent
 
-The current UPF defines a single always-on power domain (`PD_AOU_TOP`) covering the entire `AOU_CORE_TOP` scope with a `VDD`/`VSS` supply pair. No isolation, retention, or level-shifting strategies are required at this time. When power domains are introduced in the future, the UPF should be extended with `create_power_domain` for each switchable domain, along with appropriate isolation and retention strategies.
+The current UPF defines a single always-on power domain (`PD_AOU_TOP`) covering the integration scope (the `AOU_TOP` instance, which includes `AOU_CORE_TOP` and `AOU_FDI_BRINGUP_CTRL`, when integrating via `AOU_TOP`; or the `AOU_CORE_TOP` instance when integrating via `AOU_CORE_TOP` directly) with a `VDD`/`VSS` supply pair. No isolation, retention, or level-shifting strategies are required at this time. When power domains are introduced in the future, the UPF should be extended with `create_power_domain` for each switchable domain, along with appropriate isolation and retention strategies.
 
 ### 8.7 Library Cell Replacement
 
