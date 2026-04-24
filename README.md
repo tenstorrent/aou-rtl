@@ -4,6 +4,10 @@ Open-source RTL implementation of the AXI-over-UCIe (AoU) protocol [[1]](#refere
 
 Two top-level integration options are provided: `AOU_TOP` is a turn-key wrapper that includes an FDI bringup controller (`AOU_FDI_BRINGUP_CTRL`) for systems that want a self-contained UCIe FDI state machine, and `AOU_CORE_TOP` exposes the protocol engine directly for systems that already own the FDI bringup flow externally. Both top modules expose AXI4 master and slave interfaces, an APB3 configuration port [[4]](#references), and a parameterized FDI data plane: 32B / 64B / 128B FDI interfaces (single-PHY or two-PHY) selected via the `FDI_CONFIG` parameter for integration into UCIe-based chiplet designs.
 
+## Project Status
+
+This is a **pre-release** design and should be considered **evaluation quality** until a 1.0 release is published. Interfaces, parameters, register layout, and internal architecture may change without notice between pre-1.0 revisions. The design has not yet completed full verification closure. Integrators are encouraged to evaluate, prototype, and provide feedback, but should not assume API or bit-level stability until the 1.0 release.
+
 ## Directory Structure
 
 ```
@@ -119,20 +123,20 @@ For security vulnerabilities, please see our [Security Policy](SECURITY.md) for 
 
 ## References
 
-1. **AXI over UCIe (AoU) Protocol Specification, v0.7**  
-   *Access through Open Chiplet Atlas. This specification defines the native mapping of AMBA AXI transactions over UCIe die-to-die interconnects.*  
+1. **AXI over UCIe (AoU) Protocol Specification, v0.7**
+   *Access through Open Chiplet Atlas. This specification defines the native mapping of AMBA AXI transactions over UCIe die-to-die interconnects.*
    Contact: [Open Chiplet Atlas](https://openchipletatlas.org)
 
-2. **Universal Chiplet Interconnect Express (UCIe) Specification, Revision 3.0**  
-   *Available through the UCIe Consortium.*  
+2. **Universal Chiplet Interconnect Express (UCIe) Specification, Revision 3.0**
+   *Available through the UCIe Consortium.*
    Download: [UCIe Consortium Specifications](https://www.uciexpress.org/specifications)
 
-3. **Arm AMBA AXI and ACE Protocol Specification (AXI4)**  
-   *Official Arm specification for the Advanced eXtensible Interface protocol.*  
+3. **Arm AMBA AXI and ACE Protocol Specification (AXI4)**
+   *Official Arm specification for the Advanced eXtensible Interface protocol.*
    Download: [Arm Developer Documentation](https://developer.arm.com/documentation/ihi0022)
 
-4. **Arm AMBA APB Protocol Specification**  
-   *Official Arm specification for the Advanced Peripheral Bus protocol.*  
+4. **Arm AMBA APB Protocol Specification**
+   *Official Arm specification for the Advanced Peripheral Bus protocol.*
    Download: [Arm Developer Documentation](https://developer.arm.com/documentation/ihi0024)
 
 ---
