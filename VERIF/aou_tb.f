@@ -79,8 +79,8 @@ axi_vip/src/axi_sim_mem.sv
 ../RTL/AOU_ACTIVATION_CTRL.sv
 ../RTL/AOU_AW_W_ALIGNER.sv
 ../RTL/AOU_CRD_CTRL.sv
-../RTL/AOU_DATA_R_FIFO_NS1M.sv
-../RTL/AOU_DATA_W_FIFO_NS1M.sv
+../RTL/AOU_DATA_R_FIFO_NS1M_TPSRAM.sv
+../RTL/AOU_DATA_W_FIFO_NS1M_TPSRAM.sv
 ../RTL/AOU_EARLY_BRESP_CTRL_AWCACHE.sv
 ../RTL/AOU_EARLY_TABLE.sv
 ../RTL/AOU_ERROR_INFO.sv
@@ -94,6 +94,7 @@ axi_vip/src/axi_sim_mem.sv
 ../RTL/AOU_RX_FDI_IF.sv
 ../RTL/AOU_SLV_AXI_INFO.sv
 ../RTL/AOU_SYNC_FIFO_NS1M.sv
+../RTL/AOU_SYNC_FIFO_NS1M_SREADY.sv
 ../RTL/AOU_TX_ARBITER.sv
 ../RTL/AOU_TX_AXI_BUFFER.sv
 ../RTL/AOU_TX_CORE.sv
@@ -106,6 +107,7 @@ axi_vip/src/axi_sim_mem.sv
 ../RTL/AOU_CORE.sv
 ../RTL/AOU_CORE_TOP.sv
 ../RTL/AOU_FDI_BRINGUP_CTRL.sv
+../RTL/AOU_TPSRAM.sv
 ../RTL/AOU_TOP.sv
 
 // FDI flit decoder (must precede testbench)

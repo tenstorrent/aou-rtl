@@ -103,6 +103,28 @@ module AOU_FIFO_RP
     output      [B_FIFO_WIDTH-1:0]                              O_WR_RESP_FIFO_MDATA,
     output                                                      O_WR_RESP_FIFO_MVALID
 );
+    localparam  REQ_CNT         = (DEC_MULTI == 1) ? 6 : (DEC_MULTI == 2) ? 7 : 11;
+    localparam  DATA_FIFO_WD    = 256;
+    localparam  STRB_FIFO_WD    = DATA_FIFO_WD/8;
+    localparam  EXT_FIFO_WD     = AXI_ID_WD + 2 + 1;//RID+RRESP+RLAST
+    localparam  SRAM_DEPTH      = (W_FIFO_DEPTH+REQ_CNT-1)/REQ_CNT;//write fifo depth == read fifo depth
+    localparam  DATA_AW         = $clog2(SRAM_DEPTH);
+
+    logic  [REQ_CNT-1:0]                                   w_wfifo_sram_rd_enb  ;
+    logic  [REQ_CNT-1:0][DATA_AW -1:0]                     w_wfifo_sram_rd_addr ;
+    logic  [REQ_CNT-1:0][DATA_FIFO_WD+STRB_FIFO_WD-1:0]    w_wfifo_sram_rd_data ;
+
+    logic  [REQ_CNT-1:0]                                   w_wfifo_sram_wr_enb  ;
+    logic  [REQ_CNT-1:0][DATA_AW-1:0]                      w_wfifo_sram_wr_addr ;
+    logic  [REQ_CNT-1:0][DATA_FIFO_WD+STRB_FIFO_WD-1:0]    w_wfifo_sram_wr_data ;   
+
+    logic  [REQ_CNT-1:0]                                   w_rfifo_sram_rd_enb  ;
+    logic  [REQ_CNT-1:0][DATA_AW -1:0]                     w_rfifo_sram_rd_addr ;
+    logic  [REQ_CNT-1:0][DATA_FIFO_WD+EXT_FIFO_WD-1:0]     w_rfifo_sram_rd_data ;
+
+    logic  [REQ_CNT-1:0]                                   w_rfifo_sram_wr_enb  ;
+    logic  [REQ_CNT-1:0][DATA_AW-1:0]                      w_rfifo_sram_wr_addr ;
+    logic  [REQ_CNT-1:0][DATA_FIFO_WD+EXT_FIFO_WD-1:0]     w_rfifo_sram_wr_data ;
 
     logic w_aw_fwd_rs_ready;
     logic w_w_fwd_rs_ready;
@@ -129,7 +151,7 @@ module AOU_FIFO_RP
     logic [DEC_MULTI-1:0][MAX_WR_RESP_COUNT -1:0][B_FIFO_WIDTH-1:0]         w_wr_resp_fifo_sdata; 
 
     generate
-    if(AW_FWD_RS_EN) begin
+    if(AW_FWD_RS_EN) begin : gen_AW_FWD_RS
     
     logic   [DEC_MULTI-1:0][MAX_REQ_COUNT -1:0]                             w_wr_req_fwd_rs_mvalid;
     logic   [DEC_MULTI-1:0][MAX_REQ_COUNT -1:0][AW_AR_FIFO_WIDTH-1:0]       w_wr_req_fwd_rs_mdata;              
@@ -184,7 +206,7 @@ module AOU_FIFO_RP
     );
 
     generate
-    if (W_FWD_RS_EN) begin
+    if (W_FWD_RS_EN) begin : gen_W_FWD_RS
 
     logic   [DEC_MULTI-1:0][DATA_DEC_CNT-1:0]                                 w_wr_data_fwd_rs_mvalid;
     logic   [DEC_MULTI-1:0][DATA_DEC_CNT-1:0][AXI_PEER_DIE_MAX_DATA_WD-1:0]   w_wr_data_fwd_rs_mdata;
@@ -221,7 +243,7 @@ module AOU_FIFO_RP
     end
     endgenerate
     
-    AOU_DATA_W_FIFO_NS1M #(
+    AOU_DATA_W_FIFO_NS1M_TPSRAM #(
         .AXI_PEER_DIE_MAX_DATA_WD   ( AXI_PEER_DIE_MAX_DATA_WD          ),
         .FIFO_DEPTH                 ( W_FIFO_DEPTH                      ),
         .ICH_CNT                    ( DATA_DEC_CNT*DEC_MULTI            ),
@@ -245,11 +267,43 @@ module AOU_FIFO_RP
         .O_MDATA_STRB               ( O_WR_DATA_FIFO_MSTRB              ),
         .O_MDLEN                    ( O_WR_DATA_FIFO_MDLEN              ),
         .O_MDATA_WDATAF             ( O_WR_DATA_FIFO_WDATAF             ),
-        .O_MVALID                   ( O_WR_DATA_FIFO_MVALID             )
+        .O_MVALID                   ( O_WR_DATA_FIFO_MVALID             ),
+        
+        //SRAM Interface
+        .O_FIFO_SRAM_RD_ENB         ( w_wfifo_sram_rd_enb               ),
+        .O_FIFO_SRAM_RD_ADDR        ( w_wfifo_sram_rd_addr              ),
+        .I_FIFO_SRAM_RD_DATA        ( w_wfifo_sram_rd_data              ),
+                                                           
+        .O_FIFO_SRAM_WR_ENB         ( w_wfifo_sram_wr_enb               ),
+        .O_FIFO_SRAM_WR_ADDR        ( w_wfifo_sram_wr_addr              ),
+        .O_FIFO_SRAM_WR_DATA        ( w_wfifo_sram_wr_data              ) 
     );
     
     generate
-    if(AR_FWD_RS_EN) begin
+        genvar m;
+        for ( m = 0 ; m < REQ_CNT ; m = m + 1) begin : gen_WFIFO_FAKE_SRAM
+            AOU_TPSRAM     #(
+                .RAM_DATA_WIDTH ( DATA_FIFO_WD+STRB_FIFO_WD ),
+                .RAM_ADDR_WIDTH ( DATA_AW                   )
+            ) u_tpsram_wdata_fifo
+            (
+                // Read Port 
+                .CLKA   (I_CLK                   ), 
+                .CENA   (w_wfifo_sram_rd_enb [m] ),  
+                .AA     (w_wfifo_sram_rd_addr[m] ), 
+                .QA     (w_wfifo_sram_rd_data[m] ),          
+            
+                // Write Port
+                .CLKB   (I_CLK                   ), 
+                .CENB   (w_wfifo_sram_wr_enb [m] ),  
+                .AB     (w_wfifo_sram_wr_addr[m] ), 
+                .DB     (w_wfifo_sram_wr_data[m] )       
+            
+            );            
+        end
+    endgenerate
+    generate
+    if(AR_FWD_RS_EN) begin : gen_AR_FWD_RS
     
     logic   [DEC_MULTI-1:0][MAX_REQ_COUNT -1:0]                           w_rd_req_fwd_rs_mvalid;
     logic   [DEC_MULTI-1:0][MAX_REQ_COUNT -1:0][AW_AR_FIFO_WIDTH-1:0]     w_rd_req_fwd_rs_mdata;              
@@ -304,7 +358,7 @@ module AOU_FIFO_RP
     );
 
     generate
-    if (R_FWD_RS_EN) begin
+    if (R_FWD_RS_EN) begin : gen_R_FWD_RS
 
     logic   [DEC_MULTI-1:0][DATA_DEC_CNT-1:0]                                 w_rd_data_fwd_rs_mvalid;
     logic   [DEC_MULTI-1:0][DATA_DEC_CNT-1:0][AXI_PEER_DIE_MAX_DATA_WD-1:0]   w_rd_data_fwd_rs_mdata;
@@ -337,9 +391,9 @@ module AOU_FIFO_RP
     end
     endgenerate
 
-    AOU_DATA_R_FIFO_NS1M #(
+    AOU_DATA_R_FIFO_NS1M_TPSRAM #(
         .AXI_PEER_DIE_MAX_DATA_WD   ( AXI_PEER_DIE_MAX_DATA_WD          ),
-        .EXT_FIFO_WD                ( AXI_ID_WD + 2 + 1                 ), 
+        .EXT_FIFO_WD                ( EXT_FIFO_WD                       ), 
         .FIFO_DEPTH                 ( R_FIFO_DEPTH                      ),
         .ICH_CNT                    ( DATA_DEC_CNT*DEC_MULTI            ),
         .ALWAYS_READY               ( 1                                 ),
@@ -358,11 +412,44 @@ module AOU_FIFO_RP
         .O_MDATA                    ( O_RD_DATA_FIFO_MDATA              ), 
         .O_EXT_MDATA                ( O_RD_DATA_FIFO_EXT_MDATA          ),
         .O_MDLEN                    ( O_RD_DATA_FIFO_MDLEN              ),
-        .O_MVALID                   ( O_RD_DATA_FIFO_MVALID             )
+        .O_MVALID                   ( O_RD_DATA_FIFO_MVALID             ),
+
+        //SRAM Interface
+        .O_FIFO_SRAM_RD_ENB         ( w_rfifo_sram_rd_enb               ),
+        .O_FIFO_SRAM_RD_ADDR        ( w_rfifo_sram_rd_addr              ),
+        .I_FIFO_SRAM_RD_DATA        ( w_rfifo_sram_rd_data              ),
+                                                                          
+        .O_FIFO_SRAM_WR_ENB         ( w_rfifo_sram_wr_enb               ),
+        .O_FIFO_SRAM_WR_ADDR        ( w_rfifo_sram_wr_addr              ),
+        .O_FIFO_SRAM_WR_DATA        ( w_rfifo_sram_wr_data              )  
     );
+    generate
+        genvar n;
+        for ( n = 0 ; n < REQ_CNT ; n = n + 1) begin : gen_RFIFO_FAKE_SRAM
+            AOU_TPSRAM     #(
+                .RAM_DATA_WIDTH ( DATA_FIFO_WD+EXT_FIFO_WD  ),
+                .RAM_ADDR_WIDTH ( DATA_AW                   )
+            ) u_tpsram_rdata_fifo
+            (
+                // Read Port 
+                .CLKA   (I_CLK                   ), 
+                .CENA   (w_rfifo_sram_rd_enb [n] ),  
+                .AA     (w_rfifo_sram_rd_addr[n] ), 
+                .QA     (w_rfifo_sram_rd_data[n] ),          
+            
+                // Write Port
+                .CLKB   (I_CLK                   ), 
+                .CENB   (w_rfifo_sram_wr_enb [n] ),  
+                .AB     (w_rfifo_sram_wr_addr[n] ), 
+                .DB     (w_rfifo_sram_wr_data[n] )       
+            
+            );            
+        end
+    endgenerate
+
  
     generate
-    if(B_FWD_RS_EN) begin
+    if(B_FWD_RS_EN) begin : gen_B_FWD_RS
 
         logic [DEC_MULTI-1:0][MAX_WR_RESP_COUNT -1:0] w_wr_resp_fwd_rs_mvalid;
         logic w_b_fwd_rs_valid;
