@@ -150,7 +150,7 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 # Augment 'make clean' with our own artefacts.
 clean::
 	rm -rf sim_build results.xml
-	rm -f *.fst *.vcd *.fsdb dump.vcd
+	rm -f *.fst *.vcd *.fsdb *.vpd dump.vcd dump.vpd
 	rm -f dut1_fdi.log dut2_fdi.log
 	rm -f *.log
 	rm -rf __pycache__ tests/__pycache__ .pytest_cache
