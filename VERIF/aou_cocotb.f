@@ -15,28 +15,11 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // *****************************************************************************
-// AOU_CORE_TOP AXI VIP Testbench -- File List
-// All paths relative to the VERIF/ directory
+// AOU_CORE_TOP cocotb Testbench -- File List
+// All paths relative to the VERIF/ directory.
 // =============================================================================
-// FDI data widths are now SystemVerilog parameters (FDI_IF_WD0 / FDI_IF_WD1)
-// on AOU_CORE_TOP and AOU_TOP. The +define+FDI_32B / FDI_64B / FDI_128B
-// preprocessor switches have been removed; aou_tb.sv overrides the
-// parameters on each DUT instance.
-//
-// TWO_PHY is intentionally NOT defined here: the parameter-refactor scope is
-// single-PHY only. AOU_TOP and AOU_CORE_TOP both wrap the second-PHY ports
-// and the I_PHY_TYPE port in `ifdef TWO_PHY` so the single-PHY build does
-// not require it. TWO_PHY enablement is tracked in a separate change.
-
-// Include paths
-+incdir+axi_vip/include
-
-// AXI VIP (compile order: pkg -> interface -> test classes)
-axi_vip/src/axi_pkg.sv
-axi_vip/src/axi_intf.sv
-common_verification/src/rand_id_queue.sv
-axi_vip/src/axi_test.sv
-axi_vip/src/axi_sim_mem.sv
+// FDI configuration is SP_32B (single-PHY, 256b) via FDI_CFG_SP_32B.
+// TWO_PHY is intentionally NOT defined.
 
 // RTL package (must come before modules that import it)
 ../RTL/packet_def_pkg.sv
@@ -108,8 +91,8 @@ axi_vip/src/axi_sim_mem.sv
 ../RTL/AOU_FDI_BRINGUP_CTRL.sv
 ../RTL/AOU_TOP.sv
 
-// FDI flit decoder (must precede testbench)
+// FDI flit decoder (passive; only instantiated under +define+FDI_LOG)
 decoder/fdi_flit_decoder.sv
 
-// Testbench
-aou_tb.sv
+// cocotb harness (top-level for the simulation)
+aou_cocotb_top.sv

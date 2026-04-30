@@ -47,9 +47,11 @@ The fastest way to explore this IP:
 3. **Review the interactive register browser:**
    Open `DOC/csr/html/index.html` in your browser to explore the register map.
 
-4. **Run verification (requires VCS and VIP libraries):**
+4. **Run verification (open-source, Verilator-based by default):**
    ```bash
-   cd VERIF && ./run_vcs.sh
+   cd VERIF
+   bash setup_cocotb_env.sh && source venv/bin/activate
+   make                     # Verilator
    ```
 
 See sections below for detailed documentation, integration guidance, and tool requirements.
@@ -79,15 +81,33 @@ bash scripts/gen_collateral.sh
 
 ## Running Verification
 
-Before running simulation, follow the instructions in the [`VERIF/`](VERIF/) directory to download the required VIP libraries.
-
-The testbench uses VCS:
+The repository ships a single open-source verification flow built on
+[cocotb](https://www.cocotb.org/) +
+[`cocotbext-axi`](https://github.com/alexforencich/cocotbext-axi). All
+verification IP is fetched from PyPI at install time -- no commercial
+VIP and no vendored AXI VIP source. The default simulator is Verilator
+(open source); Synopsys VCS is supported transparently for users with
+a commercial license.
 
 ```bash
-cd VERIF && ./run_vcs.sh
+cd VERIF
+bash setup_cocotb_env.sh && source venv/bin/activate
+make                     # Verilator (default)
+make SIM=vcs             # Synopsys VCS
+make WAVES=1             # enable waveform dump
 ```
 
-This runs a dual-DUT FDI loopback simulation with AXI scoreboard-based data integrity checking. Transaction logging is enabled with `+define+AXI_LOG`.
+The testbench instantiates two `AOU_CORE_TOP` DUTs in single-PHY 32B
+FDI loopback and exercises:
+
+- AXI write/read round-trips through the FDI loopback in both
+  directions (forward, reverse, and concurrent).
+- A CSR reset-value readback driven from
+  [`csr/aou-core.rdl`](csr/aou-core.rdl) over APB on both DUTs --
+  catches RDL ↔ RTL drift on every run.
+
+See [`VERIF/README.md`](VERIF/README.md) for setup details, available
+tests, watchdog tuning, and the harness layout.
 
 ## Integration
 

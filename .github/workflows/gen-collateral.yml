@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Tenstorrent USA Inc
+#
+# Runs scripts/gen_collateral.sh in CI and fails the job on any non-zero
+# exit from peakrdl (the script uses `set -euo pipefail`, so the first
+# peakrdl error short-circuits the run).
+
+name: Generate Collateral
+
+on:
+  pull_request:
+    paths:
+      - 'csr/**'
+      - 'scripts/gen_collateral.sh'
+      - 'requirements.txt'
+      - '.github/workflows/gen-collateral.yml'
+  push:
+    branches: [main, design]
+    paths:
+      - 'csr/**'
+      - 'scripts/gen_collateral.sh'
+      - 'requirements.txt'
+      - '.github/workflows/gen-collateral.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  gen-collateral:
+    name: peakrdl gen_collateral.sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install peakrdl toolchain
+        run: pip install -r requirements.txt
+
+      - name: Run gen_collateral.sh
+        run: |
+          mkdir -p logs
+          set -o pipefail
+          bash scripts/gen_collateral.sh 2>&1 | tee logs/gen_collateral.log
+
+      - name: Upload gen_collateral log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gen-collateral-log
+          path: logs/gen_collateral.log
