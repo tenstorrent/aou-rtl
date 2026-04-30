@@ -18,20 +18,28 @@ on:
 permissions:
   contents: read
 
+env:
+  # Force Node 24 for any third-party action still pinned to Node 20
+  # (notably veryl-lang/setup-verilator@v1). GitHub-maintained actions
+  # below are already on Node-24-capable majors.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   cocotb:
     name: Verilator + cocotb
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - name: Install Verilator 5.046
+      - name: Install Verilator 5.044
         uses: veryl-lang/setup-verilator@v1
         with:
-          verilator_version: "5.046"
+          # veryl-lang/verilator-package only ships up to v5.044 (newer
+          # tags exist upstream but have no pre-built binary yet).
+          version: "5.044"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: pip
@@ -49,14 +57,14 @@ jobs:
 
       - name: Upload cocotb log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cocotb-log
           path: logs/cocotb.log
 
       - name: Upload JUnit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cocotb-results-xml
           path: VERIF/results.xml
