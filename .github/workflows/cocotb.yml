@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Tenstorrent USA Inc
+#
+# Builds and runs the cocotb VERIF testbench under Verilator 5.046.
+# Fatal: any failing @cocotb.test red-fails the job.
+
+name: Cocotb Verification
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'DOC/**'
+  push:
+    branches: [main, design]
+    paths-ignore:
+      - 'DOC/**'
+
+permissions:
+  contents: read
+
+jobs:
+  cocotb:
+    name: Verilator + cocotb
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Verilator 5.046
+        uses: veryl-lang/setup-verilator@v1
+        with:
+          verilator_version: "5.046"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: VERIF/requirements.txt
+
+      - name: Install cocotb dependencies
+        run: pip install -r VERIF/requirements.txt
+
+      - name: Run cocotb testbench
+        working-directory: VERIF
+        run: |
+          mkdir -p ../logs
+          set -o pipefail
+          make JOBS=$(nproc) 2>&1 | tee ../logs/cocotb.log
+
+      - name: Upload cocotb log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cocotb-log
+          path: logs/cocotb.log
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cocotb-results-xml
+          path: VERIF/results.xml

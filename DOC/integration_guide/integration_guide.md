@@ -932,87 +932,133 @@ gap analysis):
 
 ## 7 Verification Testbench
 
-A sample testbench (`VERIF/aou_tb.sv`) is provided that instantiates
-two `AOU_CORE_TOP` modules connected back-to-back via their 32B (256b)
-single-PHY FDI interfaces, along with open-source AMBA AXI verification
-IP and a protocol-aware FDI flit decoder. Each DUT is overridden with
-`.FDI_CONFIG(packet_def_pkg::FDI_CFG_SP_32B)`, and the testbench is
-built without `+define+TWO_PHY` (so only the PHY0 ports are connected).
-The two DUT instances use different AXI data widths (512b and 256b) to
-exercise the interoperability path. Refer to the README.md in the VERIF
-directory for additional information.
+The verification flow is built on [cocotb](https://www.cocotb.org/)
+and [`cocotbext-axi`](https://github.com/alexforencich/cocotbext-axi).
+All verification IP is fetched from PyPI at install time -- no
+commercial VIP is required and no AXI VIP source is vendored into
+this repository. The default simulator is
+[Verilator](https://verilator.org/) (open source); Synopsys VCS is
+supported transparently for users with a commercial license.
+
+The harness (`VERIF/aou_cocotb_top.sv`) instantiates two
+`AOU_CORE_TOP` cores back-to-back via their 32B (256b) single-PHY FDI
+interfaces. Each DUT is overridden with
+`.FDI_CONFIG(packet_def_pkg::FDI_CFG_SP_32B)` and the build does not
+define `+define+TWO_PHY`, so only the PHY0 ports are connected. The
+two DUT instances use different AXI data widths (512b and 256b) to
+exercise the width-interoperability path. The four AXI buses and two
+APB slave buses are exposed as flat top-level ports using
+`cocotbext-axi`'s canonical signal naming
+(`s_axi_d1_*`, `m_axi_d1_*`, `s_axi_d2_*`, `m_axi_d2_*`,
+`apb1_*`, `apb2_*`) so the Python tests can use
+`AxiBus.from_prefix(dut, "<prefix>")` and
+`ApbBus.from_prefix(dut, "<prefix>")` directly. Refer to
+[`VERIF/README.md`](../../VERIF/README.md) for setup, watchdogs, and
+the test list.
 
 ### 7.1 Architecture
 
 ```
-                        AXI SI                          AXI MI
-  +-----------------+             +------------------+             +-----------------+
-  | axi_rand_master |  -------->  |  AOU_CORE_TOP    |  -------->  | axi_sim_mem     |
-  | (512b, 1 beat)  |      .      |  u_dut1          |             | i_mem_d1mi      |
-  +-----------------+      .      |  (AXI 512b)      |             | (512b)          |
-  +-----------------+      .      +------------------+             +-----------------+
-  | axi_scoreboard  |  .....              |      ^
-  | (monitor SI)    |       FDI 32B (256b)|      |FDI 32B (256b)
-  +-----------------+                     |      |
-                                 fdi_dec1 |      | fdi_dec2
-                                          v      |
-  +-----------------+             +------------------+             +-----------------+
-  | axi_rand_master |  -------->  |  AOU_CORE_TOP    |  -------->  | axi_sim_mem     |
-  | (256b, 2 beats) |      .      |  u_dut2          |             | i_mem_d2mi      |
-  +-----------------+      .      |  (AXI 256b)      |             | (256b)          |
-  +-----------------+      .      +------------------+             +-----------------+
-  | axi_scoreboard  |  .....
-  | (monitor SI)    |
-  +-----------------+
+                      AXI SI                              AXI MI
+  +------------------+             +------------------+             +------------------+
+  | cocotb AxiMaster |  -------->  |  AOU_CORE_TOP    |  -------->  | cocotb AxiRam    |
+  | s_axi_d1 (512b)  |      .      |  u_dut1          |             | m_axi_d1 (512b)  |
+  +------------------+      .      |  (AXI 512b)      |             +------------------+
+  +------------------+      .      +------------------+
+  | cocotb ApbMaster |..APB.......         |     ^
+  | apb1 (32b)       |     FDI 32B (256b)  |     | FDI 32B (256b)
+  +------------------+                     v     |
+                                 +------------------+             +------------------+
+  +------------------+           |  AOU_CORE_TOP    |  -------->  | cocotb AxiRam    |
+  | cocotb AxiMaster |  -------> |  u_dut2          |             | m_axi_d2 (256b)  |
+  | s_axi_d2 (256b)  |      .    |  (AXI 256b)      |             +------------------+
+  +------------------+      .    +------------------+
+  +------------------+      .            ^
+  | cocotb ApbMaster |..APB....          |
+  | apb2 (32b)       |                   |
+  +------------------+    fdi_flit_decoder x2 (gated by FDI_LOG)
 ```
 
-The data flow for a write transaction initiated on `u_dut1`'s AXI slave interface is:
+The data flow for a write transaction initiated on `u_dut1`'s AXI
+slave interface is:
 
-1. `axi_rand_master` issues a 512b write on the `u_dut1` AXI SI.
-2. `u_dut1` packs the AXI transaction into AOU flit(s) and transmits via the 32B (256b) PHY0 FDI port.
-3. `u_dut2` receives the FDI data, unpacks, and presents the transaction on its AXI MI.
-4. `axi_sim_mem_intf` accepts the write into its internal memory model.
-5. A subsequent read to the same address returns the stored data back through the reverse FDI path.
-6. `axi_scoreboard` on the `u_dut1` SI verifies the read data matches the original write data.
+1. The cocotb `AxiMaster` on `s_axi_d1` issues a 512b write.
+2. `u_dut1` packs the AXI transaction into AOU flit(s) and transmits
+   via the 32B (256b) PHY0 FDI port.
+3. `u_dut2` receives the FDI data, unpacks it, and presents the
+   transaction on its AXI MI.
+4. The cocotb `AxiRam` on `m_axi_d2` accepts the write into its
+   internal memory model.
+5. A subsequent read to the same address returns the stored data back
+   through the reverse FDI path.
+6. The Python test compares the read data against the originally
+   written payload byte-for-byte.
 
-The reverse direction (initiated from `u_dut2` SI to `u_dut1` MI) operates symmetrically.
+The reverse direction (initiated from `s_axi_d2` to `m_axi_d1`)
+operates symmetrically.
+
+A separate test (`test_csr_reset_values`) reads every register defined
+in `csr/aou-core.rdl` over APB on both DUTs immediately after reset
+and *before* APB activation, verifying that every sw-readable,
+reset-bearing field matches its RDL-defined reset value. The expected
+values are built at runtime by `systemrdl-compiler`, so the check
+self-updates whenever the RDL changes and surfaces RDL ↔ RTL drift on
+every run.
 
 ### 7.2 Components
 
-| Component | Instance | Description |
+| Component | Instance / role | Description |
 | :---- | :---- | :---- |
-| AOU_CORE_TOP | u_dut1 | DUT instance 1. AXI data width = 512b (default parameters). `FDI_CONFIG = FDI_CFG_SP_32B` (256b PHY0; no TWO_PHY). |
-| AOU_CORE_TOP | u_dut2 | DUT instance 2. RP0-RP3 AXI data widths overridden to 256b. `FDI_CONFIG = FDI_CFG_SP_32B`. |
-| axi_rand_master | proc_axi_master_d1 | Constrained random AXI master on u_dut1 SI. Issues 512b transactions (1 beat, 64-byte aligned). |
-| axi_rand_master | proc_axi_master_d2 | Constrained random AXI master on u_dut2 SI. Issues 512b transactions (2 beats of 256b, 64-byte aligned). |
-| axi_sim_mem_intf | i_mem_d2mi | Memory-backed AXI slave on u_dut2 MI (256b). Stores writes and serves reads. |
-| axi_sim_mem_intf | i_mem_d1mi | Memory-backed AXI slave on u_dut1 MI (512b). Stores writes and serves reads. |
-| axi_scoreboard | proc_scoreboard_d1 | Monitors u_dut1 SI. Checks that read data matches previously written data. |
-| axi_scoreboard | proc_scoreboard_d2 | Monitors u_dut2 SI. Checks that read data matches previously written data. |
-| fdi_flit_decoder | u_fdi_dec1 | Logs and decodes FDI flits from u_dut1 TX to `dut1_fdi.log`. Configured with `FDI_BYTES(32)` to match `FDI_CFG_SP_32B`. Enabled by `+define+AXI_LOG`. |
-| fdi_flit_decoder | u_fdi_dec2 | Logs and decodes FDI flits from u_dut2 TX to `dut2_fdi.log`. Configured with `FDI_BYTES(32)` to match `FDI_CFG_SP_32B`. Enabled by `+define+AXI_LOG`. |
+| `AOU_CORE_TOP` | `u_dut1` | DUT instance 1. AXI data width = 512b (default parameters). `FDI_CONFIG = FDI_CFG_SP_32B` (256b PHY0; no TWO_PHY). |
+| `AOU_CORE_TOP` | `u_dut2` | DUT instance 2. RP0-RP3 AXI data widths overridden to 256b. `FDI_CONFIG = FDI_CFG_SP_32B`. |
+| `cocotbext.axi.AxiMaster` | `s_axi_d1`, `s_axi_d2` | Drives AXI writes/reads on each DUT's slave interface. |
+| `cocotbext.axi.AxiRam` | `m_axi_d1`, `m_axi_d2` | Memory-backed AXI slave attached to each DUT's master interface. Stores writes and serves reads. |
+| `cocotbext.axi.ApbMaster` | `apb1`, `apb2` | Drives the AOU activate write (`paddr=0x8`, `pwdata=0x1`) on each DUT after reset, and reads CSRs for the reset-value test. |
+| `fdi_flit_decoder` | `u_fdi_dec1`, `u_fdi_dec2` | Passive FDI decoders. Log decoded flits to `dut1_fdi.log` / `dut2_fdi.log`. Built only when `FDI_LOG=1` is passed to `make`. |
 
 Key testbench parameters:
 
 | Parameter | Value | Description |
 | :---- | :---- | :---- |
-| CLK_PERIOD | 1 ns | Core clock period (AXI domain). |
-| PCLK_PERIOD | 10 ns | APB clock period. |
-| TA / TT | 100 ps / 900 ps | VIP application / test time. |
-| AXI_DATA_WIDTH | 512 | u_dut1 AXI data width (bits). |
-| D2_AXI_DATA_WIDTH | 256 | u_dut2 AXI data width (bits). |
-| AXI_ADDR_WIDTH | 64 | AXI address width. |
-| AXI_ID_WIDTH | 10 | AXI ID width. |
+| `CORE_CLK_PERIOD_NS` | 1 ns | Core clock period (AXI/FDI domain). |
+| `APB_CLK_PERIOD_NS` | 10 ns | APB clock period. |
+| `D1_AXI_DATA_WIDTH` | 512 | `u_dut1` AXI data width (bits). |
+| `D2_AXI_DATA_WIDTH` | 256 | `u_dut2` AXI data width (bits). |
+| `AXI_ADDR_WIDTH` | 64 | AXI address width. |
+| `AXI_ID_WIDTH` | 10 | AXI ID width. |
+| `APB_ADDR_WIDTH` / `APB_DATA_WIDTH` | 32 / 32 | APB widths on both DUT slaves. |
+| `OVERALL_TIMEOUT_US` | 500 | Per-test sim-time backstop. |
 
 ### 7.3 Running the Testbench
 
-A VCS compile-and-run script is provided at `VERIF/run_vcs.sh`. From the `VERIF` directory:
+From the repository root, set up the Python environment once and then
+invoke the testbench:
 
 ```bash
-./run_vcs.sh
+cd VERIF
+bash setup_cocotb_env.sh        # creates VERIF/venv/, installs cocotb + deps
+source venv/bin/activate
+make                            # Verilator (default), 8 parallel C++ jobs
+make SIM=vcs                    # Synopsys VCS
+make WAVES=1                    # waveform dump (FST/VCD or FSDB/VPD)
+make FDI_LOG=1                  # enable fdi_flit_decoder logs
+make clean                      # remove sim_build/ and generated artefacts
 ```
 
-The script compiles all sources listed in `VERIF/aou_tb.f`, enables AXI and FDI transaction logging (`+define+AXI_LOG`), and runs the simulation. Any data integrity failures are reported by the `axi_scoreboard` as `$warning` or `$error` messages in the simulation log.
+A successful run prints `*** SIMULATION PASSED ***` and writes
+`results.xml` (junit). Per-phase watchdogs (reset, APB activate, APB
+read, AXI write, AXI read) name the stuck phase explicitly on stalls
+and dump a snapshot of the relevant signal values so the simulator
+never spins silently.
+
+You can also drive the flow via `pytest`, which calls cocotb's
+`runner` API and parametrises across every simulator on `PATH`:
+
+```bash
+pytest -v                       # all available simulators
+pytest -v -k verilator          # only Verilator
+SIM=vcs pytest -v               # force Synopsys VCS
+```
 
 ## 8. IP Integration Collateral
 
@@ -1025,8 +1071,14 @@ Machine-readable integration collateral is generated from the SystemRDL register
 | IP-XACT register map (IEEE 1685-2014) | `INTEG/ipxact/gen/aou_core_regmap.xml` | SoC integration tools (register only -- `memoryMaps` element) |
 | C header | `DOC/csr/aou_core_csr.h` | Firmware / driver developers (`#define` macros for offsets and field masks) |
 | Interactive HTML docs | `DOC/csr/html/` | Browsable register reference (any team) |
-| UVM register model | `VERIF/aou_core_csr_uvm_pkg.sv` | Verification (UVM `uvm_reg_block` package) |
+| UVM register model | `INTEG/uvm/aou_core_csr_uvm_pkg.sv` | Verification (UVM `uvm_reg_block` package) -- drop into your UVM env's RAL tier. |
 | Markdown register docs | `DOC/csr/aou-core-csrs.md` | Quick reference (also linked from [Section 4.1](#41-register-map)) |
+
+Note: the in-repo cocotb testbench (Section 7) does not consume the
+generated UVM package -- it parses `csr/aou-core.rdl` directly via
+`systemrdl-compiler` at runtime. The UVM package is shipped as
+collateral for integrators whose own verification environments are
+UVM-based.
 
 ### 8.2 Single Source of Truth
 
@@ -1037,7 +1089,8 @@ csr/aou-core.rdl  ──(peakrdl)──>  IP-XACT register map   (INTEG/ipxact/g
                    ──(peakrdl)──>  C header                (DOC/csr/)
                    ──(peakrdl)──>  Markdown                (DOC/csr/)
                    ──(peakrdl)──>  Interactive HTML         (DOC/csr/html/)
-                   ──(peakrdl)──>  UVM register model      (VERIF/)
+                   ──(peakrdl)──>  UVM register model      (INTEG/uvm/)
+                   ──(systemrdl-compiler, runtime)──>  CSR reset readback test (VERIF/)
 ```
 
 To modify register definitions (addresses, field widths, access types, reset values, descriptions), edit `csr/aou-core.rdl` and regenerate.  IMPORTANT: RTL is not generated from RDL so any modification to RDL files will not be reflected in the design.

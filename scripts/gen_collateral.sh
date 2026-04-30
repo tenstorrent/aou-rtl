@@ -16,8 +16,9 @@ RDL=csr/aou-core.rdl
 
 IPXACT_DIR=INTEG/ipxact
 GEN_DIR=$IPXACT_DIR/gen
+UVM_DIR=INTEG/uvm
 
-mkdir -p "$GEN_DIR" DOC/csr VERIF
+mkdir -p "$GEN_DIR" "$UVM_DIR" DOC/csr
 
 echo "=== Generating collateral from $RDL ==="
 
@@ -33,8 +34,12 @@ peakrdl c-header $RDL -o DOC/csr/aou_core_csr.h
 echo "  [4/5] Interactive HTML docs   -> DOC/csr/html/"
 peakrdl html $RDL -o DOC/csr/html
 
-echo "  [5/5] UVM register model      -> VERIF/aou_core_csr_uvm_pkg.sv"
-peakrdl uvm $RDL -o VERIF/aou_core_csr_uvm_pkg.sv
+# UVM RAL package: shipped as integration collateral for downstream
+# verification environments. The in-repo cocotb testbench does not
+# consume this; it parses csr/aou-core.rdl at runtime via
+# systemrdl-compiler instead.
+echo "  [5/5] UVM register model      -> $UVM_DIR/aou_core_csr_uvm_pkg.sv"
+peakrdl uvm $RDL -o $UVM_DIR/aou_core_csr_uvm_pkg.sv
 
 echo ""
 echo "=== Validating IP-XACT output ==="

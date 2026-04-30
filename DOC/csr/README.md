@@ -16,7 +16,14 @@ Additional generated collateral lives outside this directory:
 | File | Description |
 | :--- | :--- |
 | `INTEG/ipxact/gen/aou_core_regmap.xml` | IP-XACT (IEEE 1685-2014) register memoryMap for SoC integration tools. |
-| `VERIF/aou_core_csr_uvm_pkg.sv` | UVM register model package for verification. |
+| `INTEG/uvm/aou_core_csr_uvm_pkg.sv` | UVM register model package (`uvm_reg_block`) for downstream UVM verification environments. |
+
+Note: the in-repo cocotb testbench does not consume the generated
+UVM package; it parses `csr/aou-core.rdl` directly via
+`systemrdl-compiler` at runtime (see
+`VERIF/tests/csr_reset_model.py`). The UVM package is shipped as
+integration collateral for users whose own verification environments
+are UVM-based.
 
 ## Regeneration
 
