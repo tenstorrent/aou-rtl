@@ -1,8 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Tenstorrent USA Inc
 #
-# Builds and runs the cocotb VERIF testbench under Verilator 5.046.
-# Fatal: any failing @cocotb.test red-fails the job.
+# Builds and runs the cocotb VERIF testbench under Verilator 5.044 for every
+# supported FDI configuration (single-PHY 32B / 64B / 128B). Each variant
+# runs as its own matrix entry on a separate runner so they execute in
+# parallel and never share a filesystem.
+#
+# Fatal: any failing @cocotb.test red-fails the matrix entry. With
+# fail-fast: false, one variant failing does not cancel the others.
 
 name: Cocotb Verification
 
@@ -26,8 +31,12 @@ env:
 
 jobs:
   cocotb:
-    name: Verilator + cocotb
+    name: "Verilator + cocotb (${{ matrix.fdi_config }})"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fdi_config: [sp32b, sp64b, sp128b]
     steps:
       - uses: actions/checkout@v5
 
@@ -53,18 +62,19 @@ jobs:
         run: |
           mkdir -p ../logs
           set -o pipefail
-          make JOBS=$(nproc) 2>&1 | tee ../logs/cocotb.log
+          make FDI_CONFIG=${{ matrix.fdi_config }} JOBS=$(nproc) 2>&1 \
+            | tee ../logs/cocotb_${{ matrix.fdi_config }}.log
 
       - name: Upload cocotb log
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: cocotb-log
-          path: logs/cocotb.log
+          name: cocotb-log-${{ matrix.fdi_config }}
+          path: logs/cocotb_${{ matrix.fdi_config }}.log
 
       - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: cocotb-results-xml
-          path: VERIF/results.xml
+          name: cocotb-results-xml-${{ matrix.fdi_config }}
+          path: VERIF/results_verilator_${{ matrix.fdi_config }}.xml

@@ -2776,6 +2776,13 @@ completed.
   AOU_CON0.TX_LP_MODE_THRESHOLD value, SW can configure the message
   transmission frequency.
 
+- AOU_CON0.TX_LP_MODE_THRESHOLD = 0 selects a fully-gated low-power mode:
+  the periodic heartbeat is disabled and the TX only launches an FDI flit
+  when there is real work to send (AXI traffic, CrdtGrant credit-return
+  messages, or pending MsgCredit-header credits). Once a flit is started
+  it always finishes; any granule slots that were not filled are sent as
+  zeros and the corresponding MsgStart bits are 0.
+
 <a id="figure-22"></a>
 ![Figure 22. Bubble inserted when Transmitter de-assert LP_VALID](./media/image21.png)
 
