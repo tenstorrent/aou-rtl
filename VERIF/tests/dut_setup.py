@@ -36,6 +36,9 @@ Public API:
 
 from __future__ import annotations
 
+import logging
+import os
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.result import SimTimeoutError
@@ -60,6 +63,42 @@ APB_CLK_PERIOD_NS = 10
 
 # Sized to comfortably hold this TB's small AXI payloads.
 RAM_SIZE_BYTES = 0x1000
+
+
+# -------------------------------------------------------------------------
+# AXI BFM log-level override
+# -------------------------------------------------------------------------
+# cocotbext-axi BFMs (AxiMaster, AxiRam, ApbMaster) log every transaction
+# at INFO by default ("Write start ... / Write burst start ... / Write
+# burst complete ... / Write complete ..."). Across 1024 randomized
+# iterations per direction this dominates the cocotb run log.
+#
+# By default we leave the BFM loggers at the cocotbext-axi defaults so a
+# bare `pytest` / `make` invocation behaves exactly like upstream. When
+# AXI_LOG_LEVEL is set in the environment (e.g. `AXI_LOG_LEVEL=WARNING
+# make` or `make AXI_LOG_LEVEL=WARNING` -- the Makefile exports the
+# variable), every BFM constructed in make_bfms() has its .log level
+# overridden to match. Accepts symbolic names (DEBUG, INFO, WARNING,
+# ERROR, CRITICAL) or numeric values; raises at import time on a
+# misspelt level so the failure is loud rather than silently ignored.
+
+def _resolve_axi_log_level() -> int | None:
+    raw = os.environ.get("AXI_LOG_LEVEL")
+    if raw is None or raw == "":
+        return None
+    if raw.isdigit():
+        return int(raw)
+    level = getattr(logging, raw.upper(), None)
+    if not isinstance(level, int):
+        raise ValueError(
+            f"AXI_LOG_LEVEL={raw!r} is not a valid logging level "
+            f"(use one of DEBUG, INFO, WARNING, ERROR, CRITICAL "
+            f"or a numeric level)"
+        )
+    return level
+
+
+_AXI_LOG_LEVEL: int | None = _resolve_axi_log_level()
 
 
 # -------------------------------------------------------------------------
@@ -207,6 +246,26 @@ def init_dut_inputs(dut) -> None:
                 handle.setimmediatevalue(0)
 
 
+def _set_bfm_log_level(bfm, level: int) -> None:
+    """Apply ``level`` to every logger a cocotbext-axi BFM exposes.
+
+    AxiMaster / AxiRam wrap separate ``write_if`` and ``read_if`` engines,
+    each owning its own ``.log``. ApbMaster is a single engine and exposes
+    ``.log`` directly. Walk both layouts so this helper is BFM-class
+    agnostic.
+    """
+    direct = getattr(bfm, "log", None)
+    if direct is not None:
+        direct.setLevel(level)
+    for sub_attr in ("write_if", "read_if"):
+        sub = getattr(bfm, sub_attr, None)
+        if sub is None:
+            continue
+        sub_log = getattr(sub, "log", None)
+        if sub_log is not None:
+            sub_log.setLevel(level)
+
+
 def make_bfms(dut) -> dict:
     """Construct all six BFMs. Must be called *after* init_dut_inputs.
 
@@ -214,8 +273,11 @@ def make_bfms(dut) -> dict:
     triple the direction under test needs. BFMs are tied to the matching
     reset (resetn for AXI, presetn for APB) so they hold their idle
     outputs at 0 across the reset window.
+
+    When the AXI_LOG_LEVEL env var is set, every BFM logger is re-leveled
+    to match. Otherwise the cocotbext-axi defaults are kept untouched.
     """
-    return {
+    bfms = {
         "d1_master": AxiMaster(
             make_d1_si_bus(dut), dut.clk, dut.resetn, reset_active_level=False,
         ),
@@ -237,6 +299,10 @@ def make_bfms(dut) -> dict:
             make_d2_apb_bus(dut), dut.pclk, dut.presetn, reset_active_level=False,
         ),
     }
+    if _AXI_LOG_LEVEL is not None:
+        for bfm in bfms.values():
+            _set_bfm_log_level(bfm, _AXI_LOG_LEVEL)
+    return bfms
 
 
 async def start_clocks(dut) -> None:
