@@ -38,10 +38,10 @@ jobs:
       matrix:
         fdi_config: [sp32b, sp64b, sp128b]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Verilator 5.044
-        uses: veryl-lang/setup-verilator@v1
+        uses: veryl-lang/setup-verilator@v2
         with:
           # veryl-lang/verilator-package only ships up to v5.044 (newer
           # tags exist upstream but have no pre-built binary yet).
@@ -67,14 +67,14 @@ jobs:
 
       - name: Upload cocotb log
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: cocotb-log-${{ matrix.fdi_config }}
           path: logs/cocotb_${{ matrix.fdi_config }}.log
 
       - name: Upload JUnit results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: cocotb-results-xml-${{ matrix.fdi_config }}
           path: VERIF/results_verilator_${{ matrix.fdi_config }}.xml
