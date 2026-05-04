@@ -24,13 +24,13 @@ jobs:
 
           echo "Branch name: $BRANCH"
 
-          PATTERN="^(feature|bugfix|hotfix|chore)/"
+          PATTERN="^(feature|bugfix|hotfix|chore|dependabot)/"
 
           if [[ "$BRANCH" =~ $PATTERN ]]; then
             echo "Branch name '$BRANCH' follows the naming convention."
           else
             echo "::error::Branch name '$BRANCH' does not follow the required naming convention."
-            echo "Branch names must start with one of: feature/, bugfix/, hotfix/, chore/"
+            echo "Branch names must start with one of: feature/, bugfix/, hotfix/, chore/, dependabot/"
             echo "Examples: feature/add-fdi-support, bugfix/fix-clock-gating, hotfix/critical-reset, chore/update-ci"
             exit 1
           fi

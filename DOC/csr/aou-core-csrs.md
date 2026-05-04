@@ -82,7 +82,7 @@ Don't override. Generated from: aou_core
 |  0  |    deactivate_force    |   w  | 0x0 |  — |
 |  1  |       reserved_1       |   r  | 0x0 |  — |
 |  2  |     axi_split_tr_en    |  rw  | 0x0 |  — |
-|  3  |      credit_manage     |  rw  | 0x0 |  — |
+|  3  |      credit_manage     |  rw  | 0x1 |  — |
 |  4  |      aou_sw_reset      |  rw  | 0x0 |  — |
 | 10:5|      reserved_10_5     |   r  | 0x0 |  — |
 |  11 |       tx_lp_mode       |  rw  | 0x0 |  — |
@@ -107,7 +107,7 @@ Don't override. Generated from: aou_core
 
 #### credit_manage field
 
-<p>Credit management type. 0 (default): per AoU v0.5, request and response credits are managed together; credited messages must not be sent after DeactivateReq, and re-activation is required to resolve pending AXI responses. 1: request-related (WREQ/RREQ/WDATA) and response-related (RDATA/WRESP) credits are managed separately during DEACTIVATE state, allowing response messages to be sent after DeactivateReq.</p>
+<p>Credit management type. 0: per AoU v0.5, request and response credits are managed together; credited messages must not be sent after DeactivateReq, and re-activation is required to resolve pending AXI responses. 1 (default): request-related (WREQ/RREQ/WDATA) and response-related (RDATA/WRESP) credits are managed separately during DEACTIVATE state, allowing response messages to be sent after DeactivateReq.</p>
 
 #### aou_sw_reset field
 
@@ -115,11 +115,11 @@ Don't override. Generated from: aou_core
 
 #### tx_lp_mode field
 
-<p>TX low-power mode enable. When set to 1, AOU_CORE only sends payload to FDI when there are remaining AXI messages to send. Credit-only flits are gated by tx_lp_mode_threshold. When 0 (default), AOU_CORE always sends messages to FDI for lowest latency.</p>
+<p>TX low-power mode enable. When set to 1, AOU_CORE only sends payload to FDI when there are remaining AXI messages to send. Credit-only flit behavior is gated by tx_lp_mode_threshold: non-zero threshold preserves the legacy heartbeat (a partially-filled flit every threshold+1 cycles while the link is active); a zero threshold disables the heartbeat entirely so the TX only emits flits when AXI traffic is pending or credits need to be returned. When 0 (default), AOU_CORE always sends messages to FDI for lowest latency.</p>
 
 #### tx_lp_mode_threshold field
 
-<p>TX low-power mode message transmission frequency. When tx_lp_mode is enabled and only activation messages are pending (no AXI traffic), the TX will wait this many cycles before sending a partially-filled flit. Configures the trade-off between latency and power in low-power mode.</p>
+<p>TX low-power mode message transmission frequency. Only meaningful when tx_lp_mode is enabled. When non-zero (legacy behavior), and only activation messages are pending (no AXI traffic), the TX will wait this many cycles before sending a partially-filled heartbeat flit; configures the trade-off between latency and power. When set to 0, the threshold is inert: the TX emits no idle/heartbeat flits and only launches a flit when there is real work to send (AXI traffic, CrdtGrant credit-return messages in the ring buffer, or pending MsgCredit-header credits). Once a flit is started it always finishes; unused granule slots are zero-padded.</p>
 
 #### rp0_axi_aggregator_en field
 

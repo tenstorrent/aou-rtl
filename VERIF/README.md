@@ -18,8 +18,12 @@ Synopsys VCS for those with a commercial license.
 ## What it does
 
 - Instantiates two `AOU_CORE_TOP` cores (`u_dut1`, `u_dut2`) connected
-  back-to-back via single-PHY 32B FDI loopback (`FDI_CFG_SP_32B`,
-  `RP_COUNT=1`).
+  back-to-back via single-PHY FDI loopback, with `RP_COUNT=1`. Three
+  parallel harness top modules cover three FDI widths and are selected
+  via the `FDI_CONFIG` Make knob (default `sp32b`):
+  - `aou_cocotb_top`         -- `FDI_CFG_SP_32B`  (256b FDI)
+  - `aou_cocotb_top_sp64b`   -- `FDI_CFG_SP_64B`  (512b FDI)
+  - `aou_cocotb_top_sp128b`  -- `FDI_CFG_SP_128B` (1024b FDI, 2-step packing)
 - Exposes the four AXI buses and two APB slave buses as flat top-level
   ports using `cocotbext-axi`'s canonical signal naming so the Python
   side can use `AxiBus.from_prefix(dut, "<prefix>")` /
@@ -87,6 +91,9 @@ make WAVES=1             # enable waveform dump
                          #             or dump.vpd  (otherwise)
 make SIM=vcs WAVES=1 WAVES_FORMAT=vpd   # force VPD instead of FSDB
 make FDI_LOG=1           # enable fdi_flit_decoder under +define+FDI_LOG
+make FDI_CONFIG=sp32b    # 32B FDI loopback (default; aou_cocotb_top)
+make FDI_CONFIG=sp64b    # 64B FDI loopback (aou_cocotb_top_sp64b)
+make FDI_CONFIG=sp128b   # 128B FDI loopback (aou_cocotb_top_sp128b)
 make JOBS=16             # override C++ compile parallelism (default 8)
 make JOBS=1              # serial compile (useful when debugging compile errors)
 make JOBS=0              # use all available cores
@@ -95,22 +102,37 @@ make clean               # remove sim_build/ and generated artefacts
 
 `JOBS` controls how many `g++` invocations Verilator runs in parallel
 during the C++ build phase. Each translation unit can use up to ~1 GB
-of RAM, so cap `JOBS` if memory is tight. The same knob works under
-`pytest`: `JOBS=16 pytest -v`.
+of RAM, so cap `JOBS` if memory is tight.
 
-You can also drive everything via pytest, which calls cocotb's
-`runner` API under the hood and parametrises across every simulator
-on `PATH`:
+A successful run prints `*** SIMULATION PASSED ***` and writes a
+per-(simulator, FDI config) `results_<sim>_<fdi_config>.xml` JUnit file
+(e.g. `results_verilator_sp32b.xml`) at the end of each cocotb test
+module, so back-to-back runs that switch simulator do not clobber each
+other's results.
+
+### Running all three FDI variants in parallel
+
+The CI workflow runs `sp32b`, `sp64b`, and `sp128b` on separate matrix
+runners. Locally you can launch all three concurrently from the same
+`VERIF/` directory; produced artefacts are namespaced by FDI config so
+they never collide:
 
 ```bash
-pytest -v                # run every available simulator
-pytest -v -k verilator   # only Verilator
-SIM=vcs pytest -v        # force Synopsys VCS
-pytest -n auto           # parallelise with pytest-xdist
+make FDI_CONFIG=sp32b  & \
+make FDI_CONFIG=sp64b  & \
+make FDI_CONFIG=sp128b & \
+wait
 ```
 
-A successful run prints `*** SIMULATION PASSED ***` and writes
-`results.xml` (junit) at the end of each cocotb test module.
+Per-config artefacts (each lives in `VERIF/`):
+
+- `results_<sim>_<config>.xml`   JUnit test results
+- `sim_build/<sim>_<config>/`    Verilator/VCS build artefacts
+- `dut1_fdi_<config>.log`,
+  `dut2_fdi_<config>.log`        FDI flit-decoder logs (`FDI_LOG=1`)
+- `dump_<config>.vcd`            Verilator VCD (`WAVES=1`)
+- `dump_<config>.fsdb`,
+  `dump_<config>.vpd`            VCS waveform dumps (`SIM=vcs WAVES=1`)
 
 ## Repository layout
 
@@ -121,7 +143,9 @@ VERIF/
   requirements.txt       pinned Python deps
   setup_cocotb_env.sh    venv + pip install bootstrap
   Makefile               make-flow entry point (Verilator + VCS)
-  aou_cocotb_top.sv      thin SV harness exposing flat AXI + APB ports
+  aou_cocotb_top.sv         SV harness, 32B FDI loopback (default top)
+  aou_cocotb_top_sp64b.sv   SV harness, 64B FDI loopback
+  aou_cocotb_top_sp128b.sv  SV harness, 128B FDI loopback
   aou_cocotb.f           file list (RTL + harness)
   decoder/
     fdi_flit_decoder.sv  passive FDI flit decoder (gated by FDI_LOG)

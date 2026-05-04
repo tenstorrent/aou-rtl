@@ -1285,6 +1285,7 @@ import packet_def_pkg::*;
 `endif
 
         .I_STATUS_DISABLED              ( w_status_disabled             ),
+        .I_STATUS_ENABLED               ( O_AOU_ACTIVATE_ST_ENABLED     ),
         .I_RP_DEST_RP                   ( w_rp_dest_rp                  ),
 
         .I_PRIOR_RP_AXI_AXI_QOS_TO_NP   ( w_prior_rp_axi_axi_qos_to_np  ),

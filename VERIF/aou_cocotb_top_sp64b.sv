@@ -16,11 +16,11 @@
 //  limitations under the License.
 // *****************************************************************************
 //
-//  Harness   : aou_cocotb_top
+//  Harness   : aou_cocotb_top_sp64b
 //  Description: Thin SystemVerilog wrapper for the cocotb testbench.
 //
 //               Instantiates two AOU_CORE_TOP cores connected back-to-back
-//               via single-PHY 32B FDI loopback. The four AXI interfaces
+//               via single-PHY 64B FDI loopback. The four AXI interfaces
 //               and two APB slave interfaces are exposed as flat top-level
 //               ports using cocotbext-axi's canonical signal naming
 //               (s_axi_d1_*, m_axi_d1_*, s_axi_d2_*, m_axi_d2_*,
@@ -34,8 +34,8 @@
 //               deassertion; the harness has no SV-side APB activate
 //               sequence and no o_apb_init_done handshake.
 //
-//               u_dut1: 512b AXI, RP_COUNT=1, FDI_CFG_SP_32B
-//               u_dut2: 256b AXI, RP_COUNT=1, FDI_CFG_SP_32B
+//               u_dut1: 512b AXI, RP_COUNT=1, FDI_CFG_SP_64B (FDI=512b)
+//               u_dut2: 256b AXI, RP_COUNT=1, FDI_CFG_SP_64B (FDI=512b)
 //
 //               Two fdi_flit_decoder instances are retained under
 //               `ifdef FDI_LOG for protocol-aware decode of the
@@ -45,7 +45,7 @@
 
 `timescale 1ns/1ps
 
-module aou_cocotb_top #(
+module aou_cocotb_top_sp64b #(
     parameter int RP_COUNT          = 1,
     parameter int APB_ADDR_WD       = 32,
     parameter int APB_DATA_WD       = 32,
@@ -508,39 +508,39 @@ module aou_cocotb_top #(
     assign m_axi_d2_rready = d2_mi_rready[0];
 
     // ================================================================
-    // FDI cross-connect wires (single-PHY 32B / 256b)
+    // FDI cross-connect wires (single-PHY 64B / 512b)
     // ================================================================
-    wire [255:0] dut1_lp_32b_data;
-    wire         dut1_lp_32b_valid;
-    wire         dut1_lp_32b_irdy;
-    wire         dut1_lp_32b_stallack;
+    wire [511:0] dut1_lp_64b_data;
+    wire         dut1_lp_64b_valid;
+    wire         dut1_lp_64b_irdy;
+    wire         dut1_lp_64b_stallack;
 
-    wire [255:0] dut2_lp_32b_data;
-    wire         dut2_lp_32b_valid;
-    wire         dut2_lp_32b_irdy;
-    wire         dut2_lp_32b_stallack;
+    wire [511:0] dut2_lp_64b_data;
+    wire         dut2_lp_64b_valid;
+    wire         dut2_lp_64b_irdy;
+    wire         dut2_lp_64b_stallack;
 
 `ifdef FDI_LOG
-    fdi_flit_decoder #(.LOG_FILE("dut1_fdi_sp32b.log"), .FDI_BYTES(32)) u_fdi_dec1 (
+    fdi_flit_decoder #(.LOG_FILE("dut1_fdi_sp64b.log"), .FDI_BYTES(64)) u_fdi_dec1 (
         .clk    (clk),
         .resetn (resetn),
-        .valid  (dut1_lp_32b_valid),
-        .data   (dut1_lp_32b_data)
+        .valid  (dut1_lp_64b_valid),
+        .data   (dut1_lp_64b_data)
     );
-    fdi_flit_decoder #(.LOG_FILE("dut2_fdi_sp32b.log"), .FDI_BYTES(32)) u_fdi_dec2 (
+    fdi_flit_decoder #(.LOG_FILE("dut2_fdi_sp64b.log"), .FDI_BYTES(64)) u_fdi_dec2 (
         .clk    (clk),
         .resetn (resetn),
-        .valid  (dut2_lp_32b_valid),
-        .data   (dut2_lp_32b_data)
+        .valid  (dut2_lp_64b_valid),
+        .data   (dut2_lp_64b_data)
     );
 `endif
 
     // ================================================================
-    // u_dut1 -- 512b AXI, single-PHY 32B FDI, RP_COUNT=1
+    // u_dut1 -- 512b AXI, single-PHY 64B FDI, RP_COUNT=1
     // ================================================================
     AOU_CORE_TOP #(
         .RP_COUNT    (RP_COUNT),
-        .FDI_CONFIG  (packet_def_pkg::FDI_CFG_SP_32B),
+        .FDI_CONFIG  (packet_def_pkg::FDI_CFG_SP_64B),
         .APB_ADDR_WD (APB_ADDR_WD),
         .APB_DATA_WD (APB_DATA_WD)
     ) u_dut1 (
@@ -637,16 +637,16 @@ module aou_cocotb_top #(
         .I_AOU_RX_AXI_S_BREADY       (d1_si_bready),
 
         // FDI: u_dut1 RX <- u_dut2 TX, u_dut1 TX -> u_dut2 RX
-        .I_FDI_PL_0_VALID            (dut2_lp_32b_valid),
-        .I_FDI_PL_0_DATA             (dut2_lp_32b_data),
+        .I_FDI_PL_0_VALID            (dut2_lp_64b_valid),
+        .I_FDI_PL_0_DATA             (dut2_lp_64b_data),
         .I_FDI_PL_0_FLIT_CANCEL      (1'b0),
         .I_FDI_PL_0_TRDY             (1'b1),
         .I_FDI_PL_0_STALLREQ         (1'b0),
         .I_FDI_PL_0_STATE_STS        (4'h1),
-        .O_FDI_LP_0_DATA             (dut1_lp_32b_data),
-        .O_FDI_LP_0_VALID            (dut1_lp_32b_valid),
-        .O_FDI_LP_0_IRDY             (dut1_lp_32b_irdy),
-        .O_FDI_LP_0_STALLACK         (dut1_lp_32b_stallack),
+        .O_FDI_LP_0_DATA             (dut1_lp_64b_data),
+        .O_FDI_LP_0_VALID            (dut1_lp_64b_valid),
+        .O_FDI_LP_0_IRDY             (dut1_lp_64b_irdy),
+        .O_FDI_LP_0_STALLACK         (dut1_lp_64b_stallack),
 
         .INT_REQ_LINKRESET            (),
         .INT_SI0_ID_MISMATCH          (),
@@ -666,7 +666,7 @@ module aou_cocotb_top #(
     );
 
     // ================================================================
-    // u_dut2 -- 256b AXI, single-PHY 32B FDI, RP_COUNT=1
+    // u_dut2 -- 256b AXI, single-PHY 64B FDI, RP_COUNT=1
     // ================================================================
     // u_dut2 needs all four RP*_AXI_DATA_WD overrides because AOU_CORE_TOP's
     // port widths are sized to max4(RP0..RP3_AXI_DATA_WD); leaving any at the
@@ -678,7 +678,7 @@ module aou_cocotb_top #(
         .RP1_AXI_DATA_WD (D2_AXI_DATA_WIDTH),
         .RP2_AXI_DATA_WD (D2_AXI_DATA_WIDTH),
         .RP3_AXI_DATA_WD (D2_AXI_DATA_WIDTH),
-        .FDI_CONFIG      (packet_def_pkg::FDI_CFG_SP_32B),
+        .FDI_CONFIG      (packet_def_pkg::FDI_CFG_SP_64B),
         .APB_ADDR_WD     (APB_ADDR_WD),
         .APB_DATA_WD     (APB_DATA_WD)
     ) u_dut2 (
@@ -775,16 +775,16 @@ module aou_cocotb_top #(
         .I_AOU_RX_AXI_S_BREADY       (d2_si_bready),
 
         // FDI: u_dut2 RX <- u_dut1 TX, u_dut2 TX -> u_dut1 RX
-        .I_FDI_PL_0_VALID            (dut1_lp_32b_valid),
-        .I_FDI_PL_0_DATA             (dut1_lp_32b_data),
+        .I_FDI_PL_0_VALID            (dut1_lp_64b_valid),
+        .I_FDI_PL_0_DATA             (dut1_lp_64b_data),
         .I_FDI_PL_0_FLIT_CANCEL      (1'b0),
         .I_FDI_PL_0_TRDY             (1'b1),
         .I_FDI_PL_0_STALLREQ         (1'b0),
         .I_FDI_PL_0_STATE_STS        (4'h1),
-        .O_FDI_LP_0_DATA             (dut2_lp_32b_data),
-        .O_FDI_LP_0_VALID            (dut2_lp_32b_valid),
-        .O_FDI_LP_0_IRDY             (dut2_lp_32b_irdy),
-        .O_FDI_LP_0_STALLACK         (dut2_lp_32b_stallack),
+        .O_FDI_LP_0_DATA             (dut2_lp_64b_data),
+        .O_FDI_LP_0_VALID            (dut2_lp_64b_valid),
+        .O_FDI_LP_0_IRDY             (dut2_lp_64b_irdy),
+        .O_FDI_LP_0_STALLACK         (dut2_lp_64b_stallack),
 
         .INT_REQ_LINKRESET            (),
         .INT_SI0_ID_MISMATCH          (),
@@ -818,18 +818,18 @@ module aou_cocotb_top #(
 `ifdef DUMP_FSDB
     initial begin
         if ($test$plusargs("fsdb")) begin
-            $fsdbDumpfile("dump_sp32b.fsdb");
-            $fsdbDumpvars(0, aou_cocotb_top);
-            $display("[%0t] aou_cocotb_top: FSDB dump enabled -> dump_sp32b.fsdb", $time);
+            $fsdbDumpfile("dump_sp64b.fsdb");
+            $fsdbDumpvars(0, aou_cocotb_top_sp64b);
+            $display("[%0t] aou_cocotb_top_sp64b: FSDB dump enabled -> dump_sp64b.fsdb", $time);
         end
     end
 `endif
 `ifdef DUMP_VPD
     initial begin
         if ($test$plusargs("vcdpluson")) begin
-            $vcdplusfile("dump_sp32b.vpd");
+            $vcdplusfile("dump_sp64b.vpd");
             $vcdpluson(0);
-            $display("[%0t] aou_cocotb_top: VPD dump enabled -> dump_sp32b.vpd", $time);
+            $display("[%0t] aou_cocotb_top_sp64b: VPD dump enabled -> dump_sp64b.vpd", $time);
         end
     end
 `endif
@@ -844,8 +844,8 @@ module aou_cocotb_top #(
 `ifdef VLT_DUMP_FILE
     initial begin
         $dumpfile(`VLT_DUMP_FILE);
-        $dumpvars(0, aou_cocotb_top);
-        $display("[%0t] aou_cocotb_top: VCD dump enabled -> %s", $time, `VLT_DUMP_FILE);
+        $dumpvars(0, aou_cocotb_top_sp64b);
+        $display("[%0t] aou_cocotb_top_sp64b: VCD dump enabled -> %s", $time, `VLT_DUMP_FILE);
     end
 `endif
 

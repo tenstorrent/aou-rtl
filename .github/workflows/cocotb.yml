@@ -1,8 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Tenstorrent USA Inc
 #
-# Builds and runs the cocotb VERIF testbench under Verilator 5.046.
-# Fatal: any failing @cocotb.test red-fails the job.
+# Builds and runs the cocotb VERIF testbench under Verilator 5.044 for every
+# supported FDI configuration (single-PHY 32B / 64B / 128B). Each variant
+# runs as its own matrix entry on a separate runner so they execute in
+# parallel and never share a filesystem.
+#
+# Fatal: any failing @cocotb.test red-fails the matrix entry. With
+# fail-fast: false, one variant failing does not cancel the others.
 
 name: Cocotb Verification
 
@@ -18,20 +23,32 @@ on:
 permissions:
   contents: read
 
+env:
+  # Force Node 24 for any third-party action still pinned to Node 20
+  # (notably veryl-lang/setup-verilator@v1). GitHub-maintained actions
+  # below are already on Node-24-capable majors.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   cocotb:
-    name: Verilator + cocotb
+    name: "Verilator + cocotb (${{ matrix.fdi_config }})"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fdi_config: [sp32b, sp64b, sp128b]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Install Verilator 5.046
-        uses: veryl-lang/setup-verilator@v1
+      - name: Install Verilator 5.044
+        uses: veryl-lang/setup-verilator@v2
         with:
-          verilator_version: "5.046"
+          # veryl-lang/verilator-package only ships up to v5.044 (newer
+          # tags exist upstream but have no pre-built binary yet).
+          version: "5.044"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: pip
@@ -45,18 +62,19 @@ jobs:
         run: |
           mkdir -p ../logs
           set -o pipefail
-          make JOBS=$(nproc) 2>&1 | tee ../logs/cocotb.log
+          make FDI_CONFIG=${{ matrix.fdi_config }} JOBS=$(nproc) 2>&1 \
+            | tee ../logs/cocotb_${{ matrix.fdi_config }}.log
 
       - name: Upload cocotb log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: cocotb-log
-          path: logs/cocotb.log
+          name: cocotb-log-${{ matrix.fdi_config }}
+          path: logs/cocotb_${{ matrix.fdi_config }}.log
 
       - name: Upload JUnit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: cocotb-results-xml
-          path: VERIF/results.xml
+          name: cocotb-results-xml-${{ matrix.fdi_config }}
+          path: VERIF/results_verilator_${{ matrix.fdi_config }}.xml

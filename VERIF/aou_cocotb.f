@@ -18,7 +18,14 @@
 // AOU_CORE_TOP cocotb Testbench -- File List
 // All paths relative to the VERIF/ directory.
 // =============================================================================
-// FDI configuration is SP_32B (single-PHY, 256b) via FDI_CFG_SP_32B.
+// All three harness top modules are compiled into the same binary; the
+// Makefile selects which one is elaborated as the simulation TOPLEVEL via
+// the FDI_CONFIG=sp32b|sp64b|sp128b knob:
+//
+//   - aou_cocotb_top         : single-PHY 32B  FDI (FDI_CFG_SP_32B,  256b)
+//   - aou_cocotb_top_sp64b   : single-PHY 64B  FDI (FDI_CFG_SP_64B,  512b)
+//   - aou_cocotb_top_sp128b  : single-PHY 128B FDI (FDI_CFG_SP_128B, 1024b)
+//
 // TWO_PHY is intentionally NOT defined.
 
 // RTL package (must come before modules that import it)
@@ -96,5 +103,8 @@
 // FDI flit decoder (passive; only instantiated under +define+FDI_LOG)
 decoder/fdi_flit_decoder.sv
 
-// cocotb harness (top-level for the simulation)
+// cocotb harness top-level modules. All three are compiled together; the
+// Makefile picks which one is the simulation TOPLEVEL.
 aou_cocotb_top.sv
+aou_cocotb_top_sp64b.sv
+aou_cocotb_top_sp128b.sv

@@ -17,11 +17,14 @@
 
 Provides ``test_aou_loopback_runner`` which invokes cocotb's modern
 ``runner`` API. This lets developers run ``pytest`` from the
-VERIF/ directory and parameterise the simulator across runs:
+VERIF/ directory and parameterise the simulator across runs and across
+the three single-PHY FDI widths:
 
-    pytest -v                       # all simulators that are available
-    pytest -v -k verilator          # only Verilator
+    pytest -v                       # all simulators x all FDI configs
+    pytest -v -k verilator          # only Verilator (every FDI config)
+    pytest -v -k sp64b              # only the 64B-FDI harness
     SIM=vcs pytest -v               # force Synopsys VCS
+    FDI_CONFIG=sp128b pytest -v     # force the 128B-FDI harness
 
 Pre-requisites:
     1. ``bash setup_cocotb_env.sh`` has been run.
@@ -72,14 +75,41 @@ def _candidate_sims() -> list[str]:
     return candidates or ["verilator"]
 
 
+# Map FDI_CONFIG knob -> SV harness top module name. All three modules
+# are compiled into the same binary; only the elaborated TOPLEVEL changes.
+_FDI_CONFIG_TOPLEVEL = {
+    "sp32b":  "aou_cocotb_top",
+    "sp64b":  "aou_cocotb_top_sp64b",
+    "sp128b": "aou_cocotb_top_sp128b",
+}
+
+
+def _candidate_fdi_configs() -> list[str]:
+    """Return the list of FDI configs we should attempt to exercise."""
+    forced = os.environ.get("FDI_CONFIG")
+    if forced:
+        if forced not in _FDI_CONFIG_TOPLEVEL:
+            raise ValueError(
+                f"FDI_CONFIG={forced!r} is not one of "
+                f"{sorted(_FDI_CONFIG_TOPLEVEL)}"
+            )
+        return [forced]
+    return list(_FDI_CONFIG_TOPLEVEL)
+
+
 @pytest.mark.parametrize("sim", _candidate_sims())
-def test_aou_loopback_runner(sim: str) -> None:
-    """Build + run the cocotb testbench for the requested simulator."""
+@pytest.mark.parametrize("fdi_config", _candidate_fdi_configs())
+def test_aou_loopback_runner(sim: str, fdi_config: str) -> None:
+    """Build + run the cocotb testbench for the requested simulator and
+    FDI loopback width."""
     if shutil.which(sim) is None:
         pytest.skip(f"{sim} not found on PATH")
 
+    toplevel = _FDI_CONFIG_TOPLEVEL[fdi_config]
     sources = _read_filelist(VERIF_DIR / "aou_cocotb.f")
-    build_dir = VERIF_DIR / "sim_build" / sim
+    # Per-(sim, fdi_config) build dir so each variant has its own
+    # elaboration cache and the three variants do not stomp on each other.
+    build_dir = VERIF_DIR / "sim_build" / f"{sim}_{fdi_config}"
 
     # JOBS controls parallelism for Verilator's C++ compile phase.
     # Default 8; override with `JOBS=N pytest ...`. JOBS=0 means all cores.
@@ -113,13 +143,13 @@ def test_aou_loopback_runner(sim: str) -> None:
     runner = get_runner(sim)
     runner.build(
         sources=sources,
-        hdl_toplevel="aou_cocotb_top",
+        hdl_toplevel=toplevel,
         build_dir=str(build_dir),
         build_args=build_args,
         always=True,
     )
     runner.test(
-        hdl_toplevel="aou_cocotb_top",
+        hdl_toplevel=toplevel,
         # Both modules share a single elab/build; cocotb runs each
         # @cocotb.test from each module in turn within one simulator
         # invocation. Keep this list in sync with the Makefile MODULE

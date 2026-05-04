@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Tenstorrent USA Inc
+#
+# Dependabot watches our GitHub Actions pins and Python deps and files
+# weekly grouped PRs when newer versions are available. Helps us catch
+# runtime deprecations (like the Node 20 -> Node 24 migration) before
+# they show up as warnings in CI.
+
+version: 2
+updates:
+  # GitHub Actions used by all .github/workflows/*.yml files.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      github-actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+
+  # Top-level Python deps (peakrdl + IP-XACT validation).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      python:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps"
+
+  # Cocotb testbench Python deps.
+  - package-ecosystem: "pip"
+    directory: "/VERIF"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      cocotb:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "verif"

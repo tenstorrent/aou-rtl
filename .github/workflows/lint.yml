@@ -18,6 +18,12 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  # Force Node 24 for any third-party action still pinned to Node 20
+  # (notably veryl-lang/setup-verilator@v1). GitHub-maintained actions
+  # below are already on Node-24-capable majors.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   verible:
     name: Verible Style Lint
@@ -26,7 +32,7 @@ jobs:
     env:
       VERIBLE_VERSION: "v0.0-4053-g89d4d98a"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Verible lint with inline PR comments
         uses: chipsalliance/verible-linter-action@main
@@ -51,7 +57,7 @@ jobs:
 
       - name: Upload Verible log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: verible-lint-log
           path: logs/verible_lint.log
@@ -61,19 +67,21 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Install Verilator 5.046
-        uses: veryl-lang/setup-verilator@v1
+      - name: Install Verilator 5.044
+        uses: veryl-lang/setup-verilator@v2
         with:
-          verilator_version: "5.046"
+          # veryl-lang/verilator-package only ships up to v5.044 (newer
+          # tags exist upstream but have no pre-built binary yet).
+          version: "5.044"
 
       - name: Run Verilator lint
         run: bash scripts/run_lint.sh || true
 
       - name: Upload Verilator log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: verilator-lint-log
           path: logs/verilator_lint.log
