@@ -34,6 +34,8 @@
 #   make JOBS=16               # override C++ compile parallelism (default 8)
 #   make JOBS=1                # serial compile (useful when debugging errors)
 #   make JOBS=0                # use all available cores
+#   make AXI_LOG_LEVEL=WARNING # quiet cocotbext-axi BFM per-transaction logs
+#                              # (defaults to cocotbext-axi defaults when unset)
 #   make clean                 # remove sim_build/ and generated artefacts
 #
 # *****************************************************************************
@@ -102,6 +104,16 @@ VERILOG_SOURCES := $(foreach f,$(_FLIST_LINES),$(abspath $(VERIF_DIR)/$(f)))
 
 # Tell cocotb where to find Python tests.
 export PYTHONPATH := $(VERIF_DIR)/tests:$(PYTHONPATH)
+
+# Optional cocotbext-axi BFM log level override. When unset (the default),
+# tests/dut_setup.py leaves the BFM loggers at their cocotbext-axi
+# defaults, matching a vanilla `pytest` / `make` invocation. When set
+# either as a make variable (`make AXI_LOG_LEVEL=WARNING`) or as a shell
+# env var (`AXI_LOG_LEVEL=WARNING make`), the value is exported into the
+# cocotb child process which re-levels every BFM .log to match. Accepts
+# DEBUG, INFO, WARNING, ERROR, CRITICAL, or a numeric Python logging
+# level.
+export AXI_LOG_LEVEL
 
 # Optional defines.
 ifeq ($(FDI_LOG),1)

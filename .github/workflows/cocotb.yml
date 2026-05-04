@@ -96,10 +96,15 @@ jobs:
       - name: Run cocotb testbench
         if: needs.detect.outputs.sim == 'true'
         working-directory: VERIF
+        # AXI_LOG_LEVEL=WARNING quiets cocotbext-axi's per-transaction
+        # INFO chatter (Write start / burst / complete x ~50k iterations
+        # per matrix entry). Override with a manual workflow_dispatch run
+        # locally if you need INFO/DEBUG to triage a CI-only failure.
         run: |
           mkdir -p ../logs
           set -o pipefail
-          make FDI_CONFIG=${{ matrix.fdi_config }} JOBS=$(nproc) 2>&1 \
+          make FDI_CONFIG=${{ matrix.fdi_config }} JOBS=$(nproc) \
+            AXI_LOG_LEVEL=WARNING 2>&1 \
             | tee ../logs/cocotb_${{ matrix.fdi_config }}.log
 
       - name: Upload cocotb log
