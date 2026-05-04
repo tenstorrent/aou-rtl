@@ -1,7 +1,6 @@
 # Default: no required reviewers. PRs touching only paths not listed below
 # (e.g. DOC/, INTEG/, scripts/, .github/, root files) can merge without a
 # Code Owner approval. Status checks defined by branch protection still apply.
-*
 
 # Protected design + verification + register source: require review from the
 # maintainers team before merge into main.
