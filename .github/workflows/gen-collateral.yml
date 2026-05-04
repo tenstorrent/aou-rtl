@@ -4,25 +4,25 @@
 # Runs scripts/gen_collateral.sh in CI and fails the job on any non-zero
 # exit from peakrdl (the script uses `set -euo pipefail`, so the first
 # peakrdl error short-circuits the run).
+#
+# This workflow triggers on every PR/push, but the heavy steps are gated
+# on dorny/paths-filter so they only do work when CSR-related paths
+# change. The workflow always runs so the "peakrdl gen_collateral.sh"
+# check name -- which is wired into branch protection as a required
+# status check on `main` -- is present for every PR, including doc /
+# infra / RTL-only PRs that have no CSR collateral impact. When no
+# CSR-related paths changed, the heavy steps are skipped and the job
+# succeeds; otherwise it runs the collateral generation/verification
+# steps and may fail to block the PR. See
+# https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/troubleshooting-required-status-checks
+# for the underlying GitHub behavior this works around.
 
 name: Generate Collateral
 
 on:
   pull_request:
-    paths:
-      - 'csr/**'
-      - 'scripts/gen_collateral.sh'
-      - 'requirements.txt'
-      - '.github/workflows/gen-collateral.yml'
-      - 'DOC/csr/aou-core-csrs.md'
   push:
     branches: [main, design]
-    paths:
-      - 'csr/**'
-      - 'scripts/gen_collateral.sh'
-      - 'requirements.txt'
-      - '.github/workflows/gen-collateral.yml'
-      - 'DOC/csr/aou-core-csrs.md'
 
 permissions:
   contents: read
@@ -34,22 +34,42 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Detect CSR-related changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            csr:
+              - 'csr/**'
+              - 'scripts/gen_collateral.sh'
+              - 'requirements.txt'
+              - '.github/workflows/gen-collateral.yml'
+              - 'DOC/csr/aou-core-csrs.md'
+
+      - name: Skip notice
+        if: steps.changes.outputs.csr != 'true'
+        run: echo "No CSR-related paths changed; skipping gen_collateral.sh."
+
       - name: Set up Python
+        if: steps.changes.outputs.csr == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: pip
 
       - name: Install peakrdl toolchain
+        if: steps.changes.outputs.csr == 'true'
         run: pip install -r requirements.txt
 
       - name: Run gen_collateral.sh
+        if: steps.changes.outputs.csr == 'true'
         run: |
           mkdir -p logs
           set -o pipefail
           bash scripts/gen_collateral.sh 2>&1 | tee logs/gen_collateral.log
 
       - name: Verify DOC/csr/aou-core-csrs.md is up to date
+        if: steps.changes.outputs.csr == 'true'
         run: |
           if ! git diff --exit-code -- DOC/csr/aou-core-csrs.md; then
             echo "::error file=DOC/csr/aou-core-csrs.md::DOC/csr/aou-core-csrs.md is out of date with csr/aou-core.rdl."
@@ -58,7 +78,7 @@ jobs:
           fi
 
       - name: Upload gen_collateral log
-        if: always()
+        if: always() && steps.changes.outputs.csr == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: gen-collateral-log
