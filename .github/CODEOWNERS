@@ -1,1 +1,10 @@
-* @tenstorrent/aou-rtl-maintainers
+# Default: no required reviewers. PRs touching only paths not listed below
+# (e.g. DOC/, INTEG/, scripts/, .github/, root files) can merge without a
+# Code Owner approval. Status checks defined by branch protection still apply.
+*
+
+# Protected design + verification + register source: require review from the
+# maintainers team before merge into main.
+/RTL/   @tenstorrent/aou-rtl-maintainers
+/VERIF/ @tenstorrent/aou-rtl-maintainers
+/csr/   @tenstorrent/aou-rtl-maintainers

@@ -14,6 +14,7 @@ on:
       - 'scripts/gen_collateral.sh'
       - 'requirements.txt'
       - '.github/workflows/gen-collateral.yml'
+      - 'DOC/csr/aou-core-csrs.md'
   push:
     branches: [main, design]
     paths:
@@ -21,6 +22,7 @@ on:
       - 'scripts/gen_collateral.sh'
       - 'requirements.txt'
       - '.github/workflows/gen-collateral.yml'
+      - 'DOC/csr/aou-core-csrs.md'
 
 permissions:
   contents: read
@@ -46,6 +48,14 @@ jobs:
           mkdir -p logs
           set -o pipefail
           bash scripts/gen_collateral.sh 2>&1 | tee logs/gen_collateral.log
+
+      - name: Verify DOC/csr/aou-core-csrs.md is up to date
+        run: |
+          if ! git diff --exit-code -- DOC/csr/aou-core-csrs.md; then
+            echo "::error file=DOC/csr/aou-core-csrs.md::DOC/csr/aou-core-csrs.md is out of date with csr/aou-core.rdl."
+            echo "Run 'bash scripts/gen_collateral.sh' locally and commit the regenerated DOC/csr/aou-core-csrs.md as part of this PR."
+            exit 1
+          fi
 
       - name: Upload gen_collateral log
         if: always()
