@@ -7,11 +7,14 @@
 #
 # This workflow triggers on every PR/push, but the heavy steps are gated
 # on dorny/paths-filter so they only do work when CSR-related paths
-# change. The job itself always reports success so the "peakrdl
-# gen_collateral.sh" check name -- which is wired into branch protection
-# as a required status check on `main` -- is satisfied for every PR,
-# including doc / infra / RTL-only PRs that have no CSR collateral
-# impact. See https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/troubleshooting-required-status-checks
+# change. The workflow always runs so the "peakrdl gen_collateral.sh"
+# check name -- which is wired into branch protection as a required
+# status check on `main` -- is present for every PR, including doc /
+# infra / RTL-only PRs that have no CSR collateral impact. When no
+# CSR-related paths changed, the heavy steps are skipped and the job
+# succeeds; otherwise it runs the collateral generation/verification
+# steps and may fail to block the PR. See
+# https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/troubleshooting-required-status-checks
 # for the underlying GitHub behavior this works around.
 
 name: Generate Collateral
