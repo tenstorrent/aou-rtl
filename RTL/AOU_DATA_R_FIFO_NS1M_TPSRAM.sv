@@ -17,7 +17,7 @@
 //  limitations under the License.
 // *****************************************************************************
 //
-//  Module     : AOU_DATA_R_FIFO_NS1M
+//  Module     : AOU_DATA_R_FIFO_NS1M_TPSRAM
 //  Version    : 1.00
 //  Date       : 26-02-26
 //  Author     : Soyoung Min, Jaeyun Lee, Hojun Lee, Kwanho Kim
