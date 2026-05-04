@@ -16,7 +16,7 @@
 //  limitations under the License.
 // *****************************************************************************
 //
-//  Module     : AOU_FIFO_RP
+//  Module     : AOU_SYNC_FIFO_NS1M_SREADY
 //  Version    : 1.00
 //  Date       : 26-02-26
 //  Author     : Soyoung Min, Jaeyun Lee, Hojun Lee, Kwanho Kim
