@@ -225,6 +225,7 @@ import packet_def_pkg::*;
 `endif
 
     input  logic                                                I_STATUS_DISABLED,
+    input  logic                                                I_STATUS_ENABLED,
     input  logic [3:0][1:0]                                     I_RP_DEST_RP,
     input  logic [3:0]                                          I_PRIOR_RP_AXI_AXI_QOS_TO_NP,
     input  logic [3:0]                                          I_PRIOR_RP_AXI_AXI_QOS_TO_HP,
@@ -479,15 +480,43 @@ end
 
 assign w_ring_buffer_ready = (((r_cur_granule_start - r_cur_flit_for_fifo_start) & 8'b1111_1111 ) < (128 - (AW_G + w_wdata_granule_size + B_G + AR_G + w_rdata_granule_size) ));
 
-assign w_aou_fifo_awready   = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
-assign w_aou_fifo_wready    = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
-assign w_aou_fifo_bready    = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
-assign w_aou_fifo_arready   = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
-assign w_aou_fifo_rready    = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
+// Forward declaration of LP-engaged gate; assigned at the definition site
+// below once r_act_in_flight is declared. Hoisted here because the AW/W/B/
+// AR/R/CrdtGrant pop gates reference it.
+logic w_lp_engaged;
 
+// AXI-message and CrdtGrant ring-buffer ingress gates.
+//
+// In single-PHY 32B (4-step packing) mode AOU_TX_CORE_OUT_MUX drives
+// O_FDI_PL_TRDY (= w_flit_fifo_ready) high only on r_phase==1 cycles,
+// and r_phase only advances when I_FDI_LP_VALID is asserted. In LP-
+// engaged mode with no traffic w_flit_fifo_valid stays 0 by design, so
+// the original gate (TRDY only) deadlocks: nothing can enter the ring,
+// the ring stays empty, no flit ever fires, TRDY never pulses.
+//
+// The "ring empty + LP-engaged" override below allows a single seeding
+// pop that lets the OUT_MUX advance r_phase. Once ring is non-empty
+// (or any chunk of a flit is already in flight), w_flit_fifo_valid==1
+// and the override is gone, restoring the original TRDY-paced semantics
+// so r_flit_fifo_data stays stable across the OUT_MUX 2-cycle r_phase
+// window (otherwise pops mid-flit corrupt the second half of the flit).
+//
+// w_ring_buffer_ready still provides full overflow protection, and
+// non-LP behavior is byte-identical (w_lp_engaged == 0 outside LP-
+// engaged mode).
+wire w_pop_ok = w_flit_fifo_ready || (w_lp_engaged && !w_flit_fifo_valid);
 
-assign w_misc_crdtgrant_fifo_ready  = w_ring_buffer_ready && (!w_misc_activation_valid) && w_flit_fifo_ready;
-assign w_misc_activation_ready      = w_ring_buffer_ready && ( I_AOU_TX_LP_MODE ? ((r_flit_packing_state == '0) && (r_cur_granule_start == r_cur_flit_for_fifo_start)) :
+assign w_aou_fifo_awready           = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
+assign w_aou_fifo_wready            = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
+assign w_aou_fifo_bready            = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
+assign w_aou_fifo_arready           = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
+assign w_aou_fifo_rready            = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
+
+assign w_misc_crdtgrant_fifo_ready  = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
+
+// w_misc_activation_ready uses w_lp_engaged (declared/forward-declared above)
+// and is assigned here after r_flit_packing_state etc. are visible.
+assign w_misc_activation_ready      = w_ring_buffer_ready && ( w_lp_engaged ? ((r_flit_packing_state == '0) && (r_cur_granule_start == r_cur_flit_for_fifo_start)) :
                                                                 (!r_tx_activation_valid) || ((r_flit_packing_state == FLIT_LAST_PACK_STATE) && (r_cur_granule_start == r_cur_flit_for_fifo_start) && w_flit_fifo_ready));
 
 
@@ -931,8 +960,89 @@ end
 
 assign w_flit_fifo_valid_out_valid = (w_flit_fifo_valid_timeout == I_AOU_TX_LP_MODE_THRESHOLD);
 
-assign w_flit_fifo_valid = I_AOU_TX_LP_MODE ? (r_cur_granule_start != r_cur_flit_for_fifo_start) || (r_flit_packing_state != '0) ||  (r_tx_activation_valid && w_flit_fifo_valid_out_valid):
-                                            (r_cur_granule_start != r_cur_flit_for_fifo_start) || (r_flit_packing_state != '0) || (r_tx_activation_valid);
+// ---------------------------------------------------------------------------
+// LP-mode "engaged" gate
+// ---------------------------------------------------------------------------
+// LP-mode behavior is deliberately delayed until the activation handshake has
+// fully completed *on the wire*. The activation FSM transitions to ENABLED as
+// soon as it has decided to send ACTIVATE_ACK (push-into-activation-FIFO),
+// which is earlier than the actual on-FDI transmission of that ACK. Engaging
+// LP-mode at that moment can starve the partner because:
+//   - LP-mode flit-trigger gates flit launch on real work, and
+//   - LP-mode w_misc_activation_ready only pops at state==0 && ring empty.
+// If the ACK is still sitting in the activation FIFO (or in flight in the
+// current flit) when LP-mode kicks in, it can get stranded.
+//
+// We therefore engage LP-mode only when ALL of the following hold:
+//   1. I_STATUS_ENABLED      : FSM has fully completed its 4-flag handshake
+//                              (TX REQ/ACK pushed, RX REQ/ACK received).
+//   2. !w_misc_activation_valid : activation FIFO is drained, no more REQ/ACK
+//                                 waiting to be popped onto the ring.
+//   3. !r_act_in_flight      : no activation message is currently riding in
+//                              the flit being assembled (i.e., a previously
+//                              popped activate has fully exited the flit_fifo).
+//
+// Until all three are met, we fall back to the legacy non-LP behavior so the
+// heartbeat keeps emitting flits and the activation messages flow naturally.
+// Note: protocol allows only 1 activate message per flit; this is preserved
+// by w_misc_activation_ready in both engaged and non-engaged branches.
+logic r_act_in_flight;
+wire  w_flit_pack_completed = w_flit_fifo_valid && w_flit_fifo_ready
+                              && (r_flit_packing_state == FLIT_LAST_PACK_STATE);
+
+always_ff @ (posedge I_CLK or negedge I_RESETN) begin
+    if (!I_RESETN) begin
+        r_act_in_flight <= 1'b0;
+    end else if (w_aou_fifo_misc_act_hs) begin
+        // Activation pop happens at chunk 0 (state==0 && ring empty); the
+        // activate granule is now part of the flit being assembled.
+        r_act_in_flight <= 1'b1;
+    end else if (w_flit_pack_completed) begin
+        // Flit's last chunk fired; the activate is now on the wire.
+        r_act_in_flight <= 1'b0;
+    end
+end
+
+assign w_lp_engaged = I_AOU_TX_LP_MODE && I_STATUS_ENABLED
+                    && (!w_misc_activation_valid) && (!r_act_in_flight);
+
+// ---------------------------------------------------------------------------
+// Flit launch trigger
+// ---------------------------------------------------------------------------
+// LP engaged:
+//   - threshold != 0: existing periodic heartbeat preserved (every threshold+1
+//                     cycles while activation is valid) so legacy CSR semantics
+//                     are unchanged for non-zero thresholds.
+//   - threshold == 0: heartbeat is inert; flits launch only on real work
+//                     (ring buffer non-empty, mid-flit, or a MsgCredit header
+//                      with at least one non-zero credit field to return).
+// LP not engaged (handshake in progress / non-LP):
+//   Legacy behavior: fire whenever ring is non-empty, mid-flit, or activation
+//   has started (r_tx_activation_valid). This guarantees the activation FIFO
+//   gets drained quickly during bring-up.
+//
+// Note on the MsgCredit gate (threshold == 0):
+//   AOU_RX_CRD_CTRL drives I_AOU_MSGCREDIT_CRED_VALID = ~I_STATUS_DISABLED, i.e.
+//   it stays asserted as long as the link is up regardless of the actual credit
+//   payload. Triggering on that bare valid would cause LP-engaged DUTs to emit
+//   a continuous stream of empty flits with all-zero MsgCredit fields. Inspect
+//   the live credit payload directly so flits only launch when there is at
+//   least one real credit to return. (FWD_RS r_mdata still carries the actual
+//   chunk-2 payload at handshake time, so credit accounting is unchanged.)
+wire w_msgcredit_payload_pending =
+    I_AOU_MSGCREDIT_CRED_VALID && |{
+        I_AOU_MSGCREDIT_WREQCRED, I_AOU_MSGCREDIT_RREQCRED,
+        I_AOU_MSGCREDIT_WDATACRED, I_AOU_MSGCREDIT_RDATACRED,
+        I_AOU_MSGCREDIT_WRESPCRED
+    };
+
+assign w_flit_fifo_valid = w_lp_engaged
+    ? ( (r_cur_granule_start != r_cur_flit_for_fifo_start)
+        || (r_flit_packing_state != '0)
+        || ( (I_AOU_TX_LP_MODE_THRESHOLD == 8'd0)
+             ? w_msgcredit_payload_pending
+             : (r_tx_activation_valid && w_flit_fifo_valid_out_valid) ) )
+    : ( (r_cur_granule_start != r_cur_flit_for_fifo_start) || (r_flit_packing_state != '0) || (r_tx_activation_valid) );
 
 
 assign O_AOU_TX_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_aou_fifo_bvalid

@@ -28,6 +28,9 @@
 #                              #             or dump.vpd  (otherwise)
 #   make SIM=vcs WAVES=1 WAVES_FORMAT=vpd   # force VPD instead of FSDB
 #   make FDI_LOG=1             # enable fdi_flit_decoder under +define+FDI_LOG
+#   make FDI_CONFIG=sp32b      # 32B FDI loopback (default; aou_cocotb_top)
+#   make FDI_CONFIG=sp64b      # 64B FDI loopback (aou_cocotb_top_sp64b)
+#   make FDI_CONFIG=sp128b     # 128B FDI loopback (aou_cocotb_top_sp128b)
 #   make JOBS=16               # override C++ compile parallelism (default 8)
 #   make JOBS=1                # serial compile (useful when debugging errors)
 #   make JOBS=0                # use all available cores
@@ -37,7 +40,45 @@
 
 SIM             ?= verilator
 TOPLEVEL_LANG   ?= verilog
+
+# ----------------------------------------------------------------------------
+# FDI configuration selector
+# ----------------------------------------------------------------------------
+# FDI_CONFIG selects which harness top module is elaborated. All three
+# harness files are compiled into the simulation binary (see aou_cocotb.f);
+# the simulator only elaborates the one named here as TOPLEVEL.
+#
+#   sp32b  -> aou_cocotb_top         (FDI_CFG_SP_32B,  256b FDI)
+#   sp64b  -> aou_cocotb_top_sp64b   (FDI_CFG_SP_64B,  512b FDI)
+#   sp128b -> aou_cocotb_top_sp128b  (FDI_CFG_SP_128B, 1024b FDI)
+# ----------------------------------------------------------------------------
+FDI_CONFIG      ?= sp32b
+
+ifeq ($(FDI_CONFIG),sp32b)
 TOPLEVEL        ?= aou_cocotb_top
+else ifeq ($(FDI_CONFIG),sp64b)
+TOPLEVEL        ?= aou_cocotb_top_sp64b
+else ifeq ($(FDI_CONFIG),sp128b)
+TOPLEVEL        ?= aou_cocotb_top_sp128b
+else
+$(error Unknown FDI_CONFIG=$(FDI_CONFIG); expected sp32b, sp64b, or sp128b)
+endif
+
+# Keep per-(simulator, FDI_CONFIG) build artefacts isolated so switching
+# either knob between runs does not reuse stale objects from a different
+# TOPLEVEL or a different simulator (e.g. running `make` then
+# `make SIM=vcs` for the same FDI width must not reuse Verilator's
+# sim_build). Hierarchical layout matches what the pytest runner uses
+# in tests/conftest.py (`sim_build/<sim>_<fdi_config>`).
+SIM_BUILD       ?= sim_build/$(SIM)_$(FDI_CONFIG)
+
+# Per-(simulator, FDI_CONFIG) JUnit output keeps concurrent makes (and
+# back-to-back runs that switch SIM) from clobbering each other's
+# results.xml in the same VERIF/ working dir. cocotb's Makefile.inc
+# sets `COCOTB_RESULTS_FILE ?= results.xml`, so this override must come
+# BEFORE the Makefile.sim include below.
+COCOTB_RESULTS_FILE ?= results_$(SIM)_$(FDI_CONFIG).xml
+
 # Comma-separated list of cocotb modules to load in one simulator run.
 # All modules share a single elab/build, so adding a module here only
 # costs the per-test simulation time, not another verilator/vcs compile.
@@ -100,7 +141,19 @@ EXTRA_ARGS     += -Wno-PINCONNECTEMPTY
 EXTRA_ARGS     += -Wno-TIMESCALEMOD
 EXTRA_ARGS     += -Wno-fatal
 ifeq ($(WAVES),1)
-EXTRA_ARGS     += --trace --trace-structs
+EXTRA_ARGS     += --trace
+# Per-config VCD dump filename so concurrent `make WAVES=1 FDI_CONFIG=...`
+# invocations do not clobber each other's dump.vcd. The harness's
+# `ifdef VLT_DUMP_FILE initial block forwards this literal to $dumpfile().
+EXTRA_ARGS     += +define+VLT_DUMP_FILE=\"dump_$(FDI_CONFIG).vcd\"
+# Verilator's --trace-structs has been observed to segfault Vtop during
+# static C++ trace init on this design (deeply-nested packet_def_pkg
+# granule / flit packed structs). Default it OFF so `WAVES=1` works out
+# of the box; opt back in via `WAVES=1 TRACE_STRUCTS=1` once the upstream
+# Verilator regression is resolved.
+ifeq ($(TRACE_STRUCTS),1)
+EXTRA_ARGS     += --trace-structs
+endif
 endif
 endif
 
@@ -148,9 +201,22 @@ endif
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
 # Augment 'make clean' with our own artefacts.
+#
+# The `results_*.xml` and `sim_build*` globs intentionally cover both
+# the new hierarchical naming (`sim_build/<sim>_<config>/`,
+# `results_<sim>_<config>.xml`) and any legacy flat naming
+# (`sim_build_<config>/`, `results_<config>.xml`) left behind from
+# earlier checkouts.
 clean::
-	rm -rf sim_build results.xml
+	rm -rf sim_build sim_build_sp32b sim_build_sp64b sim_build_sp128b
+	rm -f results.xml results_*.xml
 	rm -f *.fst *.vcd *.fsdb *.vpd dump.vcd dump.vpd
+	rm -f dump_sp32b.vcd dump_sp32b.fsdb dump_sp32b.vpd
+	rm -f dump_sp64b.vcd dump_sp64b.fsdb dump_sp64b.vpd
+	rm -f dump_sp128b.vcd dump_sp128b.fsdb dump_sp128b.vpd
 	rm -f dut1_fdi.log dut2_fdi.log
+	rm -f dut1_fdi_sp32b.log dut2_fdi_sp32b.log
+	rm -f dut1_fdi_sp64b.log dut2_fdi_sp64b.log
+	rm -f dut1_fdi_sp128b.log dut2_fdi_sp128b.log
 	rm -f *.log
 	rm -rf __pycache__ tests/__pycache__ .pytest_cache

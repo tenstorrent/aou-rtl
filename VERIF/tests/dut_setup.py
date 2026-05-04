@@ -66,7 +66,12 @@ RAM_SIZE_BYTES = 0x1000
 # Watchdog budgets
 # -------------------------------------------------------------------------
 # Overall hard backstop per @cocotb.test (sim time, microseconds).
-OVERALL_TIMEOUT_US      = 500
+# Sized to cover the 1024-iteration randomized loopback stress tests at
+# ~200 cycles per pair + up to 128 cycles random idle between pairs (avg
+# ~330 cycles per iter * 1024 iters = ~340us per direction at 1 GHz core
+# clock). 10ms gives healthy slack for both forward/reverse and the
+# bidirectional concurrent variant on slower simulators.
+OVERALL_TIMEOUT_US      = 10_000
 
 # Per-phase fine-grained budgets (sim time, nanoseconds). Tune if your
 # simulator is slow or your scenario legitimately needs more time.
@@ -261,6 +266,19 @@ async def reset_dut(dut) -> None:
     dut._log.info("Resets de-asserted")
 
 
+# AOU control 0 register: paddr 0x4. Used to program TX low-power mode on DUT1
+# before activate. tx_lp_mode = bit[11], tx_lp_mode_threshold = bits[19:12],
+# credit_manage = bit[3] (default 1, preserved). Setting tx_lp_mode=1 with
+# tx_lp_mode_threshold=0 selects the fully-gated LP-mode behavior: the TX only
+# emits FDI flits when there is real work (AXI traffic, CrdtGrant returns, or
+# pending MsgCredit-header credits).
+APB_CON0_PADDR = 0x4
+APB_CON0_DUT1_LP_MODE_PWDATA = (
+    (1 << 11)   # tx_lp_mode = 1
+    | (0 << 12)  # tx_lp_mode_threshold = 0 (inert; no idle heartbeat)
+    | (1 << 3)   # credit_manage = 1 (preserve RDL default)
+)
+
 # AOU activation register: write 0x1 to paddr 0x8 to enable the DUT.
 APB_ACTIVATE_PADDR = 0x8
 APB_ACTIVATE_PWDATA = 0x1
@@ -271,7 +289,22 @@ async def apb_activate(dut, bfms: dict) -> None:
 
     Replaces the SV-side initial/forever activate loop. Each test resets
     the design, so this must run after every reset deassertion.
+
+    Before raising activate_start on DUT1 we program its aou_con0 to the
+    fully-gated LP-mode setting (tx_lp_mode=1, tx_lp_mode_threshold=0) so
+    every loopback test exercises the new "no idle flits" TX behavior.
+    DUT2 is left at its reset defaults (LP mode disabled).
     """
+    lp_payload = APB_CON0_DUT1_LP_MODE_PWDATA.to_bytes(APB_DATA_WIDTH // 8, "little")
+    await await_with_message(
+        bfms["d1_apb"].write(APB_CON0_PADDR, lp_payload),
+        timeout_ns=APB_WRITE_TIMEOUT_NS,
+        what=(f"APB aou_con0 LP-mode write on DUT1 "
+              f"(paddr=0x{APB_CON0_PADDR:x}, "
+              f"pwdata=0x{APB_CON0_DUT1_LP_MODE_PWDATA:x})"),
+        dut=dut,
+    )
+
     payload = APB_ACTIVATE_PWDATA.to_bytes(APB_DATA_WIDTH // 8, "little")
     for label, key in (("DUT1", "d1_apb"), ("DUT2", "d2_apb")):
         await await_with_message(
@@ -300,9 +333,11 @@ async def bring_up(dut, *, activate: bool = True) -> dict:
          From now on they will idle-drive 0 instead of latching X.
       3. start_clocks launches the simulator clocks. Resets are already 0.
       4. reset_dut holds reset low for 20 pclk then releases.
-      5. apb_activate drives the AOU activate write on both DUTs through
-         their ApbMaster (skipped when ``activate=False`` so callers like
-         the CSR reset readback test can observe virgin reset state).
+      5. apb_activate first programs DUT1's aou_con0 with tx_lp_mode=1,
+         tx_lp_mode_threshold=0 (fully-gated LP-mode), then drives the
+         AOU activate write on both DUTs through their ApbMaster
+         (skipped when ``activate=False`` so callers like the CSR reset
+         readback test can observe virgin reset state).
     """
     init_dut_inputs(dut)
     bfms = make_bfms(dut)
