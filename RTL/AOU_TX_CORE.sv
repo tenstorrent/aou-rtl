@@ -815,10 +815,11 @@ always_ff @ (posedge I_CLK or negedge I_RESETN) begin
         r_cur_granule_start <= 'b0;
 
     end else if(w_aou_fifo_misc_crd_hs | w_aou_fifo_misc_act_hs | w_aou_fifo_r_hs | w_aou_fifo_ar_hs | w_aou_fifo_b_hs | w_aou_fifo_w_hs | w_aou_fifo_aw_hs)begin
-        r_granule_buffer <= nxt_granule_buffer ;
-        r_msgstart_buffer <= nxt_msgstart_buffer ;
-
-        r_cur_granule_start <= nxt_granule_start;
+       for (int unsigned n=0; n < RING_DEPTH; n++) begin
+          r_granule_buffer[n]  <= nxt_granule_buffer[n];
+          r_msgstart_buffer[n] <= nxt_msgstart_buffer[n];
+       end
+       r_cur_granule_start <= nxt_granule_start;
 
     end
 end
