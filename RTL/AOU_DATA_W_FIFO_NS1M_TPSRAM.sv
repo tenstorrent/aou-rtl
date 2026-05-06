@@ -376,7 +376,7 @@ module AOU_DATA_W_FIFO_NS1M_TPSRAM
     
     assign w_sramfifo_mvalid    = r_sram_dout_d1_valid | w_sram_dout_valid;
 
-    logic [2:0] sram_idx;
+    logic [REQ_CNT_WD-1:0] sram_idx;
     always_comb begin
         w_regfifo_input_data = 'd0;
         for(int chunk_cnt = 0; chunk_cnt < AXI_CON; chunk_cnt = chunk_cnt + 1) begin
