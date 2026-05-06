@@ -142,9 +142,12 @@ The AOU_CORE_TOP is a bridge between AXI interface and the UCIe FDI interface, d
 standard, AXI over UCIe Protocol Specification v0.7.
 
 To achieve low latency, AOU_CORE directly handles signals related to the UCIe FDI interface
-data flow control and processes data in 64-byte chunks in a cut-through manner, without
-converting them to 256-byte flit data. It receives AXI messages from its own AXI slave
-interface, packs them into 64-byte chunks, and transmits these chunks to the remote AoU device via UCIe. The remote AoU receives the 64-byte chunks from the UCIe FDI interface, unpacks them into AXI messages, and delivers the data through its AXI master interface.
+data flow control and processes data in FDI-width chunks (32, 64, or 128 bytes, as selected
+by the `FDI_CONFIG` parameter) in a cut-through manner, without converting them to 256-byte
+flit data. It receives AXI messages from its own AXI slave interface, packs them into
+FDI-width chunks, and transmits these chunks to the remote AoU device via UCIe. The remote
+AoU receives these FDI-width chunks from the UCIe FDI interface, unpacks them into AXI
+messages, and delivers the data through its AXI master interface.
 It supports flow control for all exceptional cases defined in the UCIe standard. First, it handles
 the chunk valid/cancel signal, including the alternative implementation method described in the
 UCIe specification. Second, it handles the stall request signal received from the D2D Adapter
@@ -168,13 +171,13 @@ The block consists of the following sub blocks
   - AOU_CORE_SFR
     This implements control and status register of the AOU core. It has a 32bit APB interface for programming. It configures all the blocks in the core.
   - AOU_TX_CORE
-    This block packs the arbitrated AXI channels, credits, and activation messages and packs them into 64 byte FDI chunks. It follows AOU specifications to pack the messages into 256 byte flit data. It then passes it onto UCIe controller over the FDI interface for transmission.
+    This block packs the arbitrated AXI channels, credits, and activation messages into FDI-width chunks (32, 64, or 128 bytes per `FDI_CONFIG`). It follows AOU specifications to pack the messages into 256 byte flit data. It then passes it onto UCIe controller over the FDI interface for transmission.
   - AOU_CRD_CTRL
     This block manages credits available for TX. It gets remote credits available from AOU_RX_CORE, and used credits from AOU_TX_CORE and creates final credits that can be used for TX.
   - AOU_RX_CORE
-    This block processed 64 byte FDI chunks received by UCIe controller and passed to the core over the FDI interface. It decodes different message types which encapsulate different AXI channel transactions. These messages are buffered and then passed onto AOU_CORE_RP for presenting the transaction to its corresponding AXI interface.
+    This block processes FDI-width chunks (32, 64, or 128 bytes per `FDI_CONFIG`) received by UCIe controller and passed to the core over the FDI interface. It decodes different message types which encapsulate different AXI channel transactions. These messages are buffered and then passed onto AOU_CORE_RP for presenting the transaction to its corresponding AXI interface.
   - AOU_TX_FDI_IF
-    This block receives 64 byte data chunks from AOU_TX_CORE and buffers them. It does handshake with UCIe controller FDI RX interface and passes the data chunks downstream to be sent to remote chiplet.
+    This block receives FDI-width data chunks from AOU_TX_CORE and buffers them. It does handshake with UCIe controller FDI RX interface and passes the data chunks downstream to be sent to remote chiplet.
   - AOU_ACT_CTRL
     This block manages activation and deactivation control of the AOU bridge. It initiates activate and deactivate messages to remote AOU bridge when configured via APB.
 - AOU_FIFO_RP
@@ -196,8 +199,8 @@ associated control/status signals listed in
   - Configurable RP port & RP remapping supported
   - Supports variable data widths and burst length requests. Configurable FIFO Depth
 - UCIe 256B latency-optimized flit(Format 6) support only
-- Message packing and unpacking are handled in a unit of 64 bytes, corresponding to the
-  FDI data width (64B@1 GHz).
+- Message packing and unpacking are handled in variable-sized units of 32, 64, or 128 bytes,
+  corresponding to the FDI data width selected by `FDI_CONFIG`.
 - Selectable Early response by setting SFR8
 - Selectable 32B / 64B / 128B single-PHY and 32B+64B / 64B+128B two-PHY
   FDI configurations via the `FDI_CONFIG` parameter (see
@@ -667,12 +670,12 @@ There are two types of Credit Management Type. Since current AOU_SPEC cannot res
 pending AXI response without Activate again. When Credit Management type is set to 1, during
 Deactivated state, AOU_CORE can resolve pending AXI response itself.
 
-It can be configured through AOU_CON0.CREDIT_MANAGE, and the default value is 0.
+It can be configured through AOU_CON0.CREDIT_MANAGE, and the default value is 1.
 
 | Credit Management Type  | Specification  | Description |
 | ----- | :---: | ----- |
-| 0 (default) | Based on AoU v0.5 | After deactivation, if a new request is received from the remote die, no response message can be sent. To deliver the corresponding response, the system must go through activation again after deactivation. Credit management and transmission availability for both Request-related messages and Response-related messages are controlled together. Credited messages must not be sent, after the DeactivateReq message is sent. Credits must not be sent after the DeactivateAck message is sent. The Activate Interrupt and Deactivate Interrupt that occur in the process of resuming the exchange of response messages impose mandatory requirements to set Activate and Deactivate SFR. |
-| 1 | Proposal by BOS | When the AoU Activity state is DEACTIVATE, manage Request-related messages (WREQ, RREQ,WDATA) and Response-related messages (RDATA, WRESP) separately. RDATA, WRESP Credited messages can be sent, after the DeactivateReq message is sent. Credits for RDATA, WRESP messages must be sent after the DeactivateAck message is sent. The Deactivate interrupt only provides a hint indicating that the remote die has started to activate / deactivate. |
+| 0 | Based on AoU v0.5 | After deactivation, if a new request is received from the remote die, no response message can be sent. To deliver the corresponding response, the system must go through activation again after deactivation. Credit management and transmission availability for both Request-related messages and Response-related messages are controlled together. Credited messages must not be sent, after the DeactivateReq message is sent. Credits must not be sent after the DeactivateAck message is sent. The Activate Interrupt and Deactivate Interrupt that occur in the process of resuming the exchange of response messages impose mandatory requirements to set Activate and Deactivate SFR. |
+| 1 (default) | Proposal by BOS | When the AoU Activity state is DEACTIVATE, manage Request-related messages (WREQ, RREQ,WDATA) and Response-related messages (RDATA, WRESP) separately. RDATA, WRESP Credited messages can be sent, after the DeactivateReq message is sent. Credits for RDATA, WRESP messages must be sent after the DeactivateAck message is sent. The Deactivate interrupt only provides a hint indicating that the remote die has started to activate / deactivate. |
 
 ### 6.2 Activation Start
 
