@@ -107,23 +107,25 @@ module AOU_FIFO_RP
     localparam  DATA_FIFO_WD    = 256;
     localparam  STRB_FIFO_WD    = DATA_FIFO_WD/8;
     localparam  EXT_FIFO_WD     = AXI_ID_WD + 2 + 1;//RID+RRESP+RLAST
-    localparam  SRAM_DEPTH      = (W_FIFO_DEPTH+REQ_CNT-1)/REQ_CNT;//write fifo depth == read fifo depth
-    localparam  DATA_AW         = $clog2(SRAM_DEPTH);
+    localparam  W_SRAM_DEPTH    = (W_FIFO_DEPTH+REQ_CNT-1)/REQ_CNT;
+    localparam  W_DATA_AW       = $clog2(W_SRAM_DEPTH);
+    localparam  R_SRAM_DEPTH    = (R_FIFO_DEPTH+REQ_CNT-1)/REQ_CNT;
+    localparam  R_DATA_AW       = $clog2(R_SRAM_DEPTH);
 
     logic  [REQ_CNT-1:0]                                   w_wfifo_sram_rd_enb  ;
-    logic  [REQ_CNT-1:0][DATA_AW -1:0]                     w_wfifo_sram_rd_addr ;
+    logic  [REQ_CNT-1:0][W_DATA_AW -1:0]                   w_wfifo_sram_rd_addr ;
     logic  [REQ_CNT-1:0][DATA_FIFO_WD+STRB_FIFO_WD-1:0]    w_wfifo_sram_rd_data ;
 
     logic  [REQ_CNT-1:0]                                   w_wfifo_sram_wr_enb  ;
-    logic  [REQ_CNT-1:0][DATA_AW-1:0]                      w_wfifo_sram_wr_addr ;
+    logic  [REQ_CNT-1:0][W_DATA_AW-1:0]                    w_wfifo_sram_wr_addr ;
     logic  [REQ_CNT-1:0][DATA_FIFO_WD+STRB_FIFO_WD-1:0]    w_wfifo_sram_wr_data ;   
 
     logic  [REQ_CNT-1:0]                                   w_rfifo_sram_rd_enb  ;
-    logic  [REQ_CNT-1:0][DATA_AW -1:0]                     w_rfifo_sram_rd_addr ;
+    logic  [REQ_CNT-1:0][R_DATA_AW -1:0]                   w_rfifo_sram_rd_addr ;
     logic  [REQ_CNT-1:0][DATA_FIFO_WD+EXT_FIFO_WD-1:0]     w_rfifo_sram_rd_data ;
 
     logic  [REQ_CNT-1:0]                                   w_rfifo_sram_wr_enb  ;
-    logic  [REQ_CNT-1:0][DATA_AW-1:0]                      w_rfifo_sram_wr_addr ;
+    logic  [REQ_CNT-1:0][R_DATA_AW-1:0]                    w_rfifo_sram_wr_addr ;
     logic  [REQ_CNT-1:0][DATA_FIFO_WD+EXT_FIFO_WD-1:0]     w_rfifo_sram_wr_data ;
 
     logic w_aw_fwd_rs_ready;
@@ -284,7 +286,7 @@ module AOU_FIFO_RP
         for ( m = 0 ; m < REQ_CNT ; m = m + 1) begin : gen_WFIFO_FAKE_SRAM
             AOU_TPSRAM     #(
                 .RAM_DATA_WIDTH ( DATA_FIFO_WD+STRB_FIFO_WD ),
-                .RAM_ADDR_WIDTH ( DATA_AW                   )
+                .RAM_ADDR_WIDTH ( W_DATA_AW                 )
             ) u_tpsram_wdata_fifo
             (
                 // Read Port 
@@ -432,7 +434,7 @@ module AOU_FIFO_RP
         for ( n = 0 ; n < REQ_CNT ; n = n + 1) begin : gen_RFIFO_FAKE_SRAM
             AOU_TPSRAM     #(
                 .RAM_DATA_WIDTH ( DATA_FIFO_WD+EXT_FIFO_WD  ),
-                .RAM_ADDR_WIDTH ( DATA_AW                   )
+                .RAM_ADDR_WIDTH ( R_DATA_AW                 )
             ) u_tpsram_rdata_fifo
             (
                 // Read Port 
