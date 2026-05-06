@@ -30,7 +30,6 @@ module AOU_SYNC_FIFO_NS1M_SREADY
     parameter   FIFO_WIDTH = 32,          // data width
     parameter   FIFO_DEPTH = 8 ,          // depth
     parameter   ICH_CNT  = 4   ,          // input channel count
-    parameter   ALWAYS_READY = 0,
 
     localparam  ICH_CNT_WD = $clog2(ICH_CNT+1),
     localparam  AW         = $clog2(FIFO_DEPTH),
