@@ -424,12 +424,12 @@ generate
     end
 
    if (RP_COUNT < 4) begin : GEN_UNUSED_ZERO
-        for (genvar j = RP_COUNT; j < 4; j++) begin
-            assign best_index_aw[j] = '0;
-            assign best_index_ar[j] = '0;
-            assign best_index_w[j]  = '0;
-            assign best_index_r[j]  = '0;
-            assign best_index_b[j]  = '0;
+        for (genvar k = RP_COUNT; k < 4; k++) begin
+            assign best_index_aw[k] = '0;
+            assign best_index_ar[k] = '0;
+            assign best_index_w[k]  = '0;
+            assign best_index_r[k]  = '0;
+            assign best_index_b[k]  = '0;
         end
     end
 
