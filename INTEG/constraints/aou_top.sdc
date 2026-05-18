@@ -2,16 +2,29 @@
 # SPDX-License-Identifier: Apache-2.0
 # (c) 2026 Tenstorrent USA Inc
 #
-# AOU_CORE_TOP  --  Top-level SDC timing constraints
+# AOU_TOP  --  Top-level SDC timing constraints
+#
+# AOU_TOP integrates AOU_CORE_TOP with the FDI bringup controller
+# (AOU_FDI_BRINGUP_CTRL). The constraints below are derived from
+# aou_core_top.sdc using the same directives, with these deltas:
+#
+#   - The following AOU_CORE_TOP ports are consumed internally on AOU_TOP
+#     and are NOT top-level ports here:
+#         I_INT_FSM_IN_ACTIVE
+#         O_AOU_ACTIVATE_ST_DISABLED
+#         O_AOU_ACTIVATE_ST_ENABLED
+#         O_AOU_REQ_LINKRESET
+#   - New ports added by the bringup controller (PL/LP handshake, SW
+#     control, status) are constrained at the end of this file.
 #
 # Target:  1 GHz core/AXI/FDI clock, 100 MHz APB clock
 #
 # I/O delay strategy (overridable variables):
-#   - Combinational I/O: 50/50 split between AOU_CORE_TOP and external block
+#   - Combinational I/O: 50/50 split between AOU_TOP and external block
 #   - Registered I/O:    30% internal / 70% external
 #
 # Notes:
-#   - FDI data-plane ports follow the PHY-indexed naming on AOU_CORE_TOP:
+#   - FDI data-plane ports follow the PHY-indexed naming on AOU_TOP:
 #       PHY0 (`*_0_*`) is always present; PHY1 (`*_1_*`) and `I_PHY_TYPE`
 #       only exist under `+define+TWO_PHY`. The FDI constraints below use
 #       `*` wildcards to match both `_0_*` and `_1_*` variants, so the same
@@ -267,7 +280,7 @@ set_input_delay -clock clk_core $CORE_COMB_INPUT_DELAY [get_ports $FDI_TX_COMB_I
 set_input_delay -clock clk_core $CORE_COMB_INPUT_DELAY [get_ports -quiet I_PHY_TYPE]
 
 # ==============================================================================
-# 12. Interrupt and control outputs (combinational)
+# 12. Interrupt outputs (combinational)
 # ==============================================================================
 
 set INT_CTRL_OUTPUTS {
@@ -277,21 +290,79 @@ set INT_CTRL_OUTPUTS {
     INT_EARLY_RESP_ERR
     INT_ACTIVATE_START
     INT_DEACTIVATE_START
-    O_AOU_ACTIVATE_ST_DISABLED
-    O_AOU_ACTIVATE_ST_ENABLED
-    O_AOU_REQ_LINKRESET
 }
 
 set_output_delay -clock clk_core $CORE_COMB_OUTPUT_DELAY [get_ports $INT_CTRL_OUTPUTS]
 
 # ==============================================================================
-# 13. Control inputs (combinational)
+# 13. Bus quiescence inputs (combinational)
 # ==============================================================================
 
 set CTRL_INPUTS {
-    I_INT_FSM_IN_ACTIVE
     I_MST_BUS_CLEANY_COMPLETE
     I_SLV_BUS_CLEANY_COMPLETE
 }
 
 set_input_delay -clock clk_core $CORE_COMB_INPUT_DELAY [get_ports $CTRL_INPUTS]
+
+# ==============================================================================
+# 14. FDI bringup controller -- PL/LP handshake
+#
+# Registration analysis (per AOU_FDI_BRINGUP_CTRL.sv):
+#   - PL->LP inputs feed FSM next-state / output decode (combinational).
+#   - LP->PL outputs: O_LP_STATE_REQ is a combinational decode of r_cur_st;
+#     O_LP_WAKE_REQ / O_LP_CLK_ACK / O_LP_RX_ACTIVE_STS are registered
+#     (driven directly from r_wake_req / r_clk_ack / r_rx_active_sts flops).
+# ==============================================================================
+
+# --- PL->LP inputs (combinational) ---
+set FDI_BRINGUP_COMB_INPUTS {
+    I_PL_INBAND_PRES
+    I_PL_CLK_REQ
+    I_PL_WAKE_ACK
+    I_PL_RX_ACTIVE_REQ
+}
+
+set_input_delay -clock clk_core $CORE_COMB_INPUT_DELAY [get_ports $FDI_BRINGUP_COMB_INPUTS]
+
+# --- LP->PL combinational outputs (state-req decode) ---
+set FDI_BRINGUP_COMB_OUTPUTS {
+    O_LP_STATE_REQ
+}
+
+set_output_delay -clock clk_core $CORE_COMB_OUTPUT_DELAY [get_ports $FDI_BRINGUP_COMB_OUTPUTS]
+
+# --- LP->PL registered outputs (direct flop drivers) ---
+set FDI_BRINGUP_REG_OUTPUTS {
+    O_LP_WAKE_REQ
+    O_LP_CLK_ACK
+    O_LP_RX_ACTIVE_STS
+}
+
+set_output_delay -clock clk_core $CORE_REG_OUTPUT_DELAY [get_ports $FDI_BRINGUP_REG_OUTPUTS]
+
+# ==============================================================================
+# 15. FDI bringup controller -- SW control inputs (combinational)
+# ==============================================================================
+
+set FDI_BRINGUP_SW_INPUTS {
+    I_SW_ACTIVATE_START
+    I_SW_DEACTIVATE_START
+    I_SW_RETRAIN_REQ
+    I_SW_LINKERROR_INJECT
+}
+
+set_input_delay -clock clk_core $CORE_COMB_INPUT_DELAY [get_ports $FDI_BRINGUP_SW_INPUTS]
+
+# ==============================================================================
+# 16. FDI bringup controller -- status outputs (combinational)
+#
+# O_FDI_FSM_STATE / O_FDI_LINK_UP are combinational decodes of r_cur_st.
+# ==============================================================================
+
+set FDI_BRINGUP_STATUS_OUTPUTS {
+    O_FDI_FSM_STATE
+    O_FDI_LINK_UP
+}
+
+set_output_delay -clock clk_core $CORE_COMB_OUTPUT_DELAY [get_ports $FDI_BRINGUP_STATUS_OUTPUTS]
