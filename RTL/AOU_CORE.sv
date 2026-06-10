@@ -547,6 +547,9 @@ import packet_def_pkg::*;
     logic                                   w_txcore_crdtgrant_valid        ;
     logic                                   w_txcore_crdtgrant_ready        ;
 
+    logic                                   w_tx_req_credit_blockn          ;
+    logic                                   w_tx_rsp_credit_blockn          ;
+
     //interface
     logic [RP_COUNT-1:0][CNT_RP_TX_AW_MAX_CREDIT_MAX-1:0] w_aou_tx_wreqcred ;
     logic [RP_COUNT-1:0][CNT_RP_TX_AR_MAX_CREDIT_MAX-1:0] w_aou_tx_rreqcred ;
@@ -1040,7 +1043,10 @@ import packet_def_pkg::*;
 
         .I_RP_DEST_RP                   ( w_rp_dest_rp                  ),
 
-        .I_CREDIT_BLOCK                 ( w_err_info_rid_mismatch_err | w_err_info_split_bid_mismatch_err | (|w_err_split_bid_mismatch_set) | (|w_err_rid_mismatch_set))
+        .I_CREDIT_BLOCK                 ( w_err_info_rid_mismatch_err | w_err_info_split_bid_mismatch_err | (|w_err_split_bid_mismatch_set) | (|w_err_rid_mismatch_set)),
+        .O_TX_REQ_CREDIT_BLOCKn         ( w_tx_req_credit_blockn        ),
+        .O_TX_RSP_CREDIT_BLOCKn         ( w_tx_rsp_credit_blockn        )
+
     );
 
 //----------------------------------------------------------------------------
@@ -1296,7 +1302,10 @@ import packet_def_pkg::*;
         .I_PRIOR_RP_AXI_RP0_PRIOR       ( w_prior_rp_axi_rp0_prior      ),
         .I_PRIOR_RP_AXI_ARB_MODE        ( w_prior_rp_axi_arb_mode       ),
         .I_PRIOR_TIMER_TIMER_RESOLUTION ( w_prior_timer_timer_resolution),
-        .I_PRIOR_TIMER_TIMER_THRESHOLD  ( w_prior_timer_timer_threshold )
+        .I_PRIOR_TIMER_TIMER_THRESHOLD  ( w_prior_timer_timer_threshold ),
+        .I_TX_REQ_CREDIT_BLOCKn         ( w_tx_req_credit_blockn        ),
+        .I_TX_RSP_CREDIT_BLOCKn         ( w_tx_rsp_credit_blockn        )
+
 
     );
 

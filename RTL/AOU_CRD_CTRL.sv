@@ -218,7 +218,10 @@ import packet_def_pkg::*;
     
     input       [3:0][1:0]                      I_RP_DEST_RP,
     
-    input                                       I_CREDIT_BLOCK
+    input                                       I_CREDIT_BLOCK,
+    output                                      O_TX_REQ_CREDIT_BLOCKn,
+    output                                      O_TX_RSP_CREDIT_BLOCKn
+    
 
 );
 
@@ -299,93 +302,96 @@ AOU_RX_CRD_CTRL
 );
                                               
 AOU_TX_CRD_CTRL #(                                                            
-    .RP_COUNT                   (RP_COUNT                   ),
+    .RP_COUNT                       (RP_COUNT                       ),
 
-    .RP0_AW_MAX_CREDIT          (RP0_TX_AW_MAX_CREDIT       ), 
-    .RP0_AR_MAX_CREDIT          (RP0_TX_AR_MAX_CREDIT       ), 
-    .RP0_W_MAX_CREDIT           (RP0_TX_W_MAX_CREDIT        ), 
-    .RP0_R_MAX_CREDIT           (RP0_TX_R_MAX_CREDIT        ), 
-    .RP0_B_MAX_CREDIT           (RP0_TX_B_MAX_CREDIT        ), 
-    .RP1_AW_MAX_CREDIT          (RP1_TX_AW_MAX_CREDIT       ), 
-    .RP1_AR_MAX_CREDIT          (RP1_TX_AR_MAX_CREDIT       ), 
-    .RP1_W_MAX_CREDIT           (RP1_TX_W_MAX_CREDIT        ), 
-    .RP1_R_MAX_CREDIT           (RP1_TX_R_MAX_CREDIT        ), 
-    .RP1_B_MAX_CREDIT           (RP1_TX_B_MAX_CREDIT        ), 
-    .RP2_AW_MAX_CREDIT          (RP2_TX_AW_MAX_CREDIT       ), 
-    .RP2_AR_MAX_CREDIT          (RP2_TX_AR_MAX_CREDIT       ), 
-    .RP2_W_MAX_CREDIT           (RP2_TX_W_MAX_CREDIT        ), 
-    .RP2_R_MAX_CREDIT           (RP2_TX_R_MAX_CREDIT        ), 
-    .RP2_B_MAX_CREDIT           (RP2_TX_B_MAX_CREDIT        ), 
-    .RP3_AW_MAX_CREDIT          (RP3_TX_AW_MAX_CREDIT       ), 
-    .RP3_AR_MAX_CREDIT          (RP3_TX_AR_MAX_CREDIT       ), 
-    .RP3_W_MAX_CREDIT           (RP3_TX_W_MAX_CREDIT        ), 
-    .RP3_R_MAX_CREDIT           (RP3_TX_R_MAX_CREDIT        ), 
-    .RP3_B_MAX_CREDIT           (RP3_TX_B_MAX_CREDIT        ),
+    .RP0_AW_MAX_CREDIT              (RP0_TX_AW_MAX_CREDIT           ), 
+    .RP0_AR_MAX_CREDIT              (RP0_TX_AR_MAX_CREDIT           ), 
+    .RP0_W_MAX_CREDIT               (RP0_TX_W_MAX_CREDIT            ), 
+    .RP0_R_MAX_CREDIT               (RP0_TX_R_MAX_CREDIT            ), 
+    .RP0_B_MAX_CREDIT               (RP0_TX_B_MAX_CREDIT            ), 
+    .RP1_AW_MAX_CREDIT              (RP1_TX_AW_MAX_CREDIT           ), 
+    .RP1_AR_MAX_CREDIT              (RP1_TX_AR_MAX_CREDIT           ), 
+    .RP1_W_MAX_CREDIT               (RP1_TX_W_MAX_CREDIT            ), 
+    .RP1_R_MAX_CREDIT               (RP1_TX_R_MAX_CREDIT            ), 
+    .RP1_B_MAX_CREDIT               (RP1_TX_B_MAX_CREDIT            ), 
+    .RP2_AW_MAX_CREDIT              (RP2_TX_AW_MAX_CREDIT           ), 
+    .RP2_AR_MAX_CREDIT              (RP2_TX_AR_MAX_CREDIT           ), 
+    .RP2_W_MAX_CREDIT               (RP2_TX_W_MAX_CREDIT            ), 
+    .RP2_R_MAX_CREDIT               (RP2_TX_R_MAX_CREDIT            ), 
+    .RP2_B_MAX_CREDIT               (RP2_TX_B_MAX_CREDIT            ), 
+    .RP3_AW_MAX_CREDIT              (RP3_TX_AW_MAX_CREDIT           ), 
+    .RP3_AR_MAX_CREDIT              (RP3_TX_AR_MAX_CREDIT           ), 
+    .RP3_W_MAX_CREDIT               (RP3_TX_W_MAX_CREDIT            ), 
+    .RP3_R_MAX_CREDIT               (RP3_TX_R_MAX_CREDIT            ), 
+    .RP3_B_MAX_CREDIT               (RP3_TX_B_MAX_CREDIT            ),
 
-    .AXI_DATA_WD_RP0            (RP0_AXI_DATA_WD            ),
-    .AXI_DATA_WD_RP1            (RP1_AXI_DATA_WD            ),
-    .AXI_DATA_WD_RP2            (RP2_AXI_DATA_WD            ),
-    .AXI_DATA_WD_RP3            (RP3_AXI_DATA_WD            ),
+    .AXI_DATA_WD_RP0                (RP0_AXI_DATA_WD                ),
+    .AXI_DATA_WD_RP1                (RP1_AXI_DATA_WD                ),
+    .AXI_DATA_WD_RP2                (RP2_AXI_DATA_WD                ),
+    .AXI_DATA_WD_RP3                (RP3_AXI_DATA_WD                ),
     
-    .DEC_MULTI                  (DEC_MULTI                  )
+    .DEC_MULTI                      (DEC_MULTI                      )
 
 ) u_aou_tx_crd_ctrl(
-    .I_CLK                      (I_CLK                      ),
-    .I_RESETN                   (I_RESETN                   ),
-                                                            
-    .O_AOU_TX_WREQCRED          (O_AOU_TX_WREQCRED          ),
-    .O_AOU_TX_RREQCRED          (O_AOU_TX_RREQCRED          ),
-    .O_AOU_TX_WDATACRED         (O_AOU_TX_WDATACRED         ),
-    .O_AOU_TX_RDATACRED         (O_AOU_TX_RDATACRED         ),
-    .O_AOU_TX_WRESPCRED         (O_AOU_TX_WRESPCRED         ),
-                                                           
-    .I_AOU_TX_WREQVALID         (I_AOU_TX_WREQVALID         ),
-    .I_AOU_TX_RREQVALID         (I_AOU_TX_RREQVALID         ),
-    .I_AOU_TX_WDATAVALID        (I_AOU_TX_WDATAVALID        ),
-    .I_AOU_TX_WFDATA            (I_AOU_TX_WFDATA            ),
-    .I_AOU_TX_RDATAVALID        (I_AOU_TX_RDATAVALID        ),
-    .I_AOU_TX_RDATA_DLENGTH     (I_AOU_TX_RDATA_DLENGTH     ),
-    .I_AOU_TX_WRESPVALID        (I_AOU_TX_WRESPVALID        ),
-                                                            
-    .I_AOU_CRDTGRANT_WRESPCRED3 (I_AOU_CRDTGRANT_WRESPCRED3 ),
-    .I_AOU_CRDTGRANT_WRESPCRED2 (I_AOU_CRDTGRANT_WRESPCRED2 ),
-    .I_AOU_CRDTGRANT_WRESPCRED1 (I_AOU_CRDTGRANT_WRESPCRED1 ),
-    .I_AOU_CRDTGRANT_WRESPCRED0 (I_AOU_CRDTGRANT_WRESPCRED0 ),
-    .I_AOU_CRDTGRANT_RDATACRED3 (I_AOU_CRDTGRANT_RDATACRED3 ),
-    .I_AOU_CRDTGRANT_RDATACRED2 (I_AOU_CRDTGRANT_RDATACRED2 ),
-    .I_AOU_CRDTGRANT_RDATACRED1 (I_AOU_CRDTGRANT_RDATACRED1 ),
-    .I_AOU_CRDTGRANT_RDATACRED0 (I_AOU_CRDTGRANT_RDATACRED0 ),
-    .I_AOU_CRDTGRANT_WDATACRED3 (I_AOU_CRDTGRANT_WDATACRED3 ),
-    .I_AOU_CRDTGRANT_WDATACRED2 (I_AOU_CRDTGRANT_WDATACRED2 ),
-    .I_AOU_CRDTGRANT_WDATACRED1 (I_AOU_CRDTGRANT_WDATACRED1 ),
-    .I_AOU_CRDTGRANT_WDATACRED0 (I_AOU_CRDTGRANT_WDATACRED0 ),
-    .I_AOU_CRDTGRANT_RREQCRED3  (I_AOU_CRDTGRANT_RREQCRED3  ),
-    .I_AOU_CRDTGRANT_RREQCRED2  (I_AOU_CRDTGRANT_RREQCRED2  ),
-    .I_AOU_CRDTGRANT_RREQCRED1  (I_AOU_CRDTGRANT_RREQCRED1  ),
-    .I_AOU_CRDTGRANT_RREQCRED0  (I_AOU_CRDTGRANT_RREQCRED0  ),
-    .I_AOU_CRDTGRANT_WREQCRED3  (I_AOU_CRDTGRANT_WREQCRED3  ),
-    .I_AOU_CRDTGRANT_WREQCRED2  (I_AOU_CRDTGRANT_WREQCRED2  ),
-    .I_AOU_CRDTGRANT_WREQCRED1  (I_AOU_CRDTGRANT_WREQCRED1  ),
-    .I_AOU_CRDTGRANT_WREQCRED0  (I_AOU_CRDTGRANT_WREQCRED0  ),
-    .I_AOU_CRDTGRANT_VALID      (I_AOU_CRDTGRANT_VALID      ),
-                                                            
-    .I_AOU_MSGCRDT_WRESPCRED    (I_AOU_MSGCRDT_WRESPCRED    ),
-    .I_AOU_MSGCRDT_RDATACRED    (I_AOU_MSGCRDT_RDATACRED    ),
-    .I_AOU_MSGCRDT_WDATACRED    (I_AOU_MSGCRDT_WDATACRED    ),
-    .I_AOU_MSGCRDT_RREQCRED     (I_AOU_MSGCRDT_RREQCRED     ),
-    .I_AOU_MSGCRDT_WREQCRED     (I_AOU_MSGCRDT_WREQCRED     ),
-    .I_AOU_MSGCRDT_RP           (I_AOU_MSGCRDT_RP           ),//destination
-    .I_AOU_MSGCRDT_VALID        (I_AOU_MSGCRDT_VALID        ),
+    .I_CLK                          (I_CLK                          ),
+    .I_RESETN                       (I_RESETN                       ),
+                                                                    
+    .O_AOU_TX_WREQCRED              (O_AOU_TX_WREQCRED              ),
+    .O_AOU_TX_RREQCRED              (O_AOU_TX_RREQCRED              ),
+    .O_AOU_TX_WDATACRED             (O_AOU_TX_WDATACRED             ),
+    .O_AOU_TX_RDATACRED             (O_AOU_TX_RDATACRED             ),
+    .O_AOU_TX_WRESPCRED             (O_AOU_TX_WRESPCRED             ),
+                                                               
+    .I_AOU_TX_WREQVALID             (I_AOU_TX_WREQVALID             ),
+    .I_AOU_TX_RREQVALID             (I_AOU_TX_RREQVALID             ),
+    .I_AOU_TX_WDATAVALID            (I_AOU_TX_WDATAVALID            ),
+    .I_AOU_TX_WFDATA                (I_AOU_TX_WFDATA                ),
+    .I_AOU_TX_RDATAVALID            (I_AOU_TX_RDATAVALID            ),
+    .I_AOU_TX_RDATA_DLENGTH         (I_AOU_TX_RDATA_DLENGTH         ),
+    .I_AOU_TX_WRESPVALID            (I_AOU_TX_WRESPVALID            ),
+                                                                    
+    .I_AOU_CRDTGRANT_WRESPCRED3     (I_AOU_CRDTGRANT_WRESPCRED3     ),
+    .I_AOU_CRDTGRANT_WRESPCRED2     (I_AOU_CRDTGRANT_WRESPCRED2     ),
+    .I_AOU_CRDTGRANT_WRESPCRED1     (I_AOU_CRDTGRANT_WRESPCRED1     ),
+    .I_AOU_CRDTGRANT_WRESPCRED0     (I_AOU_CRDTGRANT_WRESPCRED0     ),
+    .I_AOU_CRDTGRANT_RDATACRED3     (I_AOU_CRDTGRANT_RDATACRED3     ),
+    .I_AOU_CRDTGRANT_RDATACRED2     (I_AOU_CRDTGRANT_RDATACRED2     ),
+    .I_AOU_CRDTGRANT_RDATACRED1     (I_AOU_CRDTGRANT_RDATACRED1     ),
+    .I_AOU_CRDTGRANT_RDATACRED0     (I_AOU_CRDTGRANT_RDATACRED0     ),
+    .I_AOU_CRDTGRANT_WDATACRED3     (I_AOU_CRDTGRANT_WDATACRED3     ),
+    .I_AOU_CRDTGRANT_WDATACRED2     (I_AOU_CRDTGRANT_WDATACRED2     ),
+    .I_AOU_CRDTGRANT_WDATACRED1     (I_AOU_CRDTGRANT_WDATACRED1     ),
+    .I_AOU_CRDTGRANT_WDATACRED0     (I_AOU_CRDTGRANT_WDATACRED0     ),
+    .I_AOU_CRDTGRANT_RREQCRED3      (I_AOU_CRDTGRANT_RREQCRED3      ),
+    .I_AOU_CRDTGRANT_RREQCRED2      (I_AOU_CRDTGRANT_RREQCRED2      ),
+    .I_AOU_CRDTGRANT_RREQCRED1      (I_AOU_CRDTGRANT_RREQCRED1      ),
+    .I_AOU_CRDTGRANT_RREQCRED0      (I_AOU_CRDTGRANT_RREQCRED0      ),
+    .I_AOU_CRDTGRANT_WREQCRED3      (I_AOU_CRDTGRANT_WREQCRED3      ),
+    .I_AOU_CRDTGRANT_WREQCRED2      (I_AOU_CRDTGRANT_WREQCRED2      ),
+    .I_AOU_CRDTGRANT_WREQCRED1      (I_AOU_CRDTGRANT_WREQCRED1      ),
+    .I_AOU_CRDTGRANT_WREQCRED0      (I_AOU_CRDTGRANT_WREQCRED0      ),
+    .I_AOU_CRDTGRANT_VALID          (I_AOU_CRDTGRANT_VALID          ),
+                                                                    
+    .I_AOU_MSGCRDT_WRESPCRED        (I_AOU_MSGCRDT_WRESPCRED        ),
+    .I_AOU_MSGCRDT_RDATACRED        (I_AOU_MSGCRDT_RDATACRED        ),
+    .I_AOU_MSGCRDT_WDATACRED        (I_AOU_MSGCRDT_WDATACRED        ),
+    .I_AOU_MSGCRDT_RREQCRED         (I_AOU_MSGCRDT_RREQCRED         ),
+    .I_AOU_MSGCRDT_WREQCRED         (I_AOU_MSGCRDT_WREQCRED         ),
+    .I_AOU_MSGCRDT_RP               (I_AOU_MSGCRDT_RP               ),//destination
+    .I_AOU_MSGCRDT_VALID            (I_AOU_MSGCRDT_VALID            ),
 
-    .I_CRD_COUNT_EN             (I_CRD_COUNT_EN             ), 
+    .I_CRD_COUNT_EN                 (I_CRD_COUNT_EN                 ), 
 
     .I_TX_REQ_CREDITED_MESSAGE_EN   (I_TX_REQ_CREDITED_MESSAGE_EN   ),
     .I_TX_RSP_CREDITED_MESSAGE_EN   (I_TX_RSP_CREDITED_MESSAGE_EN   ),
-    .I_STATUS_DISABLE           (I_STATUS_DISABLE           ),
+    .I_STATUS_DISABLE               (I_STATUS_DISABLE               ),
 
-    .I_RP_DEST_RP               (I_RP_DEST_RP               ),
+    .I_RP_DEST_RP                   (I_RP_DEST_RP                   ),
 
-    .I_CREDIT_BLOCK             (I_CREDIT_BLOCK             )
+    .I_CREDIT_BLOCK                 (I_CREDIT_BLOCK                 ),
+    .O_TX_REQ_CREDIT_BLOCKn         (O_TX_REQ_CREDIT_BLOCKn         ),
+    .O_TX_RSP_CREDIT_BLOCKn         (O_TX_RSP_CREDIT_BLOCKn         )
+    
 );
 endmodule                                     
                                               

@@ -225,7 +225,10 @@ import packet_def_pkg::*;
     //RP Mapping
     input       [3:0][1:0]                      I_RP_DEST_RP,
 
-    input                                       I_CREDIT_BLOCK
+    input                                       I_CREDIT_BLOCK,
+    output                                      O_TX_REQ_CREDIT_BLOCKn,
+    output                                      O_TX_RSP_CREDIT_BLOCKn
+    
 
 );
 
@@ -318,6 +321,10 @@ always_ff @ (posedge I_CLK or negedge I_RESETN) begin
         r_tx_rsp_credited_message_en <= I_TX_RSP_CREDITED_MESSAGE_EN && ~I_CREDIT_BLOCK;
     end
 end
+
+assign O_TX_REQ_CREDIT_BLOCKn  = r_tx_req_credited_message_en;
+assign O_TX_RSP_CREDIT_BLOCKn  = r_tx_rsp_credited_message_en;
+
 //For TX_CORE Credit count
 assign  w_rp0_credit_match        = (I_AOU_MSGCRDT_RP == 2'b00);
 assign  w_rp1_credit_match        = (I_AOU_MSGCRDT_RP == 2'b01);

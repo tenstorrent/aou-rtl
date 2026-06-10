@@ -235,7 +235,9 @@ import packet_def_pkg::*;
     input  logic [1:0]                                          I_PRIOR_RP_AXI_RP0_PRIOR,
     input  logic [1:0]                                          I_PRIOR_RP_AXI_ARB_MODE,
     input  logic [15:0]                                         I_PRIOR_TIMER_TIMER_RESOLUTION,
-    input  logic [15:0]                                         I_PRIOR_TIMER_TIMER_THRESHOLD
+    input  logic [15:0]                                         I_PRIOR_TIMER_TIMER_THRESHOLD,
+    input  logic                                                I_TX_REQ_CREDIT_BLOCKn,
+    input  logic                                                I_TX_RSP_CREDIT_BLOCKn        
 
 );
 // Flit-packing parameters derived from FDI data width.
@@ -366,7 +368,7 @@ logic  [RP_CNT-1:0] w_aou_tx_r_hs      ;
 
 logic   w_rdata_256b;
 logic   w_rdata_512b;
-logic   w_rdata_1024b;
+
 
 
 assign  w_aou_fifo_aw_hs        = w_aou_fifo_awvalid && w_aou_fifo_awready;
@@ -454,7 +456,7 @@ logic                       r_ring_buffer_ready;
 
 assign  w_rdata_256b    = (w_aou_fifo_rdlen == 2'b00);
 assign  w_rdata_512b    = (w_aou_fifo_rdlen == 2'b01);
-assign  w_rdata_1024b   = (w_aou_fifo_rdlen == 2'b10);
+
 
 //assume maximum granule is not larger than 64
 logic [5:0]  w_rdata_granule_size;
@@ -506,11 +508,11 @@ logic w_lp_engaged;
 // engaged mode).
 wire w_pop_ok = w_flit_fifo_ready || (w_lp_engaged && !w_flit_fifo_valid);
 
-assign w_aou_fifo_awready           = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
-assign w_aou_fifo_wready            = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
-assign w_aou_fifo_bready            = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
-assign w_aou_fifo_arready           = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
-assign w_aou_fifo_rready            = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
+assign w_aou_fifo_awready           = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok && I_TX_REQ_CREDIT_BLOCKn;
+assign w_aou_fifo_wready            = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok && I_TX_REQ_CREDIT_BLOCKn;
+assign w_aou_fifo_bready            = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok && I_TX_RSP_CREDIT_BLOCKn;
+assign w_aou_fifo_arready           = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok && I_TX_REQ_CREDIT_BLOCKn;
+assign w_aou_fifo_rready            = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok && I_TX_RSP_CREDIT_BLOCKn;
 
 assign w_misc_crdtgrant_fifo_ready  = w_ring_buffer_ready && (!w_misc_activation_valid) && w_pop_ok;
 
@@ -1004,6 +1006,17 @@ always_ff @ (posedge I_CLK or negedge I_RESETN) begin
     end
 end
 
+logic r_msgcredit_port_valid;
+
+always_ff @ (posedge I_CLK or negedge I_RESETN) begin
+    if (!I_RESETN) begin
+        r_msgcredit_port_valid <= 1'b0;
+    end else if (I_AOU_MSGCREDIT_CRED_VALID) begin
+        r_msgcredit_port_valid <= |{I_AOU_MSGCREDIT_WREQCRED, I_AOU_MSGCREDIT_RREQCRED, I_AOU_MSGCREDIT_WDATACRED
+                                    , I_AOU_MSGCREDIT_RDATACRED, I_AOU_MSGCREDIT_WRESPCRED};
+    end
+end
+
 assign w_lp_engaged = I_AOU_TX_LP_MODE && I_STATUS_ENABLED
                     && (!w_misc_activation_valid) && (!r_act_in_flight);
 
@@ -1014,9 +1027,9 @@ assign w_lp_engaged = I_AOU_TX_LP_MODE && I_STATUS_ENABLED
 //   - threshold != 0: existing periodic heartbeat preserved (every threshold+1
 //                     cycles while activation is valid) so legacy CSR semantics
 //                     are unchanged for non-zero thresholds.
-//   - threshold == 0: heartbeat is inert; flits launch only on real work
-//                     (ring buffer non-empty, mid-flit, or a MsgCredit header
-//                      with at least one non-zero credit field to return).
+//   - threshold == 0: heartbeat is inert; flits may launch on current MsgCredit payload or 
+//                     previously latched MsgCredit presence through r_msgcredit_port_valid. 
+//                     This preserves the legacy latched-credit behavior while LP engagement/pop gating is fixed..
 // LP not engaged (handshake in progress / non-LP):
 //   Legacy behavior: fire whenever ring is non-empty, mid-flit, or activation
 //   has started (r_tx_activation_valid). This guarantees the activation FIFO
@@ -1030,20 +1043,27 @@ assign w_lp_engaged = I_AOU_TX_LP_MODE && I_STATUS_ENABLED
 //   the live credit payload directly so flits only launch when there is at
 //   least one real credit to return. (FWD_RS r_mdata still carries the actual
 //   chunk-2 payload at handshake time, so credit accounting is unchanged.)
-wire w_msgcredit_payload_pending =
-    I_AOU_MSGCREDIT_CRED_VALID && |{
-        I_AOU_MSGCREDIT_WREQCRED, I_AOU_MSGCREDIT_RREQCRED,
-        I_AOU_MSGCREDIT_WDATACRED, I_AOU_MSGCREDIT_RDATACRED,
-        I_AOU_MSGCREDIT_WRESPCRED
+
+logic w_flit_header_credit_valid;
+
+assign w_flit_header_credit_valid = w_aou_msgcredit_valid && |{
+        w_aou_rs_msgcredit_wrespcred, w_aou_rs_msgcredit_rdatacred,
+        w_aou_rs_msgcredit_wdatacred, w_aou_rs_msgcredit_rreqcred,
+        w_aou_rs_msgcredit_wreqcred
     };
 
+logic w_lp_mode_thres_val;
+
+assign w_lp_mode_thres_val = (I_AOU_TX_LP_MODE_THRESHOLD == 'b0) ?  {w_flit_header_credit_valid || r_msgcredit_port_valid} : w_flit_fifo_valid_out_valid;
+
+
 assign w_flit_fifo_valid = w_lp_engaged
-    ? ( (r_cur_granule_start != r_cur_flit_for_fifo_start)
-        || (r_flit_packing_state != '0)
-        || ( (I_AOU_TX_LP_MODE_THRESHOLD == 8'd0)
-             ? w_msgcredit_payload_pending
-             : (r_tx_activation_valid && w_flit_fifo_valid_out_valid) ) )
-    : ( (r_cur_granule_start != r_cur_flit_for_fifo_start) || (r_flit_packing_state != '0) || (r_tx_activation_valid) );
+    ? ((r_cur_granule_start != r_cur_flit_for_fifo_start) ||
+         (r_flit_packing_state != '0) ||
+         (r_tx_activation_valid && w_lp_mode_thres_val))
+      : ((r_cur_granule_start != r_cur_flit_for_fifo_start) ||
+         (r_flit_packing_state != '0) ||
+         r_tx_activation_valid);
 
 
 assign O_AOU_TX_PENDING = w_aou_fifo_awvalid || w_aou_fifo_wvalid || w_aou_fifo_bvalid
