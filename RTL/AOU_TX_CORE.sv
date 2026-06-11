@@ -1027,9 +1027,9 @@ assign w_lp_engaged = I_AOU_TX_LP_MODE && I_STATUS_ENABLED
 //   - threshold != 0: existing periodic heartbeat preserved (every threshold+1
 //                     cycles while activation is valid) so legacy CSR semantics
 //                     are unchanged for non-zero thresholds.
-//   - threshold == 0: heartbeat is inert; flits may launch on current MsgCredit payload or 
-//                     previously latched MsgCredit presence through r_msgcredit_port_valid. 
-//                     This preserves the legacy latched-credit behavior while LP engagement/pop gating is fixed..
+//   - threshold == 0: heartbeat is inert; flits may launch on the current MsgCredit payload or
+//                     a previously latched MsgCredit presence via r_msgcredit_port_valid.
+//                     This preserves the legacy latched-credit behavior while LP engagement/pop gating is fixed.
 // LP not engaged (handshake in progress / non-LP):
 //   Legacy behavior: fire whenever ring is non-empty, mid-flit, or activation
 //   has started (r_tx_activation_valid). This guarantees the activation FIFO
