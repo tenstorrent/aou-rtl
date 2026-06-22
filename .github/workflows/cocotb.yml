@@ -42,7 +42,7 @@ jobs:
     outputs:
       sim: ${{ steps.filter.outputs.sim }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Run paths filter
         uses: dorny/paths-filter@v4
@@ -70,7 +70,7 @@ jobs:
         if: needs.detect.outputs.sim != 'true'
         run: echo "No simulation-relevant paths changed; skipping cocotb (${{ matrix.fdi_config }})."
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: needs.detect.outputs.sim == 'true'
 
       - name: Install Verilator 5.044
