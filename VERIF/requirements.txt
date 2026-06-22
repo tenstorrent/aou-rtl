@@ -8,7 +8,7 @@
 
 cocotb>=2.0.1,<3.0
 cocotbext-axi>=0.1.28
-pytest>=9.1.0
+pytest>=9.1.1
 pytest-xdist>=3.8.0
 
 # CSR reset readback test parses csr/aou-core.rdl directly via the same
