@@ -32,7 +32,7 @@ jobs:
     env:
       VERIBLE_VERSION: "v0.0-4053-g89d4d98a"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Verible lint with inline PR comments
         uses: chipsalliance/verible-linter-action@main
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Verilator 5.044
         uses: veryl-lang/setup-verilator@v2
