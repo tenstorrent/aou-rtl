@@ -1035,24 +1035,45 @@ always_comb begin
     end
 end
 
-assign w_readdata256b_message_byteswap   = {MSG_RD_DATA, w_aou_tx_fifo_m_axi_r_rp, 2'b00, 4'b0, w_aou_readdata_prof, w_aou_tx_fifo_s_axi_rid, w_aou_tx_fifo_s_axi_rresp, w_aou_tx_fifo_s_axi_rlast, 3'b0, w_aou_tx_fifo_s_axi_rdata[255:0], 24'b0};
-assign w_readdata512b_message_byteswap   = {MSG_RD_DATA, w_aou_tx_fifo_m_axi_r_rp, 2'b01, 4'b0, w_aou_readdata_prof, w_aou_tx_fifo_s_axi_rid, w_aou_tx_fifo_s_axi_rresp, w_aou_tx_fifo_s_axi_rlast, 3'b0, w_aou_tx_fifo_s_axi_rdata[511:0], 8'b0};
-assign w_readdata1024b_message_byteswap  = {MSG_RD_DATA, w_aou_tx_fifo_m_axi_r_rp, 2'b10, 4'b0, w_aou_readdata_prof, w_aou_tx_fifo_s_axi_rid, w_aou_tx_fifo_s_axi_rresp, w_aou_tx_fifo_s_axi_rlast, 3'b0, w_aou_tx_fifo_s_axi_rdata, 16'b0};
+// Problem RTL ==========================================
+//assign w_readdata256b_message_byteswap   = {MSG_RD_DATA, w_aou_tx_fifo_m_axi_r_rp, 2'b00, 4'b0, w_aou_readdata_prof, w_aou_tx_fifo_s_axi_rid, w_aou_tx_fifo_s_axi_rresp, w_aou_tx_fifo_s_axi_rlast, 3'b0, w_aou_tx_fifo_s_axi_rdata[255:0], 24'b0};
+//assign w_readdata512b_message_byteswap   = {MSG_RD_DATA, w_aou_tx_fifo_m_axi_r_rp, 2'b01, 4'b0, w_aou_readdata_prof, w_aou_tx_fifo_s_axi_rid, w_aou_tx_fifo_s_axi_rresp, w_aou_tx_fifo_s_axi_rlast, 3'b0, w_aou_tx_fifo_s_axi_rdata[511:0], 8'b0};
+//assign w_readdata1024b_message_byteswap  = {MSG_RD_DATA, w_aou_tx_fifo_m_axi_r_rp, 2'b10, 4'b0, w_aou_readdata_prof, w_aou_tx_fifo_s_axi_rid, w_aou_tx_fifo_s_axi_rresp, w_aou_tx_fifo_s_axi_rlast, 3'b0, w_aou_tx_fifo_s_axi_rdata, 16'b0};
 
-assign w_readdata256b_message = {<<8{w_readdata256b_message_byteswap}};
-assign w_readdata512b_message = {<<8{w_readdata512b_message_byteswap}};
-assign w_readdata1024b_message = {<<8{w_readdata1024b_message_byteswap}};
+//assign w_readdata256b_message = {<<8{w_readdata256b_message_byteswap}};
+//assign w_readdata512b_message = {<<8{w_readdata512b_message_byteswap}};
+//assign w_readdata1024b_message = {<<8{w_readdata1024b_message_byteswap}};
 
-logic [40*R1024b_G-1:0        ]  w_readdata_message_sel;
+//logic [40*R1024b_G-1:0        ]  w_readdata_message_sel;
+
+//always_comb begin
+//    case (w_aou_tx_fifo_s_axi_rdlen)
+//        2'b00: w_readdata_message_sel = {{(R1024b_G-R256b_G){40'b0}}, w_readdata256b_message};
+//        2'b01: w_readdata_message_sel = {{(R1024b_G-R512b_G){40'b0}}, w_readdata512b_message};
+//        2'b10: w_readdata_message_sel = {w_readdata1024b_message};
+//        default: w_readdata_message_sel = '0;
+//    endcase
+//end
+
+// Proposal RTL ==========================================
+logic [40*R1024b_G-1:0]     w_readdata_message_raw;
+
+logic [(4+2+2+4+12+AXI_ID_WD+2+1+3)-1:0] w_readdata_message_header;
+
+assign w_readdata_message_header = {MSG_RD_DATA, w_aou_tx_fifo_m_axi_r_rp, w_aou_tx_fifo_s_axi_rdlen, 4'b0, w_aou_readdata_prof, w_aou_tx_fifo_s_axi_rid, w_aou_tx_fifo_s_axi_rresp, w_aou_tx_fifo_s_axi_rlast, 3'b0};
 
 always_comb begin
-    case (w_aou_tx_fifo_s_axi_rdlen)
-        2'b00: w_readdata_message_sel = {{(R1024b_G-R256b_G){40'b0}}, w_readdata256b_message};
-        2'b01: w_readdata_message_sel = {{(R1024b_G-R512b_G){40'b0}}, w_readdata512b_message};
-        2'b10: w_readdata_message_sel = {w_readdata1024b_message};
-        default: w_readdata_message_sel = '0;
+    w_readdata_message_raw = '0;
+    case (w_aou_tx_fifo_s_axi_rdlen) 
+        2'b00: w_readdata_message_raw[40*R1024b_G-1 -: 40*R256b_G]  = {w_readdata_message_header, w_aou_tx_fifo_s_axi_rdata[255:0], 24'b0};
+        2'b01: w_readdata_message_raw[40*R1024b_G-1 -: 40*R512b_G]  = {w_readdata_message_header, w_aou_tx_fifo_s_axi_rdata[511:0], 8'b0};
+        2'b10: w_readdata_message_raw[40*R1024b_G-1:0]              = {w_readdata_message_header, w_aou_tx_fifo_s_axi_rdata, 16'b0};
+        default: w_readdata_message_raw = '0;
     endcase
 end
+
+logic [40*R1024b_G-1:0]     w_readdata_message_sel;
+assign w_readdata_message_sel = {<<8{w_readdata_message_raw}};
 
 AOU_SYNC_FIFO_REG
 #(
