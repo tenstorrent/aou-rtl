@@ -1,0 +1,10 @@
+package:
+  name: aou-rtl
+  authors:
+    - "Tenstorrent USA Inc"
+    - "BOS Semiconductors"
+
+# RTL compile order is maintained in RTL/filelist.f (source of truth).
+# Consumers resolve the checkout path via `bender path aou-rtl`.
+# A `sources:` block can be added later for `bender script` users without
+# affecting filelist.f-based consumers.
