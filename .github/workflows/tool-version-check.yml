@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Tenstorrent USA Inc
+#
+# Weekly check for newer Verilator / Verible releases used by CI pins.
+# Dependabot does not track these binary pins (setup-verilator `version:`
+# and VERIBLE_VERSION). Opens chore/verilator-<new> or chore/verible-<new>
+# PRs when updates are available.
+
+name: Tool Version Check
+
+on:
+  schedule:
+    # Monday 09:00 UTC (aligned with Dependabot weekly checks)
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: tool-version-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check Verilator and Verible pins
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check pins and open update PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: bash scripts/check_tool_versions.sh --apply
