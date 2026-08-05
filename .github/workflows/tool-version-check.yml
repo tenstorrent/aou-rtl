@@ -2,9 +2,10 @@
 # Copyright (c) 2026 Tenstorrent USA Inc
 #
 # Weekly check for newer Verilator / Verible releases used by CI pins.
-# Dependabot does not track these binary pins (setup-verilator `version:`
-# and VERIBLE_VERSION). Opens chore/verilator-<new> or chore/verible-<new>
-# PRs when updates are available.
+# Dependabot does not track these binary pins. Pins live in
+# .github/tool-versions.env (not workflow YAML) so GITHUB_TOKEN can open
+# bump PRs without a PAT workflow scope.
+# Opens chore/verilator-<new> or chore/verible-<new> when updates exist.
 
 name: Tool Version Check
 
@@ -17,9 +18,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  # Required to push branches that modify .github/workflows/*.yml
-  # (Verilator/Verible pins live in lint.yml / cocotb.yml).
-  workflows: write
 
 concurrency:
   group: tool-version-check

@@ -5,6 +5,9 @@
 # Compare pinned Verilator / Verible CI versions against GitHub releases and
 # open chore/verilator-<new> or chore/verible-<new> PRs when updates exist.
 #
+# Pins are stored in .github/tool-versions.env (not under workflows/) so
+# GITHUB_TOKEN can push bump commits without a PAT `workflow` scope.
+#
 # Usage:
 #   bash scripts/check_tool_versions.sh              # check only (exit 1 if updates available)
 #   bash scripts/check_tool_versions.sh --apply      # create branches + PRs
@@ -22,8 +25,7 @@ fi
 
 REPO="${REPO:-tenstorrent/aou-rtl}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LINT_YML="${ROOT}/.github/workflows/lint.yml"
-COCOTB_YML="${ROOT}/.github/workflows/cocotb.yml"
+TOOL_VERSIONS="${ROOT}/.github/tool-versions.env"
 DRY_RUN="${DRY_RUN:-0}"
 
 need_cmd() {
@@ -43,7 +45,6 @@ normalize_verilator() {
 }
 
 verilator_gt() {
-  # return 0 if $1 > $2 (X.Y numeric)
   python3 - "$1" "$2" <<'PY'
 import sys
 def parts(s):
@@ -54,34 +55,36 @@ sys.exit(0 if a > b else 1)
 PY
 }
 
-extract_verilator_pins() {
-  python3 - "$LINT_YML" "$COCOTB_YML" <<'PY'
+read_pin() {
+  local key="$1"
+  python3 - "$TOOL_VERSIONS" "$key" <<'PY'
 import re, sys
-paths = sys.argv[1:]
-vals = []
-for p in paths:
-    text = open(p).read()
-    ms = re.findall(r'(?m)^\s*version:\s*"([0-9]+\.[0-9]+)"\s*$', text)
-    if not ms:
-        print(f"error: no Verilator version pin in {p}", file=sys.stderr)
-        sys.exit(2)
-    vals.append(ms[-1])
-if len(set(vals)) != 1:
-    print(f"error: Verilator pins disagree: {list(zip(paths, vals))}", file=sys.stderr)
-    sys.exit(2)
-print(vals[0])
+path, key = sys.argv[1], sys.argv[2]
+text = open(path).read()
+m = re.search(rf'(?m)^{re.escape(key)}=(\S+)\s*$', text)
+if not m:
+    raise SystemExit(f"error: {key} not found in {path}")
+print(m.group(1))
 PY
 }
 
-extract_verible_pin() {
-  python3 - "$LINT_YML" <<'PY'
-import re, sys
-text = open(sys.argv[1]).read()
-m = re.search(r'(?m)^\s*VERIBLE_VERSION:\s*"([^"]+)"\s*$', text)
-if not m:
-    print("error: VERIBLE_VERSION not found in lint.yml", file=sys.stderr)
-    sys.exit(2)
-print(m.group(1))
+set_pin() {
+  local key="$1"
+  local new="$2"
+  python3 - "$TOOL_VERSIONS" "$key" "$new" <<'PY'
+import pathlib, re, sys
+path, key, new = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+text = path.read_text()
+text2, n = re.subn(
+    rf'(?m)^({re.escape(key)}=)\S+\s*$',
+    rf'\g<1>{new}',
+    text,
+    count=1,
+)
+if n != 1:
+    raise SystemExit(f"failed to update {key} in {path}")
+path.write_text(text2)
+print(f"updated {path}: {key}={new}")
 PY
 }
 
@@ -123,8 +126,9 @@ pr_exists_for_branch() {
 
 open_tool_pr() {
   local tool="$1"
-  local old="$2"
-  local new="$3"
+  local key="$2"
+  local old="$3"
+  local new="$4"
   local branch="chore/${tool}-${new}"
   local title
   title="$(python3 -c "t='${tool}'; print(f'ci: bump {t[0].upper()+t[1:]} pin ${old} → ${new}')")"
@@ -155,75 +159,9 @@ open_tool_pr() {
   git fetch "https://github.com/${REPO}.git" "$base"
   git checkout -B "$branch" "FETCH_HEAD"
 
-  if [[ "$tool" == "verilator" ]]; then
-    python3 - "$LINT_YML" "$COCOTB_YML" "$old" "$new" <<'PY'
-import pathlib, re, sys
-old, new = sys.argv[3], sys.argv[4]
-for path in sys.argv[1:3]:
-    p = pathlib.Path(path)
-    text = p.read_text()
-    text2, n = re.subn(
-        r'(?m)^(\s*version:\s*")' + re.escape(old) + r'("\s*)$',
-        r'\g<1>' + new + r'\2',
-        text,
-        count=1,
-    )
-    if n != 1:
-        text2, n = re.subn(
-            r'(?m)^(\s*version:\s*")[0-9]+\.[0-9]+("\s*)$',
-            r'\g<1>' + new + r'\2',
-            text,
-            count=1,
-        )
-    if n != 1:
-        raise SystemExit(f"failed to update Verilator pin in {path}")
-    text2 = re.sub(
-        r'(?m)^\s*# veryl-lang/verilator-package only ships up to.*\n(?:\s*#.*\n)?',
-        '',
-        text2,
-    )
-    text2 = re.sub(
-        r'(?m)^( *- name: Install Verilator )[0-9]+\.[0-9]+$',
-        r'\g<1>' + new,
-        text2,
-    )
-    text2 = re.sub(
-        r'under Verilator [0-9]+\.[0-9]+',
-        f'under Verilator {new}',
-        text2,
-    )
-    p.write_text(text2)
-    print(f"updated {path}")
-PY
-  else
-    python3 - "$LINT_YML" "$old" "$new" <<'PY'
-import pathlib, re, sys
-path, old, new = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-text = path.read_text()
-text2, n = re.subn(
-    r'(?m)^(\s*VERIBLE_VERSION:\s*")' + re.escape(old) + r'("\s*)$',
-    r'\g<1>' + new + r'\2',
-    text,
-    count=1,
-)
-if n != 1:
-    text2, n = re.subn(
-        r'(?m)^(\s*VERIBLE_VERSION:\s*")[^"]+("\s*)$',
-        r'\g<1>' + new + r'\2',
-        text,
-        count=1,
-    )
-if n != 1:
-    raise SystemExit(f"failed to update VERIBLE_VERSION in {path}")
-path.write_text(text2)
-print(f"updated {path}")
-PY
-  fi
+  set_pin "$key" "$new"
 
-  git add .github/workflows/lint.yml
-  if [[ "$tool" == "verilator" ]]; then
-    git add .github/workflows/cocotb.yml
-  fi
+  git add .github/tool-versions.env
   if git diff --cached --quiet; then
     echo "    no file changes after patch; skipping"
     return 0
@@ -240,7 +178,7 @@ EOF
   if [[ "$tool" == "verilator" ]]; then
     body="$(cat <<EOF
 ## Summary
-- Bump Verilator CI pin \`${old}\` → \`${new}\`
+- Bump Verilator CI pin \`${old}\` → \`${new}\` in \`.github/tool-versions.env\`
 - Source: https://github.com/veryl-lang/verilator-package/releases
 
 ## Test plan
@@ -251,7 +189,7 @@ EOF
   else
     body="$(cat <<EOF
 ## Summary
-- Bump Verible CI pin \`${old}\` → \`${new}\`
+- Bump Verible CI pin \`${old}\` → \`${new}\` in \`.github/tool-versions.env\`
 - Source: https://github.com/chipsalliance/verible/releases
 
 ## Test plan
@@ -264,8 +202,13 @@ EOF
 }
 
 # --- main ---
-PIN_VLOG="$(extract_verilator_pins)"
-PIN_VBLE="$(extract_verible_pin)"
+if [[ ! -f "$TOOL_VERSIONS" ]]; then
+  echo "error: missing ${TOOL_VERSIONS}" >&2
+  exit 2
+fi
+
+PIN_VLOG="$(read_pin VERILATOR_VERSION)"
+PIN_VBLE="$(read_pin VERIBLE_VERSION)"
 LATEST_VLOG="$(latest_verilator)"
 LATEST_VBLE="$(latest_verible)"
 
@@ -278,7 +221,7 @@ if [[ "$(normalize_verilator "$PIN_VLOG")" != "$(normalize_verilator "$LATEST_VL
   if verilator_gt "$LATEST_VLOG" "$PIN_VLOG"; then
     UPDATES=1
     if [[ "$APPLY" == "1" ]]; then
-      open_tool_pr verilator "$(normalize_verilator "$PIN_VLOG")" "$(normalize_verilator "$LATEST_VLOG")"
+      open_tool_pr verilator VERILATOR_VERSION "$(normalize_verilator "$PIN_VLOG")" "$(normalize_verilator "$LATEST_VLOG")"
     else
       echo "Would bump Verilator ${PIN_VLOG} -> ${LATEST_VLOG}"
     fi
@@ -292,7 +235,7 @@ fi
 if [[ "$PIN_VBLE" != "$LATEST_VBLE" ]]; then
   UPDATES=1
   if [[ "$APPLY" == "1" ]]; then
-    open_tool_pr verible "$PIN_VBLE" "$LATEST_VBLE"
+    open_tool_pr verible VERIBLE_VERSION "$PIN_VBLE" "$LATEST_VBLE"
   else
     echo "Would bump Verible ${PIN_VBLE} -> ${LATEST_VBLE}"
   fi

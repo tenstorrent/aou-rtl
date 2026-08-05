@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Tenstorrent USA Inc
 #
-# Builds and runs the cocotb VERIF testbench under Verilator 5.044 for every
+# Builds and runs the cocotb VERIF testbench under Verilator (see
+# .github/tool-versions.env) for every
 # supported FDI configuration (single-PHY 32B / 64B / 128B). Each variant
 # runs as its own matrix entry on a separate runner so they execute in
 # parallel and never share a filesystem.
@@ -56,6 +57,7 @@ jobs:
               - 'scripts/**'
               - 'requirements.txt'
               - '.github/workflows/cocotb.yml'
+              - '.github/tool-versions.env'
 
   cocotb:
     needs: detect
@@ -73,13 +75,21 @@ jobs:
       - uses: actions/checkout@v7
         if: needs.detect.outputs.sim == 'true'
 
-      - name: Install Verilator 5.044
+      - name: Load tool versions
+        if: needs.detect.outputs.sim == 'true'
+        id: tools
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .github/tool-versions.env
+          set +a
+          echo "verilator=${VERILATOR_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Verilator
         if: needs.detect.outputs.sim == 'true'
         uses: veryl-lang/setup-verilator@v2
         with:
-          # veryl-lang/verilator-package only ships up to v5.044 (newer
-          # tags exist upstream but have no pre-built binary yet).
-          version: "5.044"
+          version: ${{ steps.tools.outputs.verilator }}
 
       - name: Set up Python
         if: needs.detect.outputs.sim == 'true'
