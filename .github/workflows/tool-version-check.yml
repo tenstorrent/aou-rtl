@@ -17,6 +17,9 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # Required to push branches that modify .github/workflows/*.yml
+  # (Verilator/Verible pins live in lint.yml / cocotb.yml).
+  workflows: write
 
 concurrency:
   group: tool-version-check
